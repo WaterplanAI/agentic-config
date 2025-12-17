@@ -4,6 +4,8 @@ All notable changes to agentic-config.
 
 ## [Unreleased]
 
+## [0.1.8] - 2025-12-17
+
 ### Fixed
 
 - New agentic-*.md agents now installed for copy mode users during update (previously only existing agents were updated)
