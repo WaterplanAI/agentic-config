@@ -4,6 +4,8 @@ All notable changes to agentic-config.
 
 ## [Unreleased]
 
+## [0.1.9] - 2025-12-17
+
 ### Fixed
 
 - 5 symlinks converted from absolute to relative paths for portability (.gemini/commands/spec, .gemini/commands/spec.toml, agents, .codex/prompts/spec.md, .agent/workflows/spec.md)
