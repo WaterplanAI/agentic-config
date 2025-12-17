@@ -15,18 +15,21 @@ Generates standardized Conventional Commits extended format message for squashed
 
 ## Usage
 ```
-/squash_commit [target]
+/squash_commit [target] [--with-squashed-commits]
 ```
 
 **Arguments**:
 - `target`: Optional commit hash or branch name. Defaults to `origin/main`.
+- `--with-squashed-commits`: Optional flag to include 'Squashed commits:' footer with original commit list. Default: disabled.
 
 **Examples**:
 ```
-/squash_commit                    # Uses origin/main (default)
-/squash_commit develop           # Use origin/develop as base
-/squash_commit abc123f           # Use specific commit hash as base
-/squash_commit origin/feature    # Use specific remote branch
+/squash_commit                              # Uses origin/main (default), no squashed commits footer
+/squash_commit develop                      # Use origin/develop as base, no footer
+/squash_commit abc123f                      # Use specific commit hash as base, no footer
+/squash_commit origin/feature               # Use specific remote branch, no footer
+/squash_commit --with-squashed-commits      # Include squashed commits footer
+/squash_commit develop --with-squashed-commits  # With footer and custom target
 ```
 
 ---
@@ -60,15 +63,31 @@ if ! git -C "$ROOT" rev-parse HEAD >/dev/null 2>&1; then
 fi
 ```
 
-#### 1.2 Fetch and Resolve Target
+#### 1.2 Parse Arguments and Fetch Target
 ```bash
+# Parse arguments
+INCLUDE_SQUASHED_COMMITS="false"
+TARGET=""
+
+for arg in "$@"; do
+  case "$arg" in
+    --with-squashed-commits)
+      INCLUDE_SQUASHED_COMMITS="true"
+      ;;
+    *)
+      if [ -z "$TARGET" ]; then
+        TARGET="$arg"
+      fi
+      ;;
+  esac
+done
+
 # Fetch latest from origin (always fetch main for default case)
 echo "Fetching latest from origin..."
 git -C "$ROOT" fetch origin main 2>/dev/null || true
 
 # Resolve target: use argument or default to origin/main
-if [ -n "$1" ]; then
-  TARGET="$1"
+if [ -n "$TARGET" ]; then
   # If target looks like a branch name (no origin/ prefix, not a hash), fetch it
   if ! echo "$TARGET" | grep -qE '^[0-9a-f]{7,40}$' && ! echo "$TARGET" | grep -q '/'; then
     echo "Fetching origin/$TARGET..."
@@ -79,6 +98,7 @@ else
   TARGET="origin/main"
   echo "Target: origin/main (default)"
 fi
+echo "Include squashed commits footer: $INCLUDE_SQUASHED_COMMITS"
 echo ""
 
 # Resolve target to commit hash (supports branches, remote branches, and commit hashes)
@@ -225,6 +245,14 @@ Structure the body with these sections as applicable:
 - Be specific about what changed, not just "updated X"
 
 #### 3.3 Footer Format
+
+**Default Footer** (always included):
+```
+Generated with [Claude Code](https://claude.ai/code)
+Co-Authored-By: Claude <noreply@anthropic.com>
+```
+
+**Optional Squashed Commits Section** (only if `--with-squashed-commits` flag is used):
 ```
 Squashed commits:
 - <hash> <original message>
@@ -253,9 +281,33 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 4. Derive scope from file paths
 5. Write title (max 50 chars)
 6. Construct body with Added/Changed/Fixed/Removed sections
-7. Build footer with squashed commits list
+7. Build footer (conditionally include squashed commits list if `INCLUDE_SQUASHED_COMMITS="true"`)
 
-**Output Format**:
+**Output Format (without --with-squashed-commits flag, default)**:
+```
+==========================================
+PROPOSED COMMIT MESSAGE:
+==========================================
+<type>(<scope>): <description>
+
+## Added
+- ...
+
+## Changed
+- ...
+
+## Fixed
+- ...
+
+## Removed
+- ...
+
+Generated with [Claude Code](https://claude.ai/code)
+Co-Authored-By: Claude <noreply@anthropic.com>
+==========================================
+```
+
+**Output Format (with --with-squashed-commits flag)**:
 ```
 ==========================================
 PROPOSED COMMIT MESSAGE:
@@ -390,7 +442,30 @@ If target cannot be resolved:
 
 ## Example Output
 
+### Default Behavior (without --with-squashed-commits)
+
 For a branch with changes to API and tests:
+
+```
+feat(api): add user authentication endpoints
+
+## Added
+- POST /auth/login endpoint (src/api/auth.ts)
+- POST /auth/register endpoint (src/api/auth.ts)
+- JWT token validation middleware (src/middleware/auth.ts)
+
+## Changed
+- Updated route configuration (src/routes/index.ts)
+- Extended User model with password hash (src/models/user.ts)
+
+## Fixed
+- Corrected error handling in validation (src/utils/validate.ts)
+
+Generated with [Claude Code](https://claude.ai/code)
+Co-Authored-By: Claude <noreply@anthropic.com>
+```
+
+### With --with-squashed-commits Flag
 
 ```
 feat(api): add user authentication endpoints

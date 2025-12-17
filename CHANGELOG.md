@@ -4,6 +4,11 @@ All notable changes to agentic-config.
 
 ## [Unreleased]
 
+## [0.1.6] - 2025-12-16
+
+### Changed
+- 'Squashed commits:' footer is now optional (default: disabled) in /squash_commit
+
 ## [0.1.5] - 2025-12-16
 
 ### Added
@@ -15,7 +20,7 @@ All notable changes to agentic-config.
 
 ### Changed
 - All squashed commits now include structured body (Added/Changed/Fixed/Removed sections)
-- Commit messages include "Squashed commits:" footer with original commit list
+- Commit messages can optionally include "Squashed commits:" footer with --with-squashed-commits flag (disabled by default)
 
 ## [0.1.4] - 2025-12-16
 
