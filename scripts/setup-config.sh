@@ -347,7 +347,9 @@ echo "Installing agentic management agents..."
 if [[ "$DRY_RUN" != true ]]; then
   # Create agent symlinks
   mkdir -p "$TARGET_PATH/.claude/agents"
-  for agent in agentic-setup agentic-migrate agentic-update agentic-status agentic-validate agentic-customize; do
+  for agent_file in "$REPO_ROOT/core/agents/agentic-"*.md; do
+    [[ ! -f "$agent_file" ]] && continue
+    agent=$(basename "$agent_file" .md)
     if [[ "$COPY_MODE" == true ]]; then
       cp "$REPO_ROOT/core/agents/$agent.md" "$TARGET_PATH/.claude/agents/$agent.md"
     else
@@ -389,6 +391,11 @@ if [[ "$DRY_RUN" != true ]]; then
         mkdir -p "$BACKUP_DIR/skills"
         mv "$TARGET_PATH/.claude/skills/$skill" "$BACKUP_DIR/skills/$skill"
         echo "   Backed up: $skill"
+        # Verify backup was successful before proceeding
+        if [[ ! -d "$BACKUP_DIR/skills/$skill" ]]; then
+          echo "   WARNING: Backup verification failed for skill $skill - skipping replacement"
+          continue
+        fi
       fi
       rm -rf "$TARGET_PATH/.claude/skills/$skill" 2>/dev/null
       if [[ "$COPY_MODE" == true ]]; then

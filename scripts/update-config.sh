@@ -52,7 +52,11 @@ sync_self_hosted_commands() {
 
     if [[ ! -L "$dest" ]]; then
       missing+=("$cmd")
-      ln -sf "$src" "$dest"
+      if [[ "$INSTALL_MODE" == "copy" ]]; then
+        cp "$src" "$dest"
+      else
+        ln -sf "$src" "$dest"
+      fi
       echo "  ✓ $cmd.md (created)"
       ((synced++)) || true
     fi
@@ -204,7 +208,12 @@ if [[ -L "$TARGET_PATH/.codex/prompts/spec.md" ]]; then
   CURRENT_TARGET=$(readlink "$TARGET_PATH/.codex/prompts/spec.md")
   if [[ "$CURRENT_TARGET" == *"spec-command.md" ]]; then
     echo "Fixing Codex spec symlink..."
-    ln -sf "$REPO_ROOT/core/commands/codex/spec.md" "$TARGET_PATH/.codex/prompts/spec.md"
+    if [[ "$INSTALL_MODE" == "copy" ]]; then
+      rm -f "$TARGET_PATH/.codex/prompts/spec.md"
+      cp "$REPO_ROOT/core/commands/codex/spec.md" "$TARGET_PATH/.codex/prompts/spec.md"
+    else
+      ln -sf "$REPO_ROOT/core/commands/codex/spec.md" "$TARGET_PATH/.codex/prompts/spec.md"
+    fi
     echo "  ✓ Updated Codex symlink to use proper command file"
   fi
 fi
@@ -220,7 +229,11 @@ if [[ "$CURRENT_VERSION" == "$LATEST_VERSION" ]]; then
 fi
 
 # Get project type from config
-PROJECT_TYPE=$(jq -r '.project_type' "$TARGET_PATH/.agentic-config.json")
+if command -v jq &>/dev/null; then
+  PROJECT_TYPE=$(jq -r '.project_type' "$TARGET_PATH/.agentic-config.json")
+else
+  PROJECT_TYPE=$(grep -o '"project_type"[[:space:]]*:[[:space:]]*"[^"]*"' "$TARGET_PATH/.agentic-config.json" | cut -d'"' -f4)
+fi
 TEMPLATE_DIR="$REPO_ROOT/templates/$PROJECT_TYPE"
 
 # Only run version update flow if there's actually a version change
@@ -286,17 +299,6 @@ if [[ "$CURRENT_VERSION" != "$LATEST_VERSION" ]]; then
       echo ""
       echo "Or manually merge changes from templates"
     fi
-  fi
-
-  # Update version tracking
-  if [[ "$FORCE" == true || "$HAS_CONFIG_CHANGES" == false ]]; then
-    echo "Updating version tracking..."
-    jq --arg version "$LATEST_VERSION" \
-       --arg timestamp "$(date -Iseconds 2>/dev/null || date +%Y-%m-%dT%H:%M:%S%z)" \
-       '.version = $version | .updated_at = $timestamp' \
-       "$TARGET_PATH/.agentic-config.json" > "$TARGET_PATH/.agentic-config.json.tmp"
-    mv "$TARGET_PATH/.agentic-config.json.tmp" "$TARGET_PATH/.agentic-config.json"
-    echo "Version updated to $LATEST_VERSION"
   fi
 fi
 
@@ -375,7 +377,13 @@ if [[ "$INSTALL_MODE" == "copy" && "$CURRENT_VERSION" != "$LATEST_VERSION" ]]; t
   for skill_dir in "$REPO_ROOT/core/skills/"*/; do
     skill=$(basename "$skill_dir")
     if [[ -d "$TARGET_PATH/.claude/skills/$skill" && ! -L "$TARGET_PATH/.claude/skills/$skill" ]]; then
-      rm -rf "$TARGET_PATH/.claude/skills/$skill"
+      # Verify backup exists before destructive operation
+      if [[ -d "$COPY_BACKUP_DIR/.claude/skills/$skill" ]]; then
+        rm -rf "$TARGET_PATH/.claude/skills/$skill"
+      else
+        echo "   WARNING: Backup verification failed for skill $skill - skipping replacement"
+        continue
+      fi
       cp -r "$skill_dir" "$TARGET_PATH/.claude/skills/$skill"
       REPLACED_ITEMS+=(".claude/skills/$skill")
     fi
@@ -466,6 +474,29 @@ fi
 ORPHANS=$(cleanup_orphan_symlinks "$TARGET_PATH" ".claude/skills")
 if [[ $ORPHANS -gt 0 ]]; then
   echo "  Cleaned $ORPHANS orphan skill symlink(s)"
+fi
+
+# Update version tracking (only after all operations complete)
+if [[ "$CURRENT_VERSION" != "$LATEST_VERSION" ]]; then
+  if [[ "$FORCE" == true || "${HAS_CONFIG_CHANGES:-false}" == false ]]; then
+    echo "Updating version tracking..."
+    TIMESTAMP="$(date -Iseconds 2>/dev/null || date +%Y-%m-%dT%H:%M:%S%z)"
+    if command -v jq &>/dev/null; then
+      jq --arg version "$LATEST_VERSION" \
+         --arg timestamp "$TIMESTAMP" \
+         '.version = $version | .updated_at = $timestamp' \
+         "$TARGET_PATH/.agentic-config.json" > "$TARGET_PATH/.agentic-config.json.tmp"
+      mv "$TARGET_PATH/.agentic-config.json.tmp" "$TARGET_PATH/.agentic-config.json"
+    else
+      # Fallback: use sed for simple field replacement
+      sed -i.bak \
+        -e "s/\"version\"[[:space:]]*:[[:space:]]*\"[^\"]*\"/\"version\": \"$LATEST_VERSION\"/" \
+        -e "s/\"updated_at\"[[:space:]]*:[[:space:]]*\"[^\"]*\"/\"updated_at\": \"$TIMESTAMP\"/" \
+        "$TARGET_PATH/.agentic-config.json"
+      rm -f "$TARGET_PATH/.agentic-config.json.bak"
+    fi
+    echo "Version updated to $LATEST_VERSION"
+  fi
 fi
 
 echo ""
