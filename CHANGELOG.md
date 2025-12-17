@@ -17,6 +17,18 @@ All notable changes to agentic-config.
 
 - `/full-life-cycle-pr` now uses `--skip-tag` with `/milestone` by default
 
+### Fixed
+
+- Command injection vulnerability in `/full-life-cycle-pr` argument parsing (replaced `ARGS=($ARGUMENTS)` with safe IFS read)
+- Arbitrary code execution risk in `/full-life-cycle-pr` .env sourcing (replaced `source .env` with grep/cut parsing)
+- Missing branch name validation in `/full-life-cycle-pr` (added regex validation before git commands)
+- Gemini `spec.toml` installation not respecting copy mode in `setup-config.sh` (now respects COPY_MODE)
+- `.agent/workflows/spec.md` installation not respecting copy mode in `setup-config.sh` (now respects COPY_MODE)
+- `get_install_mode()` non-jq fallback returning empty string instead of "symlink" default in `version-manager.sh`
+- New commands installation not respecting `install_mode` during update in `update-config.sh` (now checks INSTALL_MODE)
+- New skills installation not respecting `install_mode` during update in `update-config.sh` (now checks INSTALL_MODE)
+- Missing backup verification before `rm -rf` in `update-config.sh` (now verifies backup exists before deleting)
+
 ## [0.1.6] - 2025-12-16
 
 ### Changed

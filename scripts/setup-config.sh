@@ -256,7 +256,11 @@ if [[ "$DRY_RUN" != true ]]; then
     ln -sf "$REPO_ROOT/core/agents" "$TARGET_PATH/agents"
   fi
   mkdir -p "$TARGET_PATH/.agent/workflows"
-  ln -sf "$REPO_ROOT/core/agents/spec-command.md" "$TARGET_PATH/.agent/workflows/spec.md"
+  if [[ "$COPY_MODE" == true ]]; then
+    cp "$REPO_ROOT/core/agents/spec-command.md" "$TARGET_PATH/.agent/workflows/spec.md"
+  else
+    ln -sf "$REPO_ROOT/core/agents/spec-command.md" "$TARGET_PATH/.agent/workflows/spec.md"
+  fi
 fi
 
 # Install templates
@@ -316,10 +320,11 @@ if [[ "$TOOLS" == "all" || "$TOOLS" == *"gemini"* ]]; then
   echo "Installing Gemini configs..."
   if [[ "$DRY_RUN" != true ]]; then
     mkdir -p "$TARGET_PATH/.gemini/commands"
-    ln -sf "$REPO_ROOT/core/commands/gemini/spec.toml" "$TARGET_PATH/.gemini/commands/spec.toml"
     if [[ "$COPY_MODE" == true ]]; then
+      cp "$REPO_ROOT/core/commands/gemini/spec.toml" "$TARGET_PATH/.gemini/commands/spec.toml"
       cp -r "$REPO_ROOT/core/commands/gemini/spec" "$TARGET_PATH/.gemini/commands/spec"
     else
+      ln -sf "$REPO_ROOT/core/commands/gemini/spec.toml" "$TARGET_PATH/.gemini/commands/spec.toml"
       ln -sf "$REPO_ROOT/core/commands/gemini/spec" "$TARGET_PATH/.gemini/commands/spec"
     fi
   fi

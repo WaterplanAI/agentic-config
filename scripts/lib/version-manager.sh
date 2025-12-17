@@ -85,7 +85,10 @@ get_install_mode() {
   if command -v jq &>/dev/null; then
     jq -r '.install_mode // "symlink"' "$config_file" 2>/dev/null || echo "symlink"
   else
-    grep -o '"install_mode"[[:space:]]*:[[:space:]]*"[^"]*"' "$config_file" | cut -d'"' -f4 || echo "symlink"
+    # grep returns empty string (not error) when field not found, so use variable with default
+    local mode
+    mode=$(grep -o '"install_mode"[[:space:]]*:[[:space:]]*"[^"]*"' "$config_file" 2>/dev/null | cut -d'"' -f4)
+    echo "${mode:-symlink}"
   fi
 
   return 0

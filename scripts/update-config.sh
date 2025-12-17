@@ -349,12 +349,17 @@ if [[ "$INSTALL_MODE" == "copy" && "$CURRENT_VERSION" != "$LATEST_VERSION" ]]; t
 
   echo "   Backed up ${#BACKED_UP_ITEMS[@]} item(s)"
 
-  # Replace with latest versions
+  # Replace with latest versions (with backup verification)
   REPLACED_ITEMS=()
   if [[ -d "$TARGET_PATH/agents" && ! -L "$TARGET_PATH/agents" ]]; then
-    rm -rf "$TARGET_PATH/agents"
-    cp -r "$REPO_ROOT/core/agents" "$TARGET_PATH/agents"
-    REPLACED_ITEMS+=("agents/")
+    # Verify backup was successful before deleting
+    if [[ -d "$COPY_BACKUP_DIR/agents" ]]; then
+      rm -rf "$TARGET_PATH/agents"
+      cp -r "$REPO_ROOT/core/agents" "$TARGET_PATH/agents"
+      REPLACED_ITEMS+=("agents/")
+    else
+      echo "   WARNING: Backup verification failed for agents/ - skipping replacement"
+    fi
   fi
 
   # Copy all commands
@@ -392,7 +397,7 @@ if [[ "$INSTALL_MODE" == "copy" && "$CURRENT_VERSION" != "$LATEST_VERSION" ]]; t
   echo "   Backup location: $COPY_BACKUP_DIR"
 fi
 
-# Install all commands from core
+# Install all commands from core (respect install_mode)
 echo ""
 echo "Installing commands..."
 echo "   Available: ${AVAILABLE_CMDS[*]}"
@@ -400,8 +405,13 @@ mkdir -p "$TARGET_PATH/.claude/commands"
 CMDS_INSTALLED=0
 for cmd in "${AVAILABLE_CMDS[@]}"; do
   if [[ -f "$REPO_ROOT/core/commands/claude/$cmd.md" ]]; then
-    if [[ ! -L "$TARGET_PATH/.claude/commands/$cmd.md" ]]; then
-      ln -sf "$REPO_ROOT/core/commands/claude/$cmd.md" "$TARGET_PATH/.claude/commands/$cmd.md"
+    # Check if command not yet installed (neither symlink nor file)
+    if [[ ! -e "$TARGET_PATH/.claude/commands/$cmd.md" ]]; then
+      if [[ "$INSTALL_MODE" == "copy" ]]; then
+        cp "$REPO_ROOT/core/commands/claude/$cmd.md" "$TARGET_PATH/.claude/commands/$cmd.md"
+      else
+        ln -sf "$REPO_ROOT/core/commands/claude/$cmd.md" "$TARGET_PATH/.claude/commands/$cmd.md"
+      fi
       echo "  ✓ $cmd.md"
       ((CMDS_INSTALLED++)) || true
     fi
@@ -409,7 +419,7 @@ for cmd in "${AVAILABLE_CMDS[@]}"; do
 done
 [[ $CMDS_INSTALLED -eq 0 ]] && echo "  (all commands already installed)"
 
-# Install all skills from core
+# Install all skills from core (respect install_mode)
 echo "Installing skills..."
 echo "   Available: ${AVAILABLE_SKILLS[*]}"
 mkdir -p "$TARGET_PATH/.claude/skills"
@@ -417,19 +427,28 @@ SKILLS_INSTALLED=0
 SKILLS_BACKUP_DIR=""
 for skill in "${AVAILABLE_SKILLS[@]}"; do
   if [[ -d "$REPO_ROOT/core/skills/$skill" ]]; then
-    if [[ ! -L "$TARGET_PATH/.claude/skills/$skill" ]]; then
-      # Backup existing dir (not symlink) before replacing to preserve local customizations
-      if [[ -d "$TARGET_PATH/.claude/skills/$skill" ]]; then
+    # Check if skill not yet installed (neither symlink nor directory)
+    if [[ ! -e "$TARGET_PATH/.claude/skills/$skill" ]]; then
+      if [[ "$INSTALL_MODE" == "copy" ]]; then
+        cp -r "$REPO_ROOT/core/skills/$skill" "$TARGET_PATH/.claude/skills/$skill"
+      else
+        ln -sf "$REPO_ROOT/core/skills/$skill" "$TARGET_PATH/.claude/skills/$skill"
+      fi
+      echo "  ✓ $skill"
+      ((SKILLS_INSTALLED++)) || true
+    elif [[ ! -L "$TARGET_PATH/.claude/skills/$skill" && -d "$TARGET_PATH/.claude/skills/$skill" ]]; then
+      # Existing directory (not symlink) - backup and replace for symlink mode only
+      if [[ "$INSTALL_MODE" != "copy" ]]; then
         if [[ -z "$SKILLS_BACKUP_DIR" ]]; then
           SKILLS_BACKUP_DIR="$TARGET_PATH/.agentic-config.backup.$(date +%s)/skills"
           mkdir -p "$SKILLS_BACKUP_DIR"
         fi
         mv "$TARGET_PATH/.claude/skills/$skill" "$SKILLS_BACKUP_DIR/$skill"
         echo "  ⚠ Backed up: $skill → $SKILLS_BACKUP_DIR/$skill"
+        ln -sf "$REPO_ROOT/core/skills/$skill" "$TARGET_PATH/.claude/skills/$skill"
+        echo "  ✓ $skill (converted to symlink)"
+        ((SKILLS_INSTALLED++)) || true
       fi
-      ln -sf "$REPO_ROOT/core/skills/$skill" "$TARGET_PATH/.claude/skills/$skill"
-      echo "  ✓ $skill"
-      ((SKILLS_INSTALLED++)) || true
     fi
   fi
 done

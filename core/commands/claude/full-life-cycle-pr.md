@@ -69,16 +69,23 @@ git fetch origin main 2>/dev/null || git fetch origin master 2>/dev/null
 ### 1.2 Argument Validation
 
 ```bash
-# Parse arguments
-ARGS=($ARGUMENTS)
+# Parse arguments safely (avoid command injection)
+IFS=' ' read -ra ARGS <<< "$ARGUMENTS"
 BRANCH_NAME="${ARGS[0]}"
 SPEC_ARG="${ARGS[1]}"
 MODIFIER="${ARGS[2]:-normal}"
 
-# Validate branch name
+# Validate branch name exists
 if [ -z "$BRANCH_NAME" ]; then
   echo "ERROR: Branch name is required"
   echo "Usage: /full-life-cycle-pr <branch-name> <spec-path|inline-prompt> [modifier]"
+  exit 1
+fi
+
+# Validate branch name format (security: prevent injection via malformed names)
+if ! [[ "$BRANCH_NAME" =~ ^[a-zA-Z0-9/_-]+$ ]]; then
+  echo "ERROR: Invalid branch name: $BRANCH_NAME"
+  echo "Branch names must only contain: letters, numbers, /, _, -"
   exit 1
 fi
 
@@ -113,9 +120,11 @@ fi
 ### 1.3 .env Validation
 
 ```bash
-# Check for .env file and GH_USER
+# Check for .env file and GH_USER (safe parsing - no sourcing)
+GH_USER=""
 if [ -f .env ]; then
-  source .env
+  # Safe extraction: grep for line, cut value, strip quotes
+  GH_USER=$(grep -E '^GH_USER=' .env 2>/dev/null | cut -d'=' -f2- | tr -d '"' | tr -d "'" | head -1)
   if [ -z "$GH_USER" ]; then
     echo "WARNING: GH_USER not set in .env file"
     echo "Pull request creation may fail authentication check."
