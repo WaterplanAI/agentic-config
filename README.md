@@ -548,9 +548,3 @@ echo "1.1.0" > ~/projects/agentic-config/VERSION
 ## License
 
 Private - Internal use only
-
-## Version
-
-Current: 0.1.2
-
-See [CHANGELOG.md](CHANGELOG.md) for version history.
