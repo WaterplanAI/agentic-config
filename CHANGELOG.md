@@ -4,6 +4,8 @@ All notable changes to agentic-config.
 
 ## [Unreleased]
 
+## [0.1.7] - 2025-12-17
+
 ### Added
 
 - `--copy` flag for `setup-config.sh` to copy assets instead of symlinking (recommended for team repos)
