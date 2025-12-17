@@ -30,10 +30,12 @@ Parse `$ARGUMENTS` into:
 | `BASE_BRANCH` | 3rd arg | No | `origin/main` (fetches first) |
 | `VERSION` | 4th arg (if not quoted) | No | Auto-bump from `VERSION` file or latest git tag |
 | `VALIDATION_PROMPT` | Last quoted string `"..."` | No | Auto-derive from checklist |
+| `SKIP_TAG` | `--skip-tag` flag | No | `false` (tags created by default) |
 
 **Parsing Rules:**
 - If an argument starts and ends with `"`, treat as `VALIDATION_PROMPT`
 - Version is optional; if 4th arg is quoted, there's no version
+- If `--skip-tag` or `--no-tag` flag is present anywhere in arguments, set `SKIP_TAG=true`
 - Empty `$ARGUMENTS` triggers full auto-detect mode
 
 ## Phase 0: Smart Defaults Resolution
@@ -64,10 +66,14 @@ If none found → **SKIP backlog validation** (proceed without backlog)
 Find first incomplete section (has `- [ ]` items). If all complete → use most recent section.
 
 ### 0.5 Auto-Detect VERSION
+**If `SKIP_TAG=false`:**
 Priority order:
 1. `VERSION` file → parse, increment patch: `X.Y.Z` → `X.Y.(Z+1)`, prefix with `v`
 2. Latest git tag matching `v*.*.*` → increment patch
 3. Default: `v0.1.0`
+
+**If `SKIP_TAG=true`:**
+Set `VERSION=""` (no version/tag will be created)
 
 ### 0.6 CHANGELOG Consistency Check (Critical for No-Args Mode)
 ```bash
@@ -175,7 +181,7 @@ CHANGELOG [Unreleased] entries:
 
 Release Configuration:
 - Base: {BASE_BRANCH}
-- Version: {VERSION}
+- Version: {VERSION or "(no tag)" if SKIP_TAG=true}
 - Commits to squash: N
 
 Proceed with squash + tag? (yes/no)
@@ -196,9 +202,9 @@ Validated Items:
 
 Release Configuration:
 - Base: {BASE_BRANCH}
-- Version: {VERSION} (or "no tag")
+- Version: {VERSION or "(no tag)" if SKIP_TAG=true}
 - Commits to squash: N
-- CHANGELOG: [Unreleased] → [{VERSION}]
+- CHANGELOG: [Unreleased] → [{VERSION or section name if SKIP_TAG=true}]
 
 Proceed with squash? (yes/no)
 ```
@@ -208,13 +214,13 @@ Proceed with squash? (yes/no)
 2. **Update CHANGELOG.md:**
    - Move all entries from `[Unreleased]` to new `[{VERSION}] - {YYYY-MM-DD}` section
    - Keep empty `[Unreleased]` section at top
-   - If no VERSION provided, use section name as header
+   - If no VERSION provided or `SKIP_TAG=true`, use section name as header
 3. Commit: `docs: mark {SECTION} as completed`
 4. Create backup: `{branch}-backup/{YYYY}/{MM}/{DD}/001`
 5. Soft reset to `BASE_BRANCH`
 6. **Generate Conventional Commit message** (see Phase 4B)
 7. Create squashed commit with generated message
-8. If `VERSION`: create annotated tag
+8. If `VERSION` and `SKIP_TAG=false`: create annotated tag
 
 → Proceed to **Phase 5: Push Confirmation**
 
@@ -474,21 +480,21 @@ After successful squash/tag, display:
 
 Commit: {sha} {message}
 Branch: {branch}
-Tag: {VERSION} (if created)
+Tag: {VERSION} (if created, otherwise "(none)")
 Backup: {backup-branch}
 
 Push to origin?
 
 Commands to execute:
   git push --force-with-lease origin {branch}
-  git push origin {VERSION}  # if tag
+  git push origin {VERSION}  # if tag created (SKIP_TAG=false)
 
 Proceed with push? (yes/no)
 ```
 
 **On "yes":**
 1. Execute: `git push --force-with-lease origin {branch}`
-2. If `VERSION`: Execute: `git push origin {VERSION}`
+2. If `VERSION` and `SKIP_TAG=false`: Execute: `git push origin {VERSION}`
 3. Report success with remote URLs
 
 **On "no":**
@@ -496,7 +502,7 @@ Display manual commands and exit:
 ```
 Skipped push. Run manually when ready:
   git push --force-with-lease origin {branch}
-  git push origin {VERSION}
+  git push origin {VERSION}  # if tag was created
 ```
 
 ## Abort Conditions
@@ -537,4 +543,13 @@ Skipped push. Run manually when ready:
 
 # Quoted prompt without version
 /milestone specs/features.md 4.0 main "API endpoints implemented, auth working"
+
+# Skip tag creation with --skip-tag flag
+/milestone specs/backlog.md 1.2 main --skip-tag
+
+# Skip tag with validation prompt
+/milestone specs/backlog.md 1.2 main --skip-tag "All tests passing"
+
+# Auto-detect mode without tags
+/milestone --skip-tag
 ```

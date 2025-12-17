@@ -193,9 +193,11 @@ if [[ ! -f "$TARGET_PATH/.agentic-config.json" ]]; then
 fi
 
 CURRENT_VERSION=$(check_version "$TARGET_PATH")
+INSTALL_MODE=$(get_install_mode "$TARGET_PATH")
 echo "Agentic Configuration Update"
 echo "   Current version: $CURRENT_VERSION"
 echo "   Latest version:  $LATEST_VERSION"
+echo "   Install mode:    $INSTALL_MODE"
 
 # Fix Codex symlink if needed (run even if versions match)
 if [[ -L "$TARGET_PATH/.codex/prompts/spec.md" ]]; then
@@ -296,6 +298,98 @@ if [[ "$CURRENT_VERSION" != "$LATEST_VERSION" ]]; then
     mv "$TARGET_PATH/.agentic-config.json.tmp" "$TARGET_PATH/.agentic-config.json"
     echo "Version updated to $LATEST_VERSION"
   fi
+fi
+
+# Handle copy mode updates
+if [[ "$INSTALL_MODE" == "copy" && "$CURRENT_VERSION" != "$LATEST_VERSION" ]]; then
+  echo ""
+  echo "Copy mode detected - backing up and updating copied assets..."
+
+  # Create backup directory
+  COPY_BACKUP_DIR="$TARGET_PATH/.agentic-config.copy-backup.$(date +%s)"
+  mkdir -p "$COPY_BACKUP_DIR"
+  echo "   Backup: $COPY_BACKUP_DIR"
+
+  # Backup all copied assets
+  BACKED_UP_ITEMS=()
+  if [[ -d "$TARGET_PATH/agents" && ! -L "$TARGET_PATH/agents" ]]; then
+    cp -r "$TARGET_PATH/agents" "$COPY_BACKUP_DIR/"
+    BACKED_UP_ITEMS+=("agents/")
+  fi
+
+  if [[ -d "$TARGET_PATH/.claude/commands" ]]; then
+    mkdir -p "$COPY_BACKUP_DIR/.claude/commands"
+    for cmd in "$TARGET_PATH/.claude/commands"/*.md; do
+      if [[ -f "$cmd" && ! -L "$cmd" ]]; then
+        cp "$cmd" "$COPY_BACKUP_DIR/.claude/commands/"
+        BACKED_UP_ITEMS+=(".claude/commands/$(basename "$cmd")")
+      fi
+    done
+  fi
+
+  if [[ -d "$TARGET_PATH/.claude/skills" ]]; then
+    mkdir -p "$COPY_BACKUP_DIR/.claude/skills"
+    for skill in "$TARGET_PATH/.claude/skills"/*; do
+      if [[ -d "$skill" && ! -L "$skill" ]]; then
+        cp -r "$skill" "$COPY_BACKUP_DIR/.claude/skills/"
+        BACKED_UP_ITEMS+=(".claude/skills/$(basename "$skill")")
+      fi
+    done
+  fi
+
+  if [[ -d "$TARGET_PATH/.claude/agents" ]]; then
+    mkdir -p "$COPY_BACKUP_DIR/.claude/agents"
+    for agent in "$TARGET_PATH/.claude/agents"/*.md; do
+      if [[ -f "$agent" && ! -L "$agent" ]]; then
+        cp "$agent" "$COPY_BACKUP_DIR/.claude/agents/"
+        BACKED_UP_ITEMS+=(".claude/agents/$(basename "$agent")")
+      fi
+    done
+  fi
+
+  echo "   Backed up ${#BACKED_UP_ITEMS[@]} item(s)"
+
+  # Replace with latest versions
+  REPLACED_ITEMS=()
+  if [[ -d "$TARGET_PATH/agents" && ! -L "$TARGET_PATH/agents" ]]; then
+    rm -rf "$TARGET_PATH/agents"
+    cp -r "$REPO_ROOT/core/agents" "$TARGET_PATH/agents"
+    REPLACED_ITEMS+=("agents/")
+  fi
+
+  # Copy all commands
+  for cmd_file in "$REPO_ROOT/core/commands/claude/"*.md; do
+    cmd=$(basename "$cmd_file")
+    if [[ -f "$TARGET_PATH/.claude/commands/$cmd" && ! -L "$TARGET_PATH/.claude/commands/$cmd" ]]; then
+      cp "$cmd_file" "$TARGET_PATH/.claude/commands/$cmd"
+      REPLACED_ITEMS+=(".claude/commands/$cmd")
+    fi
+  done
+
+  # Copy all skills
+  for skill_dir in "$REPO_ROOT/core/skills/"*/; do
+    skill=$(basename "$skill_dir")
+    if [[ -d "$TARGET_PATH/.claude/skills/$skill" && ! -L "$TARGET_PATH/.claude/skills/$skill" ]]; then
+      rm -rf "$TARGET_PATH/.claude/skills/$skill"
+      cp -r "$skill_dir" "$TARGET_PATH/.claude/skills/$skill"
+      REPLACED_ITEMS+=(".claude/skills/$skill")
+    fi
+  done
+
+  # Copy all agentic management agents
+  for agent_file in "$REPO_ROOT/core/agents/agentic-"*.md; do
+    agent=$(basename "$agent_file")
+    if [[ -f "$TARGET_PATH/.claude/agents/$agent" && ! -L "$TARGET_PATH/.claude/agents/$agent" ]]; then
+      cp "$agent_file" "$TARGET_PATH/.claude/agents/$agent"
+      REPLACED_ITEMS+=(".claude/agents/$agent")
+    fi
+  done
+
+  echo "   Replaced ${#REPLACED_ITEMS[@]} item(s) with latest versions"
+  echo ""
+  echo "IMPORTANT: Copy mode update complete"
+  echo "   Review changes and manually merge any customizations from backup"
+  echo "   Backup location: $COPY_BACKUP_DIR"
 fi
 
 # Install all commands from core

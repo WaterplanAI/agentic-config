@@ -5,6 +5,7 @@ register_installation() {
   local target_path="$1"
   local project_type="$2"
   local version="$3"
+  local install_mode="${4:-symlink}"  # default to symlink for backward compatibility
   local registry_file="$REPO_ROOT/.installations.json"
 
   # Create .agentic-config.json in target project
@@ -14,6 +15,7 @@ register_installation() {
   "version": "$version",
   "installed_at": "$(date -Iseconds 2>/dev/null || date +%Y-%m-%dT%H:%M:%S%z)",
   "project_type": "$project_type",
+  "install_mode": "$install_mode",
   "auto_check": true,
   "symlinks": [
     "agents",
@@ -66,6 +68,24 @@ check_version() {
     jq -r '.version' "$config_file" 2>/dev/null || echo "none"
   else
     grep -o '"version"[[:space:]]*:[[:space:]]*"[^"]*"' "$config_file" | cut -d'"' -f4
+  fi
+
+  return 0
+}
+
+get_install_mode() {
+  local target_path="$1"
+  local config_file="$target_path/.agentic-config.json"
+
+  if [[ ! -f "$config_file" ]]; then
+    echo "symlink"  # default
+    return 0
+  fi
+
+  if command -v jq &>/dev/null; then
+    jq -r '.install_mode // "symlink"' "$config_file" 2>/dev/null || echo "symlink"
+  else
+    grep -o '"install_mode"[[:space:]]*:[[:space:]]*"[^"]*"' "$config_file" | cut -d'"' -f4 || echo "symlink"
   fi
 
   return 0

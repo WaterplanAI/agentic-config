@@ -42,6 +42,7 @@ AVAILABLE_SKILLS=($(discover_available_skills))
 # Defaults
 FORCE=false
 DRY_RUN=false
+COPY_MODE=false
 NO_REGISTRY=false
 TOOLS="all"
 PROJECT_TYPE=""
@@ -56,6 +57,7 @@ Install centralized agentic configuration to a project.
 Options:
   --type <ts|py-poetry|py-pip|py-uv|rust|generic>
                          Project type (auto-detected if not specified)
+  --copy                 Copy assets instead of creating symlinks
   --force                Overwrite existing configuration
   --dry-run              Show what would be done without making changes
   --no-registry          Don't register installation in central registry
@@ -82,6 +84,10 @@ while [[ $# -gt 0 ]]; do
     --type)
       PROJECT_TYPE="$2"
       shift 2
+      ;;
+    --copy)
+      COPY_MODE=true
+      shift
       ;;
     --force)
       FORCE=true
@@ -243,7 +249,12 @@ fi
 # Create core symlinks
 echo "Creating core symlinks..."
 if [[ "$DRY_RUN" != true ]]; then
-  ln -sf "$REPO_ROOT/core/agents" "$TARGET_PATH/agents"
+  if [[ "$COPY_MODE" == true ]]; then
+    echo "   (copy mode: copying agents/ directory)"
+    cp -r "$REPO_ROOT/core/agents" "$TARGET_PATH/agents"
+  else
+    ln -sf "$REPO_ROOT/core/agents" "$TARGET_PATH/agents"
+  fi
   mkdir -p "$TARGET_PATH/.agent/workflows"
   ln -sf "$REPO_ROOT/core/agents/spec-command.md" "$TARGET_PATH/.agent/workflows/spec.md"
 fi
@@ -270,6 +281,16 @@ if [[ ! -f "$TARGET_PATH/.gitignore" ]]; then
   fi
 fi
 
+# Add copy-backup pattern to .gitignore if using copy mode
+if [[ "$COPY_MODE" == true && -f "$TARGET_PATH/.gitignore" ]]; then
+  if ! grep -q "\.agentic-config\.copy-backup\." "$TARGET_PATH/.gitignore"; then
+    echo "Adding copy-backup pattern to .gitignore..."
+    if [[ "$DRY_RUN" != true ]]; then
+      echo ".agentic-config.copy-backup.*" >> "$TARGET_PATH/.gitignore"
+    fi
+  fi
+fi
+
 # Initialize git if not inside any git repo (including parent repos)
 if ! git -C "$TARGET_PATH" rev-parse --is-inside-work-tree &>/dev/null; then
   echo "Initializing git repository..."
@@ -283,7 +304,11 @@ if [[ "$TOOLS" == "all" || "$TOOLS" == *"claude"* ]]; then
   echo "Installing Claude configs..."
   if [[ "$DRY_RUN" != true ]]; then
     mkdir -p "$TARGET_PATH/.claude/commands"
-    ln -sf "$REPO_ROOT/core/commands/claude/spec.md" "$TARGET_PATH/.claude/commands/spec.md"
+    if [[ "$COPY_MODE" == true ]]; then
+      cp "$REPO_ROOT/core/commands/claude/spec.md" "$TARGET_PATH/.claude/commands/spec.md"
+    else
+      ln -sf "$REPO_ROOT/core/commands/claude/spec.md" "$TARGET_PATH/.claude/commands/spec.md"
+    fi
   fi
 fi
 
@@ -292,7 +317,11 @@ if [[ "$TOOLS" == "all" || "$TOOLS" == *"gemini"* ]]; then
   if [[ "$DRY_RUN" != true ]]; then
     mkdir -p "$TARGET_PATH/.gemini/commands"
     ln -sf "$REPO_ROOT/core/commands/gemini/spec.toml" "$TARGET_PATH/.gemini/commands/spec.toml"
-    ln -sf "$REPO_ROOT/core/commands/gemini/spec" "$TARGET_PATH/.gemini/commands/spec"
+    if [[ "$COPY_MODE" == true ]]; then
+      cp -r "$REPO_ROOT/core/commands/gemini/spec" "$TARGET_PATH/.gemini/commands/spec"
+    else
+      ln -sf "$REPO_ROOT/core/commands/gemini/spec" "$TARGET_PATH/.gemini/commands/spec"
+    fi
   fi
 fi
 
@@ -300,7 +329,11 @@ if [[ "$TOOLS" == "all" || "$TOOLS" == *"codex"* ]]; then
   echo "Installing Codex configs..."
   if [[ "$DRY_RUN" != true ]]; then
     mkdir -p "$TARGET_PATH/.codex/prompts"
-    ln -sf "$REPO_ROOT/core/commands/codex/spec.md" "$TARGET_PATH/.codex/prompts/spec.md"
+    if [[ "$COPY_MODE" == true ]]; then
+      cp "$REPO_ROOT/core/commands/codex/spec.md" "$TARGET_PATH/.codex/prompts/spec.md"
+    else
+      ln -sf "$REPO_ROOT/core/commands/codex/spec.md" "$TARGET_PATH/.codex/prompts/spec.md"
+    fi
   fi
 fi
 
@@ -310,7 +343,11 @@ if [[ "$DRY_RUN" != true ]]; then
   # Create agent symlinks
   mkdir -p "$TARGET_PATH/.claude/agents"
   for agent in agentic-setup agentic-migrate agentic-update agentic-status agentic-validate agentic-customize; do
-    ln -sf "$REPO_ROOT/core/agents/$agent.md" "$TARGET_PATH/.claude/agents/$agent.md"
+    if [[ "$COPY_MODE" == true ]]; then
+      cp "$REPO_ROOT/core/agents/$agent.md" "$TARGET_PATH/.claude/agents/$agent.md"
+    else
+      ln -sf "$REPO_ROOT/core/agents/$agent.md" "$TARGET_PATH/.claude/agents/$agent.md"
+    fi
   done
 fi
 
@@ -321,7 +358,11 @@ if [[ "$DRY_RUN" != true ]]; then
   mkdir -p "$TARGET_PATH/.claude/commands"
   for cmd in "${AVAILABLE_CMDS[@]}"; do
     if [[ -f "$REPO_ROOT/core/commands/claude/$cmd.md" ]]; then
-      ln -sf "$REPO_ROOT/core/commands/claude/$cmd.md" "$TARGET_PATH/.claude/commands/$cmd.md"
+      if [[ "$COPY_MODE" == true ]]; then
+        cp "$REPO_ROOT/core/commands/claude/$cmd.md" "$TARGET_PATH/.claude/commands/$cmd.md"
+      else
+        ln -sf "$REPO_ROOT/core/commands/claude/$cmd.md" "$TARGET_PATH/.claude/commands/$cmd.md"
+      fi
     fi
   done
 fi
@@ -345,7 +386,11 @@ if [[ "$DRY_RUN" != true ]]; then
         echo "   Backed up: $skill"
       fi
       rm -rf "$TARGET_PATH/.claude/skills/$skill" 2>/dev/null
-      ln -sf "$REPO_ROOT/core/skills/$skill" "$TARGET_PATH/.claude/skills/$skill"
+      if [[ "$COPY_MODE" == true ]]; then
+        cp -r "$REPO_ROOT/core/skills/$skill" "$TARGET_PATH/.claude/skills/$skill"
+      else
+        ln -sf "$REPO_ROOT/core/skills/$skill" "$TARGET_PATH/.claude/skills/$skill"
+      fi
     fi
   done
 fi
@@ -353,7 +398,11 @@ fi
 # Register installation
 if [[ "$NO_REGISTRY" != true && "$DRY_RUN" != true ]]; then
   echo "Registering installation..."
-  register_installation "$TARGET_PATH" "$PROJECT_TYPE" "$VERSION"
+  if [[ "$COPY_MODE" == true ]]; then
+    register_installation "$TARGET_PATH" "$PROJECT_TYPE" "$VERSION" "copy"
+  else
+    register_installation "$TARGET_PATH" "$PROJECT_TYPE" "$VERSION" "symlink"
+  fi
 fi
 
 # Summary
@@ -361,6 +410,7 @@ echo ""
 echo "Setup complete!"
 echo "   Version: $VERSION"
 echo "   Type: $PROJECT_TYPE"
+[[ "$COPY_MODE" == true ]] && echo "   Mode: copy (assets copied, not symlinked)"
 [[ "$CONTENT_PRESERVED" == true ]] && echo "   Preserved: Custom content moved to PROJECT_AGENTS.md"
 [[ "$BACKED_UP" == true ]] && echo "   Backup: $BACKUP_DIR"
 [[ "$DRY_RUN" == true ]] && echo "   (DRY RUN - no changes made)"

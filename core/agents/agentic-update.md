@@ -22,6 +22,7 @@ Parse `$ARGUMENTS` for optional flags:
 ## Update Analysis
 
 ### 1. Version Check
+- Detect installation mode from `.agentic-config.json` (symlink or copy)
 - Read `.agentic-config.json` current version
 - Compare with `~/projects/agentic-config/VERSION`
 - Read `CHANGELOG.md` for what changed between versions
@@ -36,7 +37,19 @@ If version matches OR `nightly` argument provided:
 - If no: exit with "Already up to date!"
 
 ### 2. Impact Assessment
+
+**For Symlink Mode:**
 - **Symlinked files:** automatic update (no action needed)
+- **AGENTS.md template:** check first ~20 lines for changes
+- **.agent/config.yml:** full diff if template changed
+
+**For Copy Mode:**
+- **All copied files:** will be backed up and replaced with latest versions
+- **Backup location:** `.agentic-config.copy-backup.<timestamp>/`
+- **Manual merge required:** Compare backup with new versions to restore customizations
+- **WARNING:** Any local modifications will be replaced - review backup carefully
+
+**Common checks:**
 - **AGENTS.md template:** check first ~20 lines for changes
 - **.agent/config.yml:** full diff if template changed
 - **New commands/skills:** show what's available but missing
@@ -212,6 +225,22 @@ Guide manual merge if requested:
 3. Identify modifications to existing template sections
 4. Suggest: "Copy additions to your custom section or update template sections as needed"
 5. Keep all custom content below marker intact
+
+## Copy Mode Update Safety
+
+For copy mode installations, updates are more involved:
+
+**Backup process:**
+- Timestamped backup created: `.agentic-config.copy-backup.<timestamp>/`
+- All copied assets backed up: agents/, .claude/commands/, .claude/skills/, .claude/agents/
+- Backup is ALWAYS created before any replacement
+
+**Manual merge workflow:**
+1. Update completes with all files replaced by latest versions
+2. Review backup directory to identify your customizations
+3. Use diff tools to manually merge changes: `diff -r .agentic-config.copy-backup.<timestamp>/ <current_location>/`
+4. Apply customizations to new versions as needed
+5. Test thoroughly after merging
 
 ## Update Safety Guarantee
 

@@ -4,6 +4,19 @@ All notable changes to agentic-config.
 
 ## [Unreleased]
 
+### Added
+
+- `--copy` flag for `setup-config.sh` to copy assets instead of symlinking (recommended for team repos)
+- Copy mode auto-detection in `update-config.sh` with timestamped backup mechanism
+- `install_mode` tracking in `.agentic-config.json` for installation mode persistence
+- `.gitignore` pattern for copy-backup directories (`.agentic-config.copy-backup.*`)
+- `/full-life-cycle-pr` command for orchestrating complete PR lifecycle (branch creation, spec workflow, squash/rebase, PR creation)
+- `--skip-tag` option for `/milestone` to skip tag creation (default: false)
+
+### Changed
+
+- `/full-life-cycle-pr` now uses `--skip-tag` with `/milestone` by default
+
 ## [0.1.6] - 2025-12-16
 
 ### Changed

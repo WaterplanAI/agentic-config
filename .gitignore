@@ -13,6 +13,7 @@ Thumbs.db
 *.tmp
 *.bak
 .agentic-config.backup.*
+.agentic-config.copy-backup.*
 
 # Testing
 /test-projects/
@@ -22,3 +23,6 @@ Thumbs.db
 
 # Orchestration outputs
 outputs/
+
+# Local environment
+.env

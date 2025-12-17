@@ -1,0 +1,1 @@
+../../core/commands/claude/full-life-cycle-pr.md

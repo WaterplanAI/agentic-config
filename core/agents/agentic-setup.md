@@ -48,6 +48,7 @@ Show what will happen:
 ```bash
 ~/projects/agentic-config/scripts/setup-config.sh \
   [--type <type>] \
+  [--copy] \
   [--tools <tools>] \
   [--force] \
   [--dry-run] \
@@ -85,10 +86,38 @@ If script fails:
 ## Best Practices
 
 - Always dry-run for first-time users
-- Explain symlink vs copy distinction clearly
-- Warn: "Never edit symlinked files - changes will be lost"
+- Explain installation mode options clearly
 - Suggest version control for project-specific customizations
 - Recommend testing /spec workflow immediately after setup
+
+## Installation Modes: Symlinks vs Copies
+
+### Symlink Mode (Default)
+
+Assets are symlinked to central repository:
+- Auto-update when central repo updated
+- Minimal disk usage
+- Consistent across all projects
+- WARNING: Never edit symlinked files - changes will be lost
+
+When to use:
+- Personal projects where you control central repo
+- Teams with consistent agentic-config access
+- When you want automatic updates
+
+### Copy Mode (--copy flag)
+
+Assets are copied to project:
+- Independent of central repository
+- Can be modified per-project
+- Updates require manual merge from backups
+- More disk usage
+
+When to use:
+- Team repositories where symlinks may not work
+- Projects requiring customized workflows
+- Environments where central repo access inconsistent
+- When you need to version control exact workflow definitions
 
 ## Post-Workflow Commit (Optional)
 
