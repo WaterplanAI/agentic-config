@@ -4,6 +4,14 @@ All notable changes to agentic-config.
 
 ## [Unreleased]
 
+## [0.1.11] - 2025-12-17
+
+### Added
+
+- `.github/CONTRIBUTING.md` with label documentation and contribution guidelines
+- GitHub labels: `priority: critical`, `priority: high`, `blocked`, `needs-triage`, `complex`
+- `LICENSE` file (MIT)
+
 ## [0.1.10] - 2025-12-17
 
 ### Added
