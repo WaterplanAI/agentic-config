@@ -24,5 +24,8 @@ Thumbs.db
 # Orchestration outputs
 outputs/
 
+# Specs - local backlogs
+specs/000-backlog.md
+
 # Local environment
 .env
