@@ -153,3 +153,97 @@ outputs/orc/{YYYY}/{MM}/{DD}/{hhmmss}-{uuid}/
 
 - INVOKE `/spec` commands when task involves specs (CREATE -> RESEARCH -> PLAN -> IMPLEMENT -> REVIEW)
 - INVOKE `/spawn` command for ALL agent delegation
+
+## State Management
+
+Shared state management for workflow commands (`/o_spec`, `/full-life-cycle-pr`).
+
+### Base State Schema
+
+All workflow commands use this base schema, with command-specific extensions:
+
+```yaml
+# Base schema (required fields)
+session_id: "HHMMSS-xxxxxxxx"    # Timestamp + 8-char UUID
+command: "<command_name>"         # e.g., "o_spec", "full-life-cycle-pr"
+started_at: "2025-12-19T11:51:52Z"
+updated_at: "2025-12-19T12:30:00Z"
+status: "in_progress"             # pending | in_progress | completed | failed
+
+current_step: 5
+current_step_status: "in_progress"  # pending | in_progress | completed | failed
+
+steps:
+  - step: 1
+    name: "CREATE"
+    status: "completed"
+    started_at: "2025-12-19T11:51:52Z"
+    completed_at: "2025-12-19T11:52:30Z"
+  - step: 5
+    name: "IMPLEMENT"
+    status: "in_progress"
+    started_at: "2025-12-19T12:00:00Z"
+    completed_at: null
+
+error_context: null
+resume_instruction: "Resume with: /<command> resume"
+```
+
+### State Helper Functions (AI-Interpreted)
+
+These functions describe behavior for AI agents to implement when managing workflow state:
+
+#### init_state(command, arguments)
+
+Create new session directory and `workflow_state.yml`:
+1. Generate `SESSION_UUID` using `uuidgen | tr '[:upper:]' '[:lower:]' | cut -c1-8`
+2. Generate `SESSION_ID` as `$(date +%H%M%S)-${SESSION_UUID}`
+3. Create dir: `outputs/orc/$(date +%Y/%m/%d)/${SESSION_ID}/`
+4. Write initial state with: `status: "in_progress"`, `current_step: 1`, `current_step_status: "pending"`, `steps: []`
+
+#### mark_in_progress(step_number, step_name)
+
+Update state BEFORE step execution:
+1. Read `workflow_state.yml`
+2. Set `current_step: <step_number>`
+3. Set `current_step_status: "in_progress"`
+4. Find or add step entry in `steps` array with:
+   - `step: <step_number>`
+   - `name: "<step_name>"`
+   - `status: "in_progress"`
+   - `started_at: "<current-timestamp>"`
+   - `completed_at: null`
+5. Set `updated_at: "<current-timestamp>"`
+6. Write state file
+
+#### mark_completed(step_number, step_name, summary_path=null)
+
+Update state AFTER step completion:
+1. Read `workflow_state.yml`
+2. Set `current_step_status: "completed"`
+3. Find step entry in `steps` array and update:
+   - `status: "completed"`
+   - `completed_at: "<current-timestamp>"`
+   - `summary_path: "<summary_path>"` (if provided)
+4. If final step: set `status: "completed"`
+5. Set `updated_at: "<current-timestamp>"`
+6. Write state file
+
+#### mark_failed(step_number, error_context)
+
+Update state on step failure:
+1. Read `workflow_state.yml`
+2. Set `current_step_status: "failed"`
+3. Set `status: "failed"`
+4. Set `error_context: "<error_context>"`
+5. Find step entry in `steps` array and update `status: "failed"`
+6. Set `updated_at: "<current-timestamp>"`
+7. Write state file
+
+#### load_state(session_dir)
+
+Read and parse `workflow_state.yml` from `session_dir`. Return parsed YAML object.
+
+#### save_state(session_dir, state)
+
+Write `state` object to `workflow_state.yml` in `session_dir`.

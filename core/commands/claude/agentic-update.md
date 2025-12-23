@@ -1,6 +1,7 @@
 ---
 description: Update agentic-config to latest version
 argument-hint: [path]
+project-agnostic: true
 ---
 
 Update agentic-config installation using the agentic-update agent.

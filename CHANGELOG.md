@@ -4,6 +4,30 @@ All notable changes to agentic-config.
 
 ## [Unreleased]
 
+### Added
+
+- `--auto` flag for `/milestone` to skip all confirmation gates (autonomous execution)
+- Workflow state persistence for `/full-life-cycle-pr` and `/o_spec` commands
+  - Session-based state tracking in `outputs/orc/{YYYY}/{MM}/{DD}/{HHMMSS}-{UUID}/workflow_state.yml`
+  - Automatic resume detection for interrupted workflows
+  - AI-interpreted state updates with current step/stage tracking
+  - Orchestrator behavioral constraints to enforce delegation pattern
+
+### Changed
+
+- `/full-life-cycle-pr` now passes `--auto` to `/milestone` for fully autonomous execution after initial confirmation
+- Single confirmation gate design: user confirms once at start, then workflow runs to completion
+- `/full-life-cycle-pr` now creates session directories and maintains workflow state for resume capability
+- `/o_spec` now maintains workflow state with per-stage tracking across all modifiers (full/normal/lean/leanest)
+
+### Fixed
+
+- `/fork-terminal` security vulnerability: prevents dangerous execution in system directories
+  - PATH argument now optional with safe default `/tmp/claude/<uuid>`
+  - Validates PATH before execution to reject root (/) and system directories (/bin, /usr, /etc, /System, /sbin, /Library)
+  - Automatically creates isolated temporary directory with UUID when PATH not provided
+  - Clear error messages on invalid paths with safe invocation examples in SAFETY section
+
 ## [0.1.12] - 2025-12-18
 
 ### Fixed

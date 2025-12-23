@@ -31,11 +31,13 @@ Parse `$ARGUMENTS` into:
 | `VERSION` | 4th arg (if not quoted) | No | Auto-bump from `VERSION` file or latest git tag |
 | `VALIDATION_PROMPT` | Last quoted string `"..."` | No | Auto-derive from checklist |
 | `SKIP_TAG` | `--skip-tag` flag | No | `false` (tags created by default) |
+| `AUTO_MODE` | `--auto` flag | No | `false` (confirmation gates enabled) |
 
 **Parsing Rules:**
 - If an argument starts and ends with `"`, treat as `VALIDATION_PROMPT`
 - Version is optional; if 4th arg is quoted, there's no version
 - If `--skip-tag` flag is present anywhere in arguments, set `SKIP_TAG=true`
+- If `--auto` flag is present anywhere in arguments, set `AUTO_MODE=true` (skips confirmation gates)
 - Empty `$ARGUMENTS` triggers full auto-detect mode
 
 ## Phase 0: Smart Defaults Resolution
@@ -187,7 +189,9 @@ Release Configuration:
 Proceed with squash + tag? (yes/no)
 ```
 
-→ On "yes": proceed to squash/tag.
+**If `AUTO_MODE=true`:** Skip confirmation, proceed directly to squash/tag.
+
+→ On "yes" (or auto): proceed to squash/tag.
 
 ### Path B: Backlog - ALL COMPLETE (all items implemented or checked)
 
@@ -209,7 +213,9 @@ Release Configuration:
 Proceed with squash? (yes/no)
 ```
 
-**On "yes":**
+**If `AUTO_MODE=true`:** Skip confirmation, proceed directly.
+
+**On "yes" (or auto):**
 1. Update backlog: mark all items `[x]`, add checkmark to section header
 2. **Update CHANGELOG.md:**
    - Move all entries from `[Unreleased]` to new `[{VERSION}] - {YYYY-MM-DD}` section
@@ -492,12 +498,14 @@ Commands to execute:
 Proceed with push? (yes/no)
 ```
 
-**On "yes":**
+**If `AUTO_MODE=true`:** Skip confirmation, proceed directly with push.
+
+**On "yes" (or auto):**
 1. Execute: `git push --force-with-lease origin {branch}`
 2. If `VERSION` and `SKIP_TAG=false`: Execute: `git push origin {VERSION}`
 3. Report success with remote URLs
 
-**On "no":**
+**On "no" (only when `AUTO_MODE=false`):**
 Display manual commands and exit:
 ```
 Skipped push. Run manually when ready:
@@ -552,4 +560,10 @@ Skipped push. Run manually when ready:
 
 # Auto-detect mode without tags
 /milestone --skip-tag
+
+# Autonomous mode (skip all confirmation gates)
+/milestone --auto
+
+# Autonomous mode with skip-tag (used by orchestrators)
+/milestone --skip-tag --auto
 ```

@@ -40,6 +40,12 @@ is_self_hosted() {
 # Sync all command symlinks for self-hosted repo
 sync_self_hosted_commands() {
   local target="$1"
+
+  # Skip if target IS the repo root (prevents recursive symlinks)
+  if [[ "$(cd "$target" && pwd)" == "$REPO_ROOT" ]]; then
+    return 0
+  fi
+
   local all_cmds=($(discover_all_commands))
   local synced=0
   local missing=()
@@ -55,7 +61,11 @@ sync_self_hosted_commands() {
       if [[ "$INSTALL_MODE" == "copy" ]]; then
         cp "$src" "$dest"
       else
-        ln -sf "$src" "$dest"
+        # Calculate relative path from .claude/commands/ to core/commands/claude/
+        # Target is at: ../../core/commands/claude/$cmd.md
+        local rel_target="../../core/commands/claude/$cmd.md"
+        # Create symlink from within target directory to ensure correct relative path
+        (cd "$target/.claude/commands" && ln -sf "$rel_target" "$cmd.md")
       fi
       echo "  ✓ $cmd.md (created)"
       ((synced++)) || true
@@ -443,7 +453,9 @@ for cmd in "${AVAILABLE_CMDS[@]}"; do
       if [[ "$INSTALL_MODE" == "copy" ]]; then
         cp "$REPO_ROOT/core/commands/claude/$cmd.md" "$TARGET_PATH/.claude/commands/$cmd.md"
       else
-        ln -sf "$REPO_ROOT/core/commands/claude/$cmd.md" "$TARGET_PATH/.claude/commands/$cmd.md"
+        # Use relative path from .claude/commands/ to core/commands/claude/
+        local rel_target="../../core/commands/claude/$cmd.md"
+        (cd "$TARGET_PATH/.claude/commands" && ln -sf "$rel_target" "$cmd.md")
       fi
       echo "  ✓ $cmd.md"
       ((CMDS_INSTALLED++)) || true
@@ -465,7 +477,9 @@ for skill in "${AVAILABLE_SKILLS[@]}"; do
       if [[ "$INSTALL_MODE" == "copy" ]]; then
         cp -r "$REPO_ROOT/core/skills/$skill" "$TARGET_PATH/.claude/skills/$skill"
       else
-        ln -sf "$REPO_ROOT/core/skills/$skill" "$TARGET_PATH/.claude/skills/$skill"
+        # Use relative path from .claude/skills/ to core/skills/
+        local rel_target="../../core/skills/$skill"
+        (cd "$TARGET_PATH/.claude/skills" && ln -sf "$rel_target" "$skill")
       fi
       echo "  ✓ $skill"
       ((SKILLS_INSTALLED++)) || true
@@ -478,7 +492,9 @@ for skill in "${AVAILABLE_SKILLS[@]}"; do
         fi
         mv "$TARGET_PATH/.claude/skills/$skill" "$SKILLS_BACKUP_DIR/$skill"
         echo "  ⚠ Backed up: $skill → $SKILLS_BACKUP_DIR/$skill"
-        ln -sf "$REPO_ROOT/core/skills/$skill" "$TARGET_PATH/.claude/skills/$skill"
+        # Use relative path from .claude/skills/ to core/skills/
+        local rel_target="../../core/skills/$skill"
+        (cd "$TARGET_PATH/.claude/skills" && ln -sf "$rel_target" "$skill")
         echo "  ✓ $skill (converted to symlink)"
         ((SKILLS_INSTALLED++)) || true
       fi

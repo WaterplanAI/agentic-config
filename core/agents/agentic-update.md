@@ -79,7 +79,7 @@ fi
    - Report: "ERROR: Missing symlink: {command}.md"
 4. **Offer to fix:**
    ```bash
-   ln -sf ~/projects/agentic-config/core/commands/claude/{cmd}.md .claude/commands/{cmd}.md
+   ln -sf ../../core/commands/claude/{cmd}.md .claude/commands/{cmd}.md
    ```
 
 **Why this matters:**
@@ -174,21 +174,19 @@ This ensures NOTHING is ever lost.
 When rebuilding symlinks:
 
 ```bash
-REPO_ROOT=~/projects/agentic-config
-
 # Core symlinks
-ln -sf "$REPO_ROOT/core/agents" agents
+ln -sf ../../core/agents agents
 
 # Commands - rebuild ALL from core
-for cmd in "$REPO_ROOT"/core/commands/claude/*.md; do
+for cmd in ../../core/commands/claude/*.md; do
   name=$(basename "$cmd")
-  ln -sf "$REPO_ROOT/core/commands/claude/$name" ".claude/commands/$name"
+  (cd .claude/commands && ln -sf "../../core/commands/claude/$name" "$name")
 done
 
 # Skills - rebuild ALL from core
-for skill in "$REPO_ROOT"/core/skills/*; do
+for skill in ../../core/skills/*; do
   name=$(basename "$skill")
-  ln -sf "$REPO_ROOT/core/skills/$name" ".claude/skills/$name"
+  (cd .claude/skills && ln -sf "../../core/skills/$name" "$name")
 done
 
 # Clean orphans

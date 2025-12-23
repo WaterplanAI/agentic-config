@@ -42,6 +42,76 @@ Examples:
 
 NOTE: SPEC may be a file OR an inline-prompt.
 
+# STATE PERSISTENCE
+
+This command maintains workflow state in a YAML file for reliable resumption.
+
+## State File Location
+
+```
+outputs/orc/{YYYY}/{MM}/{DD}/{HHMMSS}-{UUID}/workflow_state.yml
+```
+
+## State Schema
+
+```yaml
+session_id: "HHMMSS-xxxxxxxx"
+command: "o_spec"
+started_at: "2025-12-19T11:51:52Z"
+updated_at: "2025-12-19T12:30:00Z"
+status: "in_progress"
+
+arguments:
+  modifier: "normal"
+  spec_path: "specs/2025/12/feat/my-feature/001-spec.md"
+  model_override: null
+  skip_steps: []
+
+current_stage: "IMPLEMENT"
+current_step: 4
+current_step_status: "in_progress"  # pending | in_progress | completed | failed
+steps:
+  - step: 1
+    stage: "CREATE"
+    status: "completed"
+    started_at: "2025-12-19T11:51:52Z"
+    completed_at: "2025-12-19T11:52:30Z"
+
+error_context: null
+resume_instruction: "Resume from IMPLEMENT with: /o_spec resume"
+```
+
+## Resume Behavior
+
+- On command start: check for existing `in_progress` state for `o_spec`
+- If found: display session info and ask user to resume or start fresh
+- On resume: load state, continue from `current_stage`/`current_step`
+
+## State Update Protocol (AI-Interpreted)
+
+State updates use a two-phase PRE/POST pattern for real-time visibility:
+
+**PRE (before step execution):**
+1. Set `current_step` to current step number
+2. Set `current_stage` to current stage name
+3. Set `current_step_status` to `"in_progress"`
+4. Add/update step entry in `steps` with `status: "in_progress"`, `started_at: <timestamp>`
+5. Update `updated_at` timestamp
+
+**POST (after step completion):**
+1. Set `current_step_status` to `"completed"`
+2. Update step entry in `steps` with `status: "completed"`, `completed_at: <timestamp>`
+3. Update `updated_at` timestamp
+4. If final step: set `status: "completed"`
+
+## Orchestrator Behavioral Constraint
+
+**CRITICAL**: This command MUST maintain orchestrator role:
+- ALWAYS delegate via `/spawn` command
+- NEVER execute tasks directly (editing files, running tests, etc.)
+- On user interruption: acknowledge feedback, update state, delegate corrective action via `/spawn`
+- State file serves as context anchor preventing context loss
+
 # MODIFIERS
 
 ## FULL (default)
@@ -76,40 +146,170 @@ WARNING: Significantly reduced quality for maximum speed
 
 EXECUTE SEQUENTIALLY based on MODIFIER:
 
+## SESSION INITIALIZATION
+
+**BEFORE executing any workflow step**:
+
+1. Check for existing in-progress state:
+```bash
+TODAY=$(date +%Y/%m/%d)
+STATE_DIR="outputs/orc/$TODAY"
+for state_file in "$STATE_DIR"/*/workflow_state.yml 2>/dev/null; do
+  if [ -f "$state_file" ]; then
+    CMD=$(grep -E '^command:' "$state_file" | cut -d'"' -f2)
+    STATUS=$(grep -E '^status:' "$state_file" | cut -d'"' -f2)
+    if [ "$CMD" = "o_spec" ] && [ "$STATUS" = "in_progress" ]; then
+      echo "Found in-progress session: $(dirname "$state_file")"
+      cat "$state_file"
+    fi
+  fi
+done
+```
+
+**AI Decision**: If in-progress session found, ask user to resume or start fresh.
+
+2. If starting fresh, create session directory and state file:
+```bash
+SESSION_UUID=$(uuidgen | tr '[:upper:]' '[:lower:]' | cut -c1-8)
+SESSION_ID="$(date +%H%M%S)-${SESSION_UUID}"
+SESSION_DIR="outputs/orc/$(date +%Y/%m/%d)/${SESSION_ID}"
+mkdir -p "$SESSION_DIR"
+
+cat > "$SESSION_DIR/workflow_state.yml" << EOF
+session_id: "$SESSION_ID"
+command: "o_spec"
+started_at: "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+updated_at: "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+status: "in_progress"
+arguments:
+  modifier: "$MODIFIER"
+  spec_path: "$SPEC"
+  model_override: "$MODEL_OVERRIDE"
+  skip_steps: [$SKIP_STEPS]
+current_stage: "CREATE"
+current_step: 1
+current_step_status: "pending"
+steps: []
+error_context: null
+resume_instruction: "Resume with: /o_spec resume"
+EOF
+```
+
 ## FULL WORKFLOW
-1. /spawn opus "/spec CREATE {SPEC}" (SKIP if spec file exists)
-2. /spawn opus "/spec RESEARCH {SPEC} ultrathink"
-3. /spawn opus "/spec PLAN {SPEC} ultrathink"
-4. /spawn opus "/spec PLAN_REVIEW {SPEC} ultrathink"
-5. /spawn sonnet "/spec IMPLEMENT {SPEC} ultrathink"
-6. /spawn opus "/spec REVIEW {SPEC} ultrathink"
-7. /spawn sonnet "/spec TEST {SPEC}"
-8. /spawn sonnet "/spec DOCUMENT {SPEC}"
+1. **State Update (PRE)**: Set current_step=1, current_stage=CREATE, current_step_status=in_progress
+   /spawn opus "/spec CREATE {SPEC}" (SKIP if spec file exists)
+   **Agent Summary**: Request agent to write summary to: `{SESSION_DIR}/01-create/summary.md`
+   **State Update (POST)**: Set current_step_status=completed, summary_path="{SESSION_DIR}/01-create/summary.md"
+2. **State Update (PRE)**: Set current_step=2, current_stage=RESEARCH, current_step_status=in_progress
+   /spawn opus "/spec RESEARCH {SPEC} ultrathink"
+   **Agent Summary**: Request agent to write summary to: `{SESSION_DIR}/02-research/summary.md`
+   **State Update (POST)**: Set current_step_status=completed, summary_path="{SESSION_DIR}/02-research/summary.md"
+3. **State Update (PRE)**: Set current_step=3, current_stage=PLAN, current_step_status=in_progress
+   /spawn opus "/spec PLAN {SPEC} ultrathink"
+   **Agent Summary**: Request agent to write summary to: `{SESSION_DIR}/03-plan/summary.md`
+   **State Update (POST)**: Set current_step_status=completed, summary_path="{SESSION_DIR}/03-plan/summary.md"
+4. **State Update (PRE)**: Set current_step=4, current_stage=PLAN_REVIEW, current_step_status=in_progress
+   /spawn opus "/spec PLAN_REVIEW {SPEC} ultrathink"
+   **Agent Summary**: Request agent to write summary to: `{SESSION_DIR}/04-plan_review/summary.md`
+   **State Update (POST)**: Set current_step_status=completed, summary_path="{SESSION_DIR}/04-plan_review/summary.md"
+5. **State Update (PRE)**: Set current_step=5, current_stage=IMPLEMENT, current_step_status=in_progress
+   /spawn sonnet "/spec IMPLEMENT {SPEC} ultrathink"
+   **Agent Summary**: Request agent to write summary to: `{SESSION_DIR}/05-implement/summary.md`
+   **State Update (POST)**: Set current_step_status=completed, summary_path="{SESSION_DIR}/05-implement/summary.md"
+6. **State Update (PRE)**: Set current_step=6, current_stage=REVIEW, current_step_status=in_progress
+   /spawn opus "/spec REVIEW {SPEC} ultrathink"
+   **Agent Summary**: Request agent to write summary to: `{SESSION_DIR}/06-review/summary.md`
+   **State Update (POST)**: Set current_step_status=completed, summary_path="{SESSION_DIR}/06-review/summary.md"
+7. **State Update (PRE)**: Set current_step=7, current_stage=TEST, current_step_status=in_progress
+   /spawn sonnet "/spec TEST {SPEC}"
+   **Agent Summary**: Request agent to write summary to: `{SESSION_DIR}/07-test/summary.md`
+   **State Update (POST)**: Set current_step_status=completed, summary_path="{SESSION_DIR}/07-test/summary.md"
+8. **State Update (PRE)**: Set current_step=8, current_stage=DOCUMENT, current_step_status=in_progress
+   /spawn sonnet "/spec DOCUMENT {SPEC}"
+   **Agent Summary**: Request agent to write summary to: `{SESSION_DIR}/08-document/summary.md`
+   **State Update (POST)**: Set current_step_status=completed, summary_path="{SESSION_DIR}/08-document/summary.md", status=completed
 
 ## NORMAL WORKFLOW
-1. /spawn opus "/spec CREATE {SPEC}" (SKIP if spec file exists)
-2. /spawn opus "/spec RESEARCH {SPEC} ultrathink"
-3. /spawn opus "/spec PLAN {SPEC} ultrathink"
-4. /spawn sonnet "/spec IMPLEMENT {SPEC} ultrathink"
-5. /spawn opus "/spec REVIEW {SPEC} ultrathink"
-6. /spawn sonnet "/spec TEST {SPEC}"
-7. /spawn sonnet "/spec DOCUMENT {SPEC}"
+1. **State Update (PRE)**: Set current_step=1, current_stage=CREATE, current_step_status=in_progress
+   /spawn opus "/spec CREATE {SPEC}" (SKIP if spec file exists)
+   **Agent Summary**: Request agent to write summary to: `{SESSION_DIR}/01-create/summary.md`
+   **State Update (POST)**: Set current_step_status=completed, summary_path="{SESSION_DIR}/01-create/summary.md"
+2. **State Update (PRE)**: Set current_step=2, current_stage=RESEARCH, current_step_status=in_progress
+   /spawn opus "/spec RESEARCH {SPEC} ultrathink"
+   **Agent Summary**: Request agent to write summary to: `{SESSION_DIR}/02-research/summary.md`
+   **State Update (POST)**: Set current_step_status=completed, summary_path="{SESSION_DIR}/02-research/summary.md"
+3. **State Update (PRE)**: Set current_step=3, current_stage=PLAN, current_step_status=in_progress
+   /spawn opus "/spec PLAN {SPEC} ultrathink"
+   **Agent Summary**: Request agent to write summary to: `{SESSION_DIR}/03-plan/summary.md`
+   **State Update (POST)**: Set current_step_status=completed, summary_path="{SESSION_DIR}/03-plan/summary.md"
+4. **State Update (PRE)**: Set current_step=4, current_stage=IMPLEMENT, current_step_status=in_progress
+   /spawn sonnet "/spec IMPLEMENT {SPEC} ultrathink"
+   **Agent Summary**: Request agent to write summary to: `{SESSION_DIR}/04-implement/summary.md`
+   **State Update (POST)**: Set current_step_status=completed, summary_path="{SESSION_DIR}/04-implement/summary.md"
+5. **State Update (PRE)**: Set current_step=5, current_stage=REVIEW, current_step_status=in_progress
+   /spawn opus "/spec REVIEW {SPEC} ultrathink"
+   **Agent Summary**: Request agent to write summary to: `{SESSION_DIR}/05-review/summary.md`
+   **State Update (POST)**: Set current_step_status=completed, summary_path="{SESSION_DIR}/05-review/summary.md"
+6. **State Update (PRE)**: Set current_step=6, current_stage=TEST, current_step_status=in_progress
+   /spawn sonnet "/spec TEST {SPEC}"
+   **Agent Summary**: Request agent to write summary to: `{SESSION_DIR}/06-test/summary.md`
+   **State Update (POST)**: Set current_step_status=completed, summary_path="{SESSION_DIR}/06-test/summary.md"
+7. **State Update (PRE)**: Set current_step=7, current_stage=DOCUMENT, current_step_status=in_progress
+   /spawn sonnet "/spec DOCUMENT {SPEC}"
+   **Agent Summary**: Request agent to write summary to: `{SESSION_DIR}/07-document/summary.md`
+   **State Update (POST)**: Set current_step_status=completed, summary_path="{SESSION_DIR}/07-document/summary.md", status=completed
 
 ## LEAN WORKFLOW
-1. /spawn sonnet "/spec CREATE {SPEC}" (SKIP if spec file exists)
-2. /spawn sonnet "/spec PLAN {SPEC} ultrathink"
-3. /spawn sonnet "/spec IMPLEMENT {SPEC} ultrathink"
-4. /spawn sonnet "/spec REVIEW {SPEC} ultrathink"
-5. /spawn sonnet "/spec TEST {SPEC}"
-6. /spawn sonnet "/spec DOCUMENT {SPEC}"
+1. **State Update (PRE)**: Set current_step=1, current_stage=CREATE, current_step_status=in_progress
+   /spawn sonnet "/spec CREATE {SPEC}" (SKIP if spec file exists)
+   **Agent Summary**: Request agent to write summary to: `{SESSION_DIR}/01-create/summary.md`
+   **State Update (POST)**: Set current_step_status=completed, summary_path="{SESSION_DIR}/01-create/summary.md"
+2. **State Update (PRE)**: Set current_step=2, current_stage=PLAN, current_step_status=in_progress
+   /spawn sonnet "/spec PLAN {SPEC} ultrathink"
+   **Agent Summary**: Request agent to write summary to: `{SESSION_DIR}/02-plan/summary.md`
+   **State Update (POST)**: Set current_step_status=completed, summary_path="{SESSION_DIR}/02-plan/summary.md"
+3. **State Update (PRE)**: Set current_step=3, current_stage=IMPLEMENT, current_step_status=in_progress
+   /spawn sonnet "/spec IMPLEMENT {SPEC} ultrathink"
+   **Agent Summary**: Request agent to write summary to: `{SESSION_DIR}/03-implement/summary.md`
+   **State Update (POST)**: Set current_step_status=completed, summary_path="{SESSION_DIR}/03-implement/summary.md"
+4. **State Update (PRE)**: Set current_step=4, current_stage=REVIEW, current_step_status=in_progress
+   /spawn sonnet "/spec REVIEW {SPEC} ultrathink"
+   **Agent Summary**: Request agent to write summary to: `{SESSION_DIR}/04-review/summary.md`
+   **State Update (POST)**: Set current_step_status=completed, summary_path="{SESSION_DIR}/04-review/summary.md"
+5. **State Update (PRE)**: Set current_step=5, current_stage=TEST, current_step_status=in_progress
+   /spawn sonnet "/spec TEST {SPEC}"
+   **Agent Summary**: Request agent to write summary to: `{SESSION_DIR}/05-test/summary.md`
+   **State Update (POST)**: Set current_step_status=completed, summary_path="{SESSION_DIR}/05-test/summary.md"
+6. **State Update (PRE)**: Set current_step=6, current_stage=DOCUMENT, current_step_status=in_progress
+   /spawn sonnet "/spec DOCUMENT {SPEC}"
+   **Agent Summary**: Request agent to write summary to: `{SESSION_DIR}/06-document/summary.md`
+   **State Update (POST)**: Set current_step_status=completed, summary_path="{SESSION_DIR}/06-document/summary.md", status=completed
 
 ## LEANEST WORKFLOW
-1. /spawn sonnet "/spec CREATE {SPEC}" (SKIP if spec file exists)
-2. /spawn sonnet "/spec PLAN {SPEC}"
-3. /spawn haiku "/spec IMPLEMENT {SPEC}"
-4. /spawn sonnet "/spec REVIEW {SPEC}"
-5. /spawn haiku "/spec TEST {SPEC}"
-6. /spawn haiku "/spec DOCUMENT {SPEC}"
+1. **State Update (PRE)**: Set current_step=1, current_stage=CREATE, current_step_status=in_progress
+   /spawn sonnet "/spec CREATE {SPEC}" (SKIP if spec file exists)
+   **Agent Summary**: Request agent to write summary to: `{SESSION_DIR}/01-create/summary.md`
+   **State Update (POST)**: Set current_step_status=completed, summary_path="{SESSION_DIR}/01-create/summary.md"
+2. **State Update (PRE)**: Set current_step=2, current_stage=PLAN, current_step_status=in_progress
+   /spawn sonnet "/spec PLAN {SPEC}"
+   **Agent Summary**: Request agent to write summary to: `{SESSION_DIR}/02-plan/summary.md`
+   **State Update (POST)**: Set current_step_status=completed, summary_path="{SESSION_DIR}/02-plan/summary.md"
+3. **State Update (PRE)**: Set current_step=3, current_stage=IMPLEMENT, current_step_status=in_progress
+   /spawn haiku "/spec IMPLEMENT {SPEC}"
+   **Agent Summary**: Request agent to write summary to: `{SESSION_DIR}/03-implement/summary.md`
+   **State Update (POST)**: Set current_step_status=completed, summary_path="{SESSION_DIR}/03-implement/summary.md"
+4. **State Update (PRE)**: Set current_step=4, current_stage=REVIEW, current_step_status=in_progress
+   /spawn sonnet "/spec REVIEW {SPEC}"
+   **Agent Summary**: Request agent to write summary to: `{SESSION_DIR}/04-review/summary.md`
+   **State Update (POST)**: Set current_step_status=completed, summary_path="{SESSION_DIR}/04-review/summary.md"
+5. **State Update (PRE)**: Set current_step=5, current_stage=TEST, current_step_status=in_progress
+   /spawn haiku "/spec TEST {SPEC}"
+   **Agent Summary**: Request agent to write summary to: `{SESSION_DIR}/05-test/summary.md`
+   **State Update (POST)**: Set current_step_status=completed, summary_path="{SESSION_DIR}/05-test/summary.md"
+6. **State Update (PRE)**: Set current_step=6, current_stage=DOCUMENT, current_step_status=in_progress
+   /spawn haiku "/spec DOCUMENT {SPEC}"
+   **Agent Summary**: Request agent to write summary to: `{SESSION_DIR}/06-document/summary.md`
+   **State Update (POST)**: Set current_step_status=completed, summary_path="{SESSION_DIR}/06-document/summary.md", status=completed
 
 ## STEP SKIPPING
 If --skip flag provided, exclude specified steps from workflow.
@@ -123,7 +323,24 @@ REPORT PROGRESSIVE CONCISE YET INSIGHTFUL updates to me, your manager, as you pr
 
 # CONTROLS
 
-- IF I interrupt your worflow execution, I may use the word `resume ...` or `resume from step X ...`/`resume X ...`, which indicates you need to continue from where we left off before the interruption OR from the specific step number indicated by `X`
+## Resume Mechanism
+
+If user interrupts workflow:
+1. **Read state file**: Load `workflow_state.yml` from session directory
+2. **Identify current position**: Use `current_step` and `current_stage` values
+3. **Resume options**:
+   - `resume` - Continue from current_step in state file
+   - `resume from step X` - Override to specific step number
+   - `resume from STAGE` - Override to specific stage (CREATE, RESEARCH, etc.)
+4. **Update state**: On resume, update `updated_at` and continue workflow
+
+## Interruption Handling
+
+When user provides feedback during execution:
+1. Acknowledge the feedback
+2. Update `error_context` in state file if applicable
+3. Delegate corrective action via `/spawn` (NEVER execute directly)
+4. Continue workflow from appropriate step
 
 # NOTES
 

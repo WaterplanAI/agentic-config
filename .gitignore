@@ -24,8 +24,8 @@ Thumbs.db
 # Orchestration outputs
 outputs/
 
-# Specs - local backlogs
-specs/000-backlog.md
+# Specs - always ignore (local working files)
+specs/
 
 # Local environment
 .env

@@ -35,10 +35,147 @@ Orchestrates a complete PR lifecycle by composing existing commands and invoking
 
 This command executes the following steps sequentially:
 1. Pre-flight validation (git state, arguments)
-2. `/branch` - Create and checkout new branch
-3. `/o_spec` - Run full spec workflow (CREATE -> IMPLEMENT -> TEST -> DOCUMENT)
-4. `/milestone --skip-tag` - Squash commits and rebase to origin/main (without tagging)
-5. `/pull_request` - Create comprehensive PR
+2. Initial confirmation gate (only user prompt in entire workflow)
+3. `/branch` - Create and checkout new branch
+4. `/o_spec` - Run full spec workflow (CREATE -> IMPLEMENT -> TEST -> DOCUMENT)
+5. `/milestone --skip-tag --auto` - Squash commits and rebase to origin/main (autonomous)
+6. `/pull_request` - Create comprehensive PR
+
+## State Persistence
+
+This command maintains workflow state in a YAML file for reliable resumption after interruptions.
+
+### State File Location
+
+```
+outputs/orc/{YYYY}/{MM}/{DD}/{HHMMSS}-{UUID}/workflow_state.yml
+```
+
+### State Schema
+
+```yaml
+session_id: "HHMMSS-xxxxxxxx"  # Short UUID (8-char)
+command: "full-life-cycle-pr"
+started_at: "2025-12-19T11:51:52Z"
+updated_at: "2025-12-19T12:30:00Z"
+status: "in_progress"  # pending | in_progress | completed | failed
+
+arguments:
+  branch_name: "feat/my-feature"
+  spec_arg: "Add authentication module"
+  modifier: "normal"
+
+current_step: 3
+current_step_status: "in_progress"  # pending | in_progress | completed | failed
+steps:
+  - step: 1
+    name: "branch"
+    status: "completed"
+    started_at: "2025-12-19T11:51:52Z"
+    completed_at: "2025-12-19T11:52:30Z"
+  - step: 2
+    name: "o_spec"
+    status: "completed"
+    started_at: "2025-12-19T11:52:31Z"
+    completed_at: "2025-12-19T11:55:00Z"
+
+# Extension for nested command tracking
+nested_invocations:
+  - parent_step: 2           # Which step invoked the nested command
+    command: "o_spec"
+    session_id: "HHMMSS-yyyyyyyy"  # Link to nested session
+    input_args:
+      modifier: "normal"
+      spec_path: "specs/2025/12/feat/my-feature/001-spec.md"
+    substeps:
+      - step: 1
+        stage: "CREATE"
+        status: "completed"
+      - step: 2
+        stage: "RESEARCH"
+        status: "completed"
+      - step: 3
+        stage: "PLAN"
+        status: "in_progress"
+    output_result:
+      final_status: "completed"
+      commits_created: ["abc1234", "def5678"]
+      spec_path: "specs/2025/12/feat/my-feature/001-spec.md"
+
+error_context: null
+resume_instruction: "Resume from step 3 with: /full-life-cycle-pr resume"
+```
+
+### Resume Behavior
+
+On command start:
+1. Check for existing `in_progress` state files in `outputs/orc/{YYYY}/{MM}/{DD}/*/workflow_state.yml`
+2. If found for `full-life-cycle-pr`: display session info and ask user to resume or start fresh
+3. On resume: load state, continue from `current_step`
+4. On start fresh: archive old state (rename with `.archived` suffix), initialize new session
+
+### State Update Protocol (AI-Interpreted)
+
+State updates use a two-phase PRE/POST pattern for real-time visibility:
+
+**PRE (before step execution):**
+1. Read `workflow_state.yml`
+2. Set `current_step` to current step number
+3. Set `current_step_status` to `"in_progress"`
+4. Add/update step entry in `steps` with `status: "in_progress"`, `started_at: <timestamp>`
+5. Update `updated_at` timestamp
+6. Write state file
+
+**POST (after step completion):**
+1. Read `workflow_state.yml`
+2. Set `current_step_status` to `"completed"`
+3. Update step entry in `steps` with `status: "completed"`, `completed_at: <timestamp>`
+4. Update `updated_at` timestamp
+5. If final step: set `status: "completed"`
+6. Write state file
+
+**On Error:** Set `current_step_status: "failed"`, `status: "failed"`, populate `error_context`
+
+### Orchestrator Behavioral Constraint
+
+**CRITICAL**: This command MUST maintain orchestrator role:
+- ALWAYS delegate via sub-commands (`/branch`, `/o_spec`, `/milestone`, `/pull_request`)
+- NEVER execute tasks directly (editing files, running tests, etc.)
+- On user interruption: acknowledge feedback, update state, delegate corrective action via sub-commands
+- State file serves as context anchor preventing context loss
+
+---
+
+## Step 0: Resume Detection
+
+**EXECUTE BEFORE PRE-FLIGHT**: Check for existing in-progress sessions.
+
+```bash
+# Check for in-progress workflow state
+TODAY=$(date +%Y/%m/%d)
+STATE_DIR="outputs/orc/$TODAY"
+
+if [ -d "$STATE_DIR" ]; then
+  for state_file in "$STATE_DIR"/*/workflow_state.yml; do
+    if [ -f "$state_file" ]; then
+      CMD=$(grep -E '^command:' "$state_file" 2>/dev/null | cut -d'"' -f2)
+      STATUS=$(grep -E '^status:' "$state_file" 2>/dev/null | cut -d'"' -f2)
+      if [ "$CMD" = "full-life-cycle-pr" ] && [ "$STATUS" = "in_progress" ]; then
+        echo "=========================================="
+        echo "EXISTING IN-PROGRESS SESSION DETECTED"
+        echo "=========================================="
+        echo "Session: $(dirname "$state_file")"
+        echo ""
+        cat "$state_file"
+        echo ""
+        echo "Options: 'resume' to continue, 'fresh' to start new session"
+      fi
+    fi
+  done
+fi
+```
+
+**AI Decision**: If in-progress session detected, ask user whether to resume or start fresh. On resume, load `current_step` from state file and jump to appropriate step.
 
 ---
 
@@ -163,7 +300,7 @@ fi
 
 ---
 
-## Step 2: Display Confirmation Gate
+## Step 2: Display Confirmation Gate (ONLY user prompt)
 
 ```bash
 echo ""
@@ -177,13 +314,13 @@ echo "  Spec: $SPEC_ARG"
 echo "  Modifier: $MODIFIER"
 echo "  Base branch: origin/main"
 echo ""
-echo "This will execute:"
+echo "This will execute AUTONOMOUSLY after confirmation:"
 echo "  1. Create branch: /branch $BRANCH_NAME"
 echo "  2. Run spec workflow: /o_spec $MODIFIER \"$SPEC_ARG\""
-echo "  3. Squash & rebase: /milestone --skip-tag"
+echo "  3. Squash & rebase: /milestone --skip-tag --auto"
 echo "  4. Create PR: /pull_request"
 echo ""
-echo "Each step will run sequentially. You can abort at any confirmation gate."
+echo "NOTE: This is the ONLY confirmation gate. After 'yes', workflow runs to completion."
 echo ""
 read -p "Proceed with full lifecycle? (yes/no): " CONFIRM
 echo ""
@@ -192,6 +329,38 @@ if [ "$CONFIRM" != "yes" ]; then
   echo "Aborted by user."
   exit 0
 fi
+
+# Initialize session after confirmation
+SESSION_UUID=$(uuidgen | tr '[:upper:]' '[:lower:]' | cut -c1-8)
+SESSION_TIMESTAMP=$(date +%H%M%S)
+SESSION_ID="${SESSION_TIMESTAMP}-${SESSION_UUID}"
+SESSION_DIR="outputs/orc/$(date +%Y/%m/%d)/${SESSION_ID}"
+
+mkdir -p "$SESSION_DIR"
+
+# Create initial workflow_state.yml
+cat > "$SESSION_DIR/workflow_state.yml" << EOF
+session_id: "$SESSION_ID"
+command: "full-life-cycle-pr"
+started_at: "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+updated_at: "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+status: "in_progress"
+
+arguments:
+  branch_name: "$BRANCH_NAME"
+  spec_arg: "$SPEC_ARG"
+  modifier: "$MODIFIER"
+
+current_step: 1
+current_step_status: "pending"
+steps: []
+nested_invocations: []
+
+error_context: null
+resume_instruction: "Resume with: /full-life-cycle-pr resume"
+EOF
+
+echo "Session initialized: $SESSION_DIR"
 ```
 
 ---
@@ -205,9 +374,20 @@ echo "=========================================="
 echo ""
 ```
 
+**State Update (PRE)**: Before invoking /branch:
+- Set `current_step: 1`
+- Set `current_step_status: "in_progress"`
+- Add step entry: `{step: 1, name: "branch", status: "in_progress", started_at: <timestamp>}`
+- Update `updated_at`
+
 **INVOKE**: `/branch $BRANCH_NAME`
 
 **Error Handling**: If `/branch` fails, STOP immediately and display error.
+
+**State Update (POST)**: After successful /branch:
+- Set `current_step_status: "completed"`
+- Update step entry: `{status: "completed", completed_at: <timestamp>}`
+- Update `updated_at`
 
 ---
 
@@ -220,6 +400,23 @@ echo "STEP 2/4: Running spec workflow"
 echo "=========================================="
 echo ""
 ```
+
+**State Update (PRE)**: Before invoking /o_spec:
+- Set `current_step: 2`
+- Set `current_step_status: "in_progress"`
+- Add step entry: `{step: 2, name: "o_spec", status: "in_progress", started_at: <timestamp>}`
+- Initialize nested invocation entry in `nested_invocations`:
+  ```yaml
+  - parent_step: 2
+    command: "o_spec"
+    session_id: null  # Will be populated by o_spec
+    input_args:
+      modifier: "$MODIFIER"
+      spec_path: "$SPEC_ARG"
+    substeps: []
+    output_result: null
+  ```
+- Update `updated_at`
 
 **INVOKE**: `/o_spec $MODIFIER "$SPEC_ARG"`
 
@@ -241,9 +438,18 @@ You can:
 2. Delete branch and start over: git branch -D {BRANCH_NAME}
 ```
 
+**State Update (POST)**: After successful /o_spec:
+- Set `current_step_status: "completed"`
+- Update step entry: `{status: "completed", completed_at: <timestamp>}`
+- Update nested invocation entry with:
+  - `session_id`: from o_spec's workflow_state.yml
+  - `substeps`: mirror of o_spec's steps array
+  - `output_result`: `{final_status: "completed", spec_path: <resolved_path>}`
+- Update `updated_at`
+
 ---
 
-## Step 5: Execute /milestone (without tagging)
+## Step 5: Execute /milestone (without tagging, autonomous)
 
 ```bash
 echo ""
@@ -253,19 +459,26 @@ echo "=========================================="
 echo ""
 ```
 
-**INVOKE**: `/milestone --skip-tag`
+**State Update (PRE)**: Before invoking /milestone:
+- Set `current_step: 3`
+- Set `current_step_status: "in_progress"`
+- Add step entry: `{step: 3, name: "milestone", status: "in_progress", started_at: <timestamp>}`
+- Update `updated_at`
 
-**Arguments**: Use `--skip-tag` flag to skip tag creation
+**INVOKE**: `/milestone --skip-tag --auto`
+
+**Arguments**:
+- `--skip-tag` = no tag creation (only squash + rebase)
+- `--auto` = skip confirmation gates (autonomous execution)
 - Auto-detects base branch (origin/main)
 - Auto-validates CHANGELOG [Unreleased] section
-- `--skip-tag` flag = no tag creation (only squash + rebase)
 
 **Behavior**:
 - Will validate CHANGELOG has entries (required)
 - Will squash all commits since origin/main into one
 - Will generate Conventional Commit message
 - Will rebase onto origin/main
-- Will ask for confirmation before pushing
+- Will push automatically (`--auto` skips confirmation gates)
 
 **Error Handling**: If `/milestone` fails:
 ```
@@ -279,6 +492,11 @@ Possible causes:
 Review error message above and fix manually.
 ```
 
+**State Update (POST)**: After successful /milestone:
+- Set `current_step_status: "completed"`
+- Update step entry: `{status: "completed", completed_at: <timestamp>}`
+- Update `updated_at`
+
 ---
 
 ## Step 6: Execute /pull_request
@@ -290,6 +508,12 @@ echo "STEP 4/4: Creating pull request"
 echo "=========================================="
 echo ""
 ```
+
+**State Update (PRE)**: Before invoking /pull_request:
+- Set `current_step: 4`
+- Set `current_step_status: "in_progress"`
+- Add step entry: `{step: 4, name: "pull_request", status: "in_progress", started_at: <timestamp>}`
+- Update `updated_at`
 
 **INVOKE**: `/pull_request`
 
@@ -316,6 +540,12 @@ You can manually create PR:
   1. Push branch: git push -u origin {BRANCH_NAME}
   2. Visit: https://github.com/{repo}/compare/{BRANCH_NAME}
 ```
+
+**State Update (POST)**: After successful /pull_request:
+- Set `current_step_status: "completed"`
+- Set `status: "completed"` (final step)
+- Update step entry: `{status: "completed", completed_at: <timestamp>}`
+- Update `updated_at`
 
 ---
 
@@ -348,24 +578,25 @@ echo ""
 
 1. **Pre-flight validation**: Ensures clean git state before starting
 2. **Argument validation**: Validates all required arguments before execution
-3. **Confirmation gate**: Requires explicit "yes" to proceed with workflow
+3. **Single confirmation gate**: One "yes" at start, then fully autonomous execution
 4. **Step-by-step display**: Shows clear progress indicators
 5. **Error context**: Provides helpful error messages with current state
 6. **Graceful degradation**: Each command failure provides recovery options
-7. **No forced pushes**: All commands use safe push strategies
+7. **Safe push strategy**: Uses `--force-with-lease` for squash operations
 8. **Protected branch check**: Prevents running from main/master
 
 ---
 
 ## Design Decisions
 
-1. **Sequential execution**: Each command runs one at a time with clear boundaries
-2. **No tagging in milestone**: Uses milestone with `--skip-tag` flag to squash without creating release tag
-3. **Default modifier "normal"**: Balances quality and speed (skips PLAN_REVIEW, uses opus for critical stages)
-4. **Full auto-detect in milestone**: Uses `--skip-tag` flag while maintaining smart defaults (backlog optional, changelog required)
-5. **Inline prompt support**: Accepts both spec file paths and inline prompts for quick feature creation
-6. **GH_USER validation**: Checks .env for GH_USER to ensure PR authentication works
-7. **Command composition**: Leverages existing battle-tested commands rather than reimplementing logic
+1. **Autonomous after confirmation**: Single confirmation gate at start, then `--auto` flag to sub-commands
+2. **Sequential execution**: Each command runs one at a time with clear boundaries
+3. **No tagging in milestone**: Uses milestone with `--skip-tag` flag to squash without creating release tag
+4. **Default modifier "normal"**: Balances quality and speed (skips PLAN_REVIEW, uses opus for critical stages)
+5. **Full auto-detect in milestone**: Uses `--skip-tag --auto` flags while maintaining smart defaults
+6. **Inline prompt support**: Accepts both spec file paths and inline prompts for quick feature creation
+7. **GH_USER validation**: Checks .env for GH_USER to ensure PR authentication works
+8. **Command composition**: Leverages existing battle-tested commands rather than reimplementing logic
 
 ---
 
