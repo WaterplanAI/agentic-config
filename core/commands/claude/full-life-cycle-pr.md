@@ -20,7 +20,7 @@ Orchestrates a complete PR lifecycle by composing existing commands and invoking
 **Arguments**:
 - `branch-name` (required): Name for the new branch
 - `spec-path|inline-prompt` (required): Path to spec file or inline prompt for feature
-- `modifier` (optional): Workflow modifier for /o_spec (full/normal/lean/leanest, default: normal)
+- `modifier` (optional): Workflow modifier for /po_spec (full/normal/lean/leanest, default: normal)
 
 **Examples**:
 ```
@@ -37,8 +37,8 @@ This command executes the following steps sequentially:
 1. Pre-flight validation (git state, arguments)
 2. Initial confirmation gate (only user prompt in entire workflow)
 3. `/branch` - Create and checkout new branch
-4. `/o_spec` - Run full spec workflow (CREATE -> IMPLEMENT -> TEST -> DOCUMENT)
-5. `/milestone --skip-tag --auto` - Squash commits and rebase to origin/main (autonomous)
+4. `/po_spec` - Run phased spec workflow (CREATE -> IMPLEMENT -> TEST -> DOCUMENT)
+5. `/milestone --skip-tag --auto` - Squash commits (after /po_spec completes)
 6. `/pull_request` - Create comprehensive PR
 
 ## State Persistence
@@ -74,7 +74,7 @@ steps:
     started_at: "2025-12-19T11:51:52Z"
     completed_at: "2025-12-19T11:52:30Z"
   - step: 2
-    name: "o_spec"
+    name: "po_spec"
     status: "completed"
     started_at: "2025-12-19T11:52:31Z"
     completed_at: "2025-12-19T11:55:00Z"
@@ -82,7 +82,7 @@ steps:
 # Extension for nested command tracking
 nested_invocations:
   - parent_step: 2           # Which step invoked the nested command
-    command: "o_spec"
+    command: "po_spec"
     session_id: "HHMMSS-yyyyyyyy"  # Link to nested session
     input_args:
       modifier: "normal"
@@ -139,7 +139,7 @@ State updates use a two-phase PRE/POST pattern for real-time visibility:
 ### Orchestrator Behavioral Constraint
 
 **CRITICAL**: This command MUST maintain orchestrator role:
-- ALWAYS delegate via sub-commands (`/branch`, `/o_spec`, `/milestone`, `/pull_request`)
+- ALWAYS delegate via sub-commands (`/branch`, `/po_spec`, `/milestone`, `/pull_request`)
 - NEVER execute tasks directly (editing files, running tests, etc.)
 - On user interruption: acknowledge feedback, update state, delegate corrective action via sub-commands
 - State file serves as context anchor preventing context loss
@@ -318,7 +318,7 @@ echo "  Base branch: origin/main"
 echo ""
 echo "This will execute AUTONOMOUSLY after confirmation:"
 echo "  1. Create branch: /branch $BRANCH_NAME"
-echo "  2. Run spec workflow: /o_spec $MODIFIER \"$SPEC_ARG\""
+echo "  2. Run spec workflow: /po_spec $MODIFIER \"$SPEC_ARG\""
 echo "  3. Squash & rebase: /milestone --skip-tag --auto"
 echo "  4. Create PR: /pull_request"
 echo ""
@@ -333,7 +333,7 @@ if [ "$CONFIRM" != "yes" ]; then
 fi
 
 # Initialize session after confirmation
-SESSION_UUID=$(uuidgen | tr '[:upper:]' '[:lower:]' | cut -c1-8)
+SESSION_UUID=$(uuidgen | tr 'A-Z' 'a-z' | cut -c1-8)
 SESSION_TIMESTAMP=$(date +%H%M%S)
 SESSION_ID="${SESSION_TIMESTAMP}-${SESSION_UUID}"
 SESSION_DIR="outputs/orc/$(date +%Y/%m/%d)/${SESSION_ID}"
@@ -393,7 +393,7 @@ echo ""
 
 ---
 
-## Step 4: Execute /o_spec
+## Step 4: Execute /po_spec
 
 ```bash
 echo ""
@@ -403,15 +403,15 @@ echo "=========================================="
 echo ""
 ```
 
-**State Update (PRE)**: Before invoking /o_spec:
+**State Update (PRE)**: Before invoking /po_spec:
 - Set `current_step: 2`
 - Set `current_step_status: "in_progress"`
-- Add step entry: `{step: 2, name: "o_spec", status: "in_progress", started_at: <timestamp>}`
+- Add step entry: `{step: 2, name: "po_spec", status: "in_progress", started_at: <timestamp>}`
 - Initialize nested invocation entry in `nested_invocations`:
   ```yaml
   - parent_step: 2
-    command: "o_spec"
-    session_id: null  # Will be populated by o_spec
+    command: "po_spec"
+    session_id: null  # Will be populated by po_spec
     input_args:
       modifier: "$MODIFIER"
       spec_path: "$SPEC_ARG"
@@ -420,14 +420,14 @@ echo ""
   ```
 - Update `updated_at`
 
-**INVOKE**: `/o_spec $MODIFIER "$SPEC_ARG"`
+**INVOKE**: `/po_spec $MODIFIER "$SPEC_ARG"`
 
 **Notes**:
 - Pass the FULL spec argument (path or inline prompt) wrapped in quotes
-- The /o_spec command will handle spec creation if needed
+- The /po_spec command will handle spec creation if needed
 - All spec stages will run sequentially (CREATE, RESEARCH, PLAN, IMPLEMENT, REVIEW, TEST, DOCUMENT)
 
-**Error Handling**: If `/o_spec` fails at any stage, STOP and display:
+**Error Handling**: If `/po_spec` fails at any stage, STOP and display:
 ```
 ERROR: Spec workflow failed at {STAGE}
 
@@ -440,12 +440,12 @@ You can:
 2. Delete branch and start over: git branch -D {BRANCH_NAME}
 ```
 
-**State Update (POST)**: After successful /o_spec:
+**State Update (POST)**: After successful /po_spec:
 - Set `current_step_status: "completed"`
 - Update step entry: `{status: "completed", completed_at: <timestamp>}`
 - Update nested invocation entry with:
-  - `session_id`: from o_spec's workflow_state.yml
-  - `substeps`: mirror of o_spec's steps array
+  - `session_id`: from po_spec's workflow_state.yml
+  - `substeps`: mirror of po_spec's steps array
   - `output_result`: `{final_status: "completed", spec_path: <resolved_path>}`
 - Update `updated_at`
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-AGENTIC_CONFIG_PATH="${AGENTIC_CONFIG_PATH:-$HOME/projects/agentic-config}"
+AGENTIC_CONFIG_PATH="${AGENTIC_CONFIG_PATH:-$HOME/.agents/agentic-config}"
 CLAUDE_USER_DIR="$HOME/.claude"
 CLAUDE_COMMANDS_DIR="$CLAUDE_USER_DIR/commands"
 CLAUDE_MD="$CLAUDE_USER_DIR/CLAUDE.md"
@@ -25,11 +25,11 @@ if ! grep -q "$MARKER" "$CLAUDE_MD" 2>/dev/null; then
 
 ## Agentic-Config Global
 When `/agentic` command is triggered, read the appropriate agent definition from:
-`~/projects/agentic-config/core/agents/agentic-{action}.md`
+`~/.agents/agentic-config/core/agents/agentic-{action}.md`
 
 Actions: setup, migrate, update, status, validate, customize
 
-Example: `/agentic setup` → read `~/projects/agentic-config/core/agents/agentic-setup.md` and follow its instructions.
+Example: `/agentic setup` → read `~/.agents/agentic-config/core/agents/agentic-setup.md` and follow its instructions.
 EOF
   echo "✓ Added agentic-config section to $CLAUDE_MD"
 else

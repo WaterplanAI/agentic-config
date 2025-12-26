@@ -170,7 +170,7 @@ done
 
 2. If starting fresh, create session directory and state file:
 ```bash
-SESSION_UUID=$(uuidgen | tr '[:upper:]' '[:lower:]' | cut -c1-8)
+SESSION_UUID=$(uuidgen | tr 'A-Z' 'a-z' | cut -c1-8)
 SESSION_ID="$(date +%H%M%S)-${SESSION_UUID}"
 SESSION_DIR="outputs/orc/$(date +%Y/%m/%d)/${SESSION_ID}"
 mkdir -p "$SESSION_DIR"

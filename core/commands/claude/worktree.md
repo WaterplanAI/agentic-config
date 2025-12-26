@@ -127,7 +127,7 @@ This command MUST execute ALL steps (1-8) in sequence WITHOUT stopping for user 
 ### Step 1: Generate unique name
 
 ```bash
-UUID_PREFIX=$(uuidgen | cut -c1-6 | tr '[:upper:]' '[:lower:]')
+UUID_PREFIX=$(uuidgen | cut -c1-6 | tr 'A-Z' 'a-z')
 FULL_NAME="$UUID_PREFIX-<worktree_name>"
 ```
 

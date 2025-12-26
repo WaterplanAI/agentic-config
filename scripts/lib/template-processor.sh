@@ -24,7 +24,7 @@ process_template() {
       local var_value="${BASH_REMATCH[2]}"
       # Replace {{VAR_NAME}} with value (escape special chars for sed)
       local escaped_value
-      escaped_value=$(printf '%s\n' "$var_value" | sed 's/[&/\]/\\&/g')
+      escaped_value=$(printf '%s\n' "$var_value" | sed 's/[&/\|]/\\&/g')
       content=$(echo "$content" | sed "s|{{${var_name}}}|${escaped_value}|g")
     fi
   done

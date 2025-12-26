@@ -16,6 +16,8 @@ discover_available_commands() {
   for f in "$REPO_ROOT/core/commands/claude/"*.md; do
     [[ ! -f "$f" ]] && continue
     local name=$(basename "$f" .md)
+    # Skip agentic-* commands (globally installed)
+    [[ "$name" == agentic-* ]] && continue
     cmds+=("$name")
   done
   echo "${cmds[@]}"
@@ -35,6 +37,38 @@ discover_all_commands() {
 is_self_hosted() {
   local target="$1"
   [[ -f "$target/VERSION" && -d "$target/core/commands/claude" && -d "$target/core/agents" ]]
+}
+
+# Clean up invalid nested symlinks inside core/ directories
+cleanup_invalid_nested_symlinks() {
+  local target="$1"
+  local cleaned=0
+
+  # Only run for self-hosted repos that have core/ directory
+  if [[ ! -d "$target/core" ]]; then
+    return 0
+  fi
+
+  # Remove self-referential symlink in agents
+  if [[ -L "$target/core/agents/agents" ]]; then
+    rm -f "$target/core/agents/agents"
+    ((cleaned++)) || true
+  fi
+
+  # Remove self-referential symlinks in skills
+  for skill_dir in "$target/core/skills/"*/; do
+    [[ ! -d "$skill_dir" ]] && continue
+    local skill_name=$(basename "$skill_dir")
+    local invalid_link="${skill_dir}${skill_name}"
+    if [[ -L "$invalid_link" ]]; then
+      rm -f "$invalid_link"
+      ((cleaned++)) || true
+    fi
+  done
+
+  if [[ $cleaned -gt 0 ]]; then
+    echo "  Cleaned up $cleaned invalid nested symlink(s) in core/"
+  fi
 }
 
 # Sync all command symlinks for self-hosted repo
@@ -239,6 +273,8 @@ fi
 
 # CRITICAL: Self-hosted repo sync (always run to catch new commands)
 if is_self_hosted "$TARGET_PATH"; then
+  # Clean up any invalid nested symlinks first
+  cleanup_invalid_nested_symlinks "$TARGET_PATH"
   sync_self_hosted_commands "$TARGET_PATH"
 fi
 
@@ -413,20 +449,6 @@ if [[ "$INSTALL_MODE" == "copy" && "$CURRENT_VERSION" != "$LATEST_VERSION" ]]; t
     fi
   done
 
-  # Copy all agentic management agents (update existing + install new)
-  for agent_file in "$REPO_ROOT/core/agents/agentic-"*.md; do
-    agent=$(basename "$agent_file")
-    if [[ -f "$TARGET_PATH/.claude/agents/$agent" && ! -L "$TARGET_PATH/.claude/agents/$agent" ]]; then
-      # Update existing copied agent
-      cp "$agent_file" "$TARGET_PATH/.claude/agents/$agent"
-      REPLACED_ITEMS+=(".claude/agents/$agent")
-    elif [[ ! -e "$TARGET_PATH/.claude/agents/$agent" ]]; then
-      # Install new agent that doesn't exist yet
-      cp "$agent_file" "$TARGET_PATH/.claude/agents/$agent"
-      REPLACED_ITEMS+=(".claude/agents/$agent (new)")
-    fi
-  done
-
   echo "   Replaced ${#REPLACED_ITEMS[@]} item(s) with latest versions"
 
   # Track that copy mode made replacements (for version tracking)
@@ -534,7 +556,7 @@ if [[ "$CURRENT_VERSION" != "$LATEST_VERSION" ]]; then
       sed -i.bak \
         -e "s/\"version\"[[:space:]]*:[[:space:]]*\"[^\"]*\"/\"version\": \"$LATEST_VERSION\"/" \
         -e "s/\"updated_at\"[[:space:]]*:[[:space:]]*\"[^\"]*\"/\"updated_at\": \"$TIMESTAMP\"/" \
-        "$TARGET_PATH/.agentic-config.json"
+        "$TARGET_PATH/.agentic-config.json" && \
       rm -f "$TARGET_PATH/.agentic-config.json.bak"
     fi
     echo "Version updated to $LATEST_VERSION"

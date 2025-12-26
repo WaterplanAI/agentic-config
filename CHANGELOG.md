@@ -4,6 +4,39 @@ All notable changes to agentic-config.
 
 ## [Unreleased]
 
+### Added
+
+- `install.sh` - curl-installable script for single-command global installation
+  - Clones/updates repo to `~/.agents/agentic-config` (configurable via `AGENTIC_CONFIG_DIR`)
+  - Pre-flight checks for git and OS compatibility (macOS/Linux)
+  - Colored terminal output with clear next steps after installation
+  - Handles both fresh installs and updates gracefully
+  - `--dry-run` flag for preview mode (no changes made)
+- `chore` GitHub label (#a2eeef) for maintenance and housekeeping tasks (#15)
+- `--with-squashed-commits` flag for `/milestone` to opt-in include squashed commit references (#14)
+- `.gitignore` patterns to prevent tracking invalid nested symlinks in `core/`
+- `cleanup_invalid_nested_symlinks()` function in `update-config.sh` for automatic cleanup
+- Pre-cleanup step in `/init` command to remove invalid symlinks before creating new ones
+- `validate_symlink_target()` function in `setup-config.sh` to prevent creating symlinks inside source directories
+
+### Changed
+
+- Default install location from `~/projects/agentic-config` to `~/.agents/agentic-config` (hidden directory, standard for user configs)
+- README Quickstart section now uses curl install pattern as primary installation method
+- `/init` command simplified to post-clone symlink repair only (no longer runs global install)
+- `setup-config.sh` and `update-config.sh` no longer install `agentic-*` commands (now globally installed via `install.sh`)
+- `/full-life-cycle-pr` now uses `/po_spec` instead of `/o_spec` for phased orchestration (#13)
+- `/milestone` now excludes squashed commit references by default (use `--with-squashed-commits` to include) (#14)
+- README quickstart step 4 now includes explicit `claude` command before `/agentic setup`
+
+### Fixed
+
+- UUID generation parse errors in shell commands across 6 files - replaced `tr '[:upper:]' '[:lower:]'` with POSIX-safe `tr 'A-Z' 'a-z'` (#11)
+- CLI validation for `--type-checker` and `--linter` flags in `setup-config.sh` - now rejects invalid values (#7)
+- Command injection risk in `setup-config.sh` - replaced `eval "$detected"` with safe grep/cut parsing (#7)
+- Pipe character escaping in `template-processor.sh` sed pattern (#7)
+- Invalid self-referential symlinks being created inside `core/agents/` and `core/skills/` directories
+
 ## [0.1.13] - 2025-12-26
 
 ### Added
