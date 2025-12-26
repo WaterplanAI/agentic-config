@@ -11,7 +11,7 @@ Project overrides for agentic-config repository.
 
 ## Symlinks
 
-CRITICAL - All project symlinks MUST use relative paths:
+CRITICAL - All project symlinks MUST use relative paths (NEVER create symlinks inside `core/` directories):
 - Commands: Use `../../core/commands/claude/<name>` from `.claude/commands/`
 - Skills: Use `../../core/skills/<name>` from `.claude/skills/`
 - Agents: Use `../../core/agents/<name>` from `.claude/agents/`

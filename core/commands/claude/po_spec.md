@@ -163,7 +163,7 @@ If found and user passed new input: ask to resume existing or start fresh.
 
 1. Create session directory:
 ```bash
-SESSION_UUID=$(uuidgen | tr '[:upper:]' '[:lower:]' | cut -c1-8)
+SESSION_UUID=$(uuidgen | tr 'A-Z' 'a-z' | cut -c1-8)
 SESSION_ID="$(date +%H%M%S)-${SESSION_UUID}"
 SESSION_DIR="outputs/phases/$(date +%Y/%m/%d)/${SESSION_ID}"
 mkdir -p "$SESSION_DIR"

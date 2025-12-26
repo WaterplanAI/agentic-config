@@ -195,7 +195,7 @@ These functions describe behavior for AI agents to implement when managing workf
 #### init_state(command, arguments)
 
 Create new session directory and `workflow_state.yml`:
-1. Generate `SESSION_UUID` using `uuidgen | tr '[:upper:]' '[:lower:]' | cut -c1-8`
+1. Generate `SESSION_UUID` using `uuidgen | tr 'A-Z' 'a-z' | cut -c1-8`
 2. Generate `SESSION_ID` as `$(date +%H%M%S)-${SESSION_UUID}`
 3. Create dir: `outputs/orc/$(date +%Y/%m/%d)/${SESSION_ID}/`
 4. Write initial state with: `status: "in_progress"`, `current_step: 1`, `current_step_status: "pending"`, `steps: []`

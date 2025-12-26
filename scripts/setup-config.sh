@@ -19,6 +19,8 @@ discover_available_commands() {
   for f in "$REPO_ROOT/core/commands/claude/"*.md; do
     [[ ! -f "$f" ]] && continue
     local name=$(basename "$f" .md)
+    # Skip agentic-* commands (globally installed)
+    [[ "$name" == agentic-* ]] && continue
     cmds+=("$name")
   done
   echo "${cmds[@]}"
@@ -33,6 +35,19 @@ discover_available_skills() {
     skills+=("$name")
   done
   echo "${skills[@]}"
+}
+
+# Validate symlink target is not inside source directories (prevents invalid nested symlinks)
+validate_symlink_target() {
+  local target="$1"
+  local source_dir="$REPO_ROOT/core"
+
+  # Reject if target is inside core/ (source directory) and not a .claude/ path
+  if [[ "$target" == "$source_dir"* && "$target" != *"/.claude/"* && "$target" != *"/.gemini/"* && "$target" != *"/.codex/"* && "$target" != *"/.agent/"* ]]; then
+    echo "ERROR: Refusing to create symlink inside source directory: $target" >&2
+    return 1
+  fi
+  return 0
 }
 
 # Discover commands and skills dynamically (no hardcoded lists!)
@@ -135,6 +150,20 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+# Validate --type-checker if provided
+if [[ -n "$TYPE_CHECKER" && ! "$TYPE_CHECKER" =~ ^(pyright|mypy)$ ]]; then
+  echo "ERROR: Invalid --type-checker value: $TYPE_CHECKER" >&2
+  echo "Valid values: pyright, mypy" >&2
+  exit 1
+fi
+
+# Validate --linter if provided
+if [[ -n "$LINTER" && ! "$LINTER" =~ ^(ruff|pylint)$ ]]; then
+  echo "ERROR: Invalid --linter value: $LINTER" >&2
+  echo "Valid values: ruff, pylint" >&2
+  exit 1
+fi
+
 # Validate target path
 if [[ -z "$TARGET_PATH" ]]; then
   echo "ERROR: target_path required" >&2
@@ -186,8 +215,14 @@ if [[ "$PROJECT_TYPE" == "python-pip" ]]; then
   # Get autodetected values if not specified via CLI
   if [[ -z "$TYPE_CHECKER" || -z "$LINTER" ]]; then
     detected=$(detect_python_tooling "$TARGET_PATH")
-    # Parse the detected values (this sets TYPE_CHECKER and LINTER)
-    eval "$detected"
+    # Parse detected values safely without eval
+    # Format: "TYPE_CHECKER=value LINTER=value"
+    if [[ -z "$TYPE_CHECKER" ]]; then
+      TYPE_CHECKER=$(echo "$detected" | grep -oE 'TYPE_CHECKER=[^ ]+' | cut -d= -f2)
+    fi
+    if [[ -z "$LINTER" ]]; then
+      LINTER=$(echo "$detected" | grep -oE 'LINTER=[^ ]+' | cut -d= -f2)
+    fi
 
     # Restore CLI-provided values if they were set (CLI overrides autodetection)
     [[ -n "$cli_type_checker" ]] && TYPE_CHECKER="$cli_type_checker"
@@ -413,22 +448,6 @@ if [[ "$TOOLS" == "all" || "$TOOLS" == *"codex"* ]]; then
   fi
 fi
 
-# Install agentic management agents
-echo "Installing agentic management agents..."
-if [[ "$DRY_RUN" != true ]]; then
-  # Create agent symlinks
-  mkdir -p "$TARGET_PATH/.claude/agents"
-  for agent_file in "$REPO_ROOT/core/agents/agentic-"*.md; do
-    [[ ! -f "$agent_file" ]] && continue
-    agent=$(basename "$agent_file" .md)
-    if [[ "$COPY_MODE" == true ]]; then
-      cp "$REPO_ROOT/core/agents/$agent.md" "$TARGET_PATH/.claude/agents/$agent.md"
-    else
-      ln -sf "$REPO_ROOT/core/agents/$agent.md" "$TARGET_PATH/.claude/agents/$agent.md"
-    fi
-  done
-fi
-
 # Install all commands from core
 echo "Installing commands..."
 echo "   Available: ${AVAILABLE_CMDS[*]}"
@@ -467,6 +486,11 @@ if [[ "$DRY_RUN" != true ]]; then
           echo "   WARNING: Backup verification failed for skill $skill - skipping replacement"
           continue
         fi
+      fi
+      # Validate target is not inside source directory
+      if ! validate_symlink_target "$TARGET_PATH/.claude/skills/$skill"; then
+        echo "   Skipping $skill - invalid target path"
+        continue
       fi
       rm -rf "$TARGET_PATH/.claude/skills/$skill" 2>/dev/null
       if [[ "$COPY_MODE" == true ]]; then

@@ -60,21 +60,37 @@ For each category, use Bash to:
    done
    ```
 
+## Pre-Cleanup (Remove Invalid Nested Symlinks)
+
+Before creating symlinks, clean up any invalid nested symlinks that may exist inside source directories:
+
+```bash
+cd /absolute/repo/root
+
+# Remove self-referential symlinks inside core/ directories
+for link in core/agents/agents core/skills/*/$(basename core/skills/*/. 2>/dev/null); do
+  [ -L "$link" ] && rm -f "$link" && echo "Removed invalid symlink: $link"
+done
+
+# More explicit cleanup for known patterns
+rm -f core/agents/agents 2>/dev/null
+for skill_dir in core/skills/*/; do
+  skill_name=$(basename "$skill_dir")
+  rm -f "${skill_dir}${skill_name}" 2>/dev/null
+done
+```
+
 ## Execution Steps
 
 1. Get absolute repo root: `pwd`
 2. Validate repository (VERSION + core/ exist)
-3. Create symlinks for all three categories using the logic above
-4. Verify symlinks are relative: `readlink .claude/commands/agentic.md` should show `../../core/commands/claude/agentic.md`
-5. Count results:
+3. **Run pre-cleanup to remove invalid nested symlinks**
+4. Create symlinks for all three categories using the logic above
+5. Verify symlinks are relative: `readlink .claude/commands/agentic.md` should show `../../core/commands/claude/agentic.md`
+6. Count results:
    - Commands created: `ls -1 .claude/commands/*.md | wc -l`
    - Skills created: `ls -1d .claude/skills/* | wc -l`
    - Agents created: `ls -1 .claude/agents/*.md | wc -l`
-6. Run global install script:
-   ```bash
-   cd /absolute/repo/root
-   ./scripts/install-global.sh
-   ```
 
 ## Output Format
 
@@ -95,12 +111,11 @@ Report results in markdown:
 - All symlinks are relative: ✓
 - All targets exist: ✓
 
-## Global Install
-- /agentic commands installed to ~/.claude/commands/
-- CLAUDE.md updated with dispatch section
-
 ## Status
-Initialization complete. All agentic-config commands, skills, and agents are now available locally and globally.
+Initialization complete. Local symlinks repaired.
+
+Note: For global install, run:
+  curl -sL https://raw.githubusercontent.com/USER/agentic-config/main/install.sh | bash
 ```
 
 ## Error Handling

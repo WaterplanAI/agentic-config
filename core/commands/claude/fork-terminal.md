@@ -94,7 +94,7 @@ osascript -e 'tell application "kitty" to activate' \
 ## VARIABLES
 
 # Generate UUID if WORK_PATH not provided
-UUID=$(uuidgen | tr '[:upper:]' '[:lower:]' | cut -c1-8)
+UUID=$(uuidgen | tr 'A-Z' 'a-z' | cut -c1-8)
 DEFAULT_PATH="/tmp/claude/${UUID}"
 WORK_PATH=${1:-$DEFAULT_PATH}
 

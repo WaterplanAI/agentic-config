@@ -32,11 +32,13 @@ Parse `$ARGUMENTS` into:
 | `VALIDATION_PROMPT` | Last quoted string `"..."` | No | Auto-derive from checklist |
 | `SKIP_TAG` | `--skip-tag` flag | No | `false` (tags created by default) |
 | `AUTO_MODE` | `--auto` flag | No | `false` (confirmation gates enabled) |
+| `WITH_SQUASHED_COMMITS` | `--with-squashed-commits` flag | No | `false` (squashed commits list excluded by default) |
 
 **Parsing Rules:**
 - If an argument starts and ends with `"`, treat as `VALIDATION_PROMPT`
 - Version is optional; if 4th arg is quoted, there's no version
 - If `--skip-tag` flag is present anywhere in arguments, set `SKIP_TAG=true`
+- If `--with-squashed-commits` flag is present anywhere in arguments, set `WITH_SQUASHED_COMMITS=true`
 - If `--auto` flag is present anywhere in arguments, set `AUTO_MODE=true` (skips confirmation gates)
 - Empty `$ARGUMENTS` triggers full auto-detect mode
 
@@ -326,9 +328,9 @@ Structure the body with these sections (include only non-empty):
 3. Summarize meaningful changes (not every line)
 4. Reference file paths where helpful
 
-### 4B.6 Include Original Commits
+### 4B.6 Include Original Commits (Optional)
 
-Append squashed commit references:
+**Only if `WITH_SQUASHED_COMMITS=true`**, append squashed commit references:
 
 ```bash
 # Get original commit messages
@@ -342,6 +344,8 @@ Squashed commits:
 - {sha7} {message}
 - {sha7} {message}
 ```
+
+**If `WITH_SQUASHED_COMMITS=false` (default)**: Omit this section entirely from the commit message.
 
 ### 4B.7 Complete Message Template
 
@@ -360,9 +364,11 @@ Squashed commits:
 ## Removed
 - {removals}
 
+<!-- Only if WITH_SQUASHED_COMMITS=true -->
 Squashed commits:
 - {sha} {message}
 - {sha} {message}
+<!-- End conditional -->
 ```
 
 ### 4B.8 Commit Message Example
@@ -382,12 +388,6 @@ feat(milestone): add validation workflow with smart defaults
 
 ## Fixed
 - Backlog detection now searches multiple locations
-
-Squashed commits:
-- abc1234 feat: add milestone command scaffold
-- def5678 feat: implement backlog parsing
-- ghi9012 fix: handle missing changelog gracefully
-- jkl3456 docs: add usage examples
 ```
 
 ### Path C: Backlog - INCOMPLETE (missing items)
@@ -566,4 +566,7 @@ Skipped push. Run manually when ready:
 
 # Autonomous mode with skip-tag (used by orchestrators)
 /milestone --skip-tag --auto
+
+# Include squashed commits in message (opt-in)
+/milestone --with-squashed-commits
 ```

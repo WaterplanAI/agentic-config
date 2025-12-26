@@ -4,29 +4,30 @@ Centralized, versioned configuration for AI-assisted development workflows. Sing
 
 ## Quickstart (New Contributors)
 
+Install with a single command:
+
 ```bash
-# 1. Clone
-git clone git@github.com:YOUR_USERNAME/agentic-config.git
-cd agentic-config
+curl -sL https://raw.githubusercontent.com/MatiasComercio/agentic-config/main/install.sh | bash
 
-# 2. Start Claude Code
+# Preview mode (no changes):
+curl -sL https://raw.githubusercontent.com/MatiasComercio/agentic-config/main/install.sh | bash -s -- --dry-run
+```
+
+Then in any project:
+```bash
 claude
-
-# 3. Initialize symlinks (one-time setup)
-/init
-
-# 4. Setup agentic commands in any project
-cd ~/projects/my-project
 /agentic setup
 ```
 
-That's it! You now have access to all `/agentic` commands and workflows.
+That's it! All `/agentic` commands are now available globally.
 
 ---
 
 ## Quick Start
 
-### With Agent-Powered Interface (Recommended)
+### With Agent-Powered Interface
+
+After installation, use these commands in any project:
 
 ```bash
 cd ~/projects/my-project
@@ -45,38 +46,28 @@ cd ~/projects/my-project
 
 ```bash
 # Setup new project
-~/projects/agentic-config/scripts/setup-config.sh ~/projects/my-project
+~/.agents/agentic-config/scripts/setup-config.sh ~/projects/my-project
 
 # Migrate existing manual installation
-~/projects/agentic-config/scripts/migrate-existing.sh ~/projects/my-project
+~/.agents/agentic-config/scripts/migrate-existing.sh ~/projects/my-project
 
 # Update to latest version
-~/projects/agentic-config/scripts/update-config.sh ~/projects/my-project
+~/.agents/agentic-config/scripts/update-config.sh ~/projects/my-project
 ```
 
-### Global Installation (User-Level)
+### Custom Install Location
 
-Make `/agentic` commands available in **all** Claude Code sessions without per-project setup:
-
+Override default install path (`~/.agents/agentic-config`):
 ```bash
-~/projects/agentic-config/scripts/install-global.sh
+AGENTIC_CONFIG_DIR=~/custom/path curl -sL https://raw.githubusercontent.com/MatiasComercio/agentic-config/main/install.sh | bash
 ```
 
-**What it does:**
-- Symlinks commands to `~/.claude/commands/`
-- Appends agent discovery instructions to `~/.claude/CLAUDE.md`
-
-**Available globally after install:**
+**Available commands after install:**
 - `/agentic` - Router for all actions
 - `/agentic-setup` - Direct setup command
 - `/agentic-migrate` - Direct migrate command
 - `/agentic-update` - Direct update command
 - `/agentic-status` - Direct status command
-
-**Custom agentic-config location:**
-```bash
-AGENTIC_CONFIG_PATH=~/custom/path ./scripts/install-global.sh
-```
 
 ## What Gets Installed
 
@@ -128,7 +119,7 @@ Project type is auto-detected (via lockfiles/config files) or can be specified w
 ### Directory Structure
 
 ```
-~/projects/agentic-config/
+~/.agents/agentic-config/
 ├── core/                   # Universal files (symlinked)
 │   ├── agents/
 │   │   ├── spec-command.md
@@ -158,13 +149,13 @@ Project type is auto-detected (via lockfiles/config files) or can be specified w
 
 ```bash
 cd ~/projects/my-new-app
-~/projects/agentic-config/scripts/setup-config.sh .
+~/.agents/agentic-config/scripts/setup-config.sh .
 
 # With explicit type
-~/projects/agentic-config/scripts/setup-config.sh --type python-poetry .
+~/.agents/agentic-config/scripts/setup-config.sh --type python-poetry .
 
 # Dry run to preview
-~/projects/agentic-config/scripts/setup-config.sh --dry-run .
+~/.agents/agentic-config/scripts/setup-config.sh --dry-run .
 ```
 
 ### Migrate Existing Installation
@@ -173,7 +164,7 @@ For projects with manual agentic configuration:
 
 ```bash
 cd ~/projects/existing-app
-~/projects/agentic-config/scripts/migrate-existing.sh .
+~/.agents/agentic-config/scripts/migrate-existing.sh .
 ```
 
 Creates backup, preserves customizations, converts to centralized pattern.
@@ -182,10 +173,10 @@ Creates backup, preserves customizations, converts to centralized pattern.
 
 ```bash
 cd ~/projects/my-app
-~/projects/agentic-config/scripts/update-config.sh .
+~/.agents/agentic-config/scripts/update-config.sh .
 
 # Force update templates without prompting
-~/projects/agentic-config/scripts/update-config.sh --force .
+~/.agents/agentic-config/scripts/update-config.sh --force .
 ```
 
 ### What Gets Installed (Commands & Skills)
@@ -215,47 +206,29 @@ All commands and skills are installed by default:
 
 ### /init Command (Bootstrap)
 
-The `/init` command initializes symlinks in the **agentic-config repository itself** or installs globally to make `/agentic` commands available in all Claude Code sessions.
+The `/init` command repairs symlinks in the **agentic-config repository itself** after cloning.
 
 **When to use:**
-- After cloning agentic-config for the first time
+- After cloning agentic-config manually (not via install.sh)
 - If symlinks are broken or missing
 - After pulling changes that add new commands/skills
-- To install agentic commands globally (user-level)
 
 **What it does:**
 ```
-# In agentic-config repository (local symlinks):
 .claude/commands/*.md  → ../../core/commands/claude/*.md  (relative symlinks)
 .claude/skills/*       → ../../core/skills/*              (relative symlinks)
 .claude/agents/*.md    → ../../core/agents/*.md           (relative symlinks)
-
-# When run globally (user-level):
-~/.claude/commands/agentic*.md → symlinks to core/commands/claude/agentic*.md
-Appends agent discovery instructions to ~/.claude/CLAUDE.md
 ```
 
 **Usage:**
 ```bash
-# Local setup (within agentic-config repo)
-cd ~/projects/agentic-config
+cd ~/.agents/agentic-config
 /init
-
-# Global install (makes /agentic available everywhere)
-cd ~/projects/agentic-config
-/init global
 ```
 
-**Output:**
-```
-# Agentic Config Symlinks Initialized
-- Commands: 20 files
-- Skills: 5 directories
-- Agents: 7 files
-- All symlinks are relative: ✓
-```
+**Note:** For global install (global commands), use the curl install pattern instead.
 
-**Note:** `/init` is a real file (not a symlink) so it's always available even when other symlinks are broken.
+**Note:** `/init` is a real file (not a symlink) so it's available even when other symlinks are broken.
 
 ### Customization
 
@@ -334,7 +307,7 @@ update-config.sh ~/projects/my-app
 
 **Initial setup:**
 ```bash
-~/projects/agentic-config/scripts/setup-config.sh ~/projects/my-app
+~/.agents/agentic-config/scripts/setup-config.sh ~/projects/my-app
 cd ~/projects/my-app
 # Edit AGENTS.md below "CUSTOMIZE BELOW THIS LINE"
 # Add project architecture, conventions, specific rules
@@ -345,7 +318,7 @@ cd ~/projects/my-app
 # 1. Symlinked files auto-update - nothing to do ✓
 
 # 2. Check copied files for template improvements
-~/projects/agentic-config/scripts/update-config.sh ~/projects/my-app
+~/.agents/agentic-config/scripts/update-config.sh ~/projects/my-app
 
 # 3. Review diffs shown, decide on manual merge or --force
 # 4. Test: run /spec on small task to verify
@@ -429,7 +402,7 @@ Each installation creates `.agentic-config.json`:
 }
 ```
 
-Central registry at `~/projects/agentic-config/.installations.json` tracks all installations.
+Central registry at `~/.agents/agentic-config/.installations.json` tracks all installations.
 
 ### Updates
 
@@ -475,7 +448,7 @@ See `core/agents/spec/*.md` for stage definitions.
 
 **In agentic-config repo itself:**
 ```bash
-cd ~/projects/agentic-config
+cd ~/.agents/agentic-config
 /init   # Regenerates all symlinks
 ```
 
@@ -488,7 +461,7 @@ ls -la agents
 ls -la .claude/commands/
 
 # Re-run setup with --force
-~/projects/agentic-config/scripts/setup-config.sh --force .
+~/.agents/agentic-config/scripts/setup-config.sh --force .
 ```
 
 ### Version Mismatch
@@ -498,7 +471,7 @@ ls -la .claude/commands/
 cat ~/projects/my-app/.agentic-config.json
 
 # Update to latest
-~/projects/agentic-config/scripts/update-config.sh ~/projects/my-app
+~/.agents/agentic-config/scripts/update-config.sh ~/projects/my-app
 ```
 
 ### Template Conflicts
@@ -506,10 +479,10 @@ cat ~/projects/my-app/.agentic-config.json
 ```bash
 # View diff between current and template
 diff ~/projects/my-app/AGENTS.md \
-     ~/projects/agentic-config/templates/typescript/AGENTS.md.template
+     ~/.agents/agentic-config/templates/typescript/AGENTS.md.template
 
 # Manually merge or force update
-~/projects/agentic-config/scripts/update-config.sh --force ~/projects/my-app
+~/.agents/agentic-config/scripts/update-config.sh --force ~/projects/my-app
 ```
 
 ## Development
@@ -530,7 +503,7 @@ Edit files in `core/agents/spec/*.md`. All projects using symlinks get updates a
 
 ```bash
 # Update VERSION file
-echo "1.1.0" > ~/projects/agentic-config/VERSION
+echo "1.1.0" > ~/.agents/agentic-config/VERSION
 
 # Document in CHANGELOG.md
 # Push to remote
