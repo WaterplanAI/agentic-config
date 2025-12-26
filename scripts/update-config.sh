@@ -556,7 +556,7 @@ if [[ "$CURRENT_VERSION" != "$LATEST_VERSION" ]]; then
       sed -i.bak \
         -e "s/\"version\"[[:space:]]*:[[:space:]]*\"[^\"]*\"/\"version\": \"$LATEST_VERSION\"/" \
         -e "s/\"updated_at\"[[:space:]]*:[[:space:]]*\"[^\"]*\"/\"updated_at\": \"$TIMESTAMP\"/" \
-        "$TARGET_PATH/.agentic-config.json"
+        "$TARGET_PATH/.agentic-config.json" && \
       rm -f "$TARGET_PATH/.agentic-config.json.bak"
     fi
     echo "Version updated to $LATEST_VERSION"

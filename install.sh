@@ -106,7 +106,9 @@ if $DRY_RUN; then
   info "Would: run install-global.sh (symlinks to ~/.claude/commands/)"
 else
   cd "$INSTALL_DIR"
-  AGENTIC_CONFIG_PATH="$INSTALL_DIR" ./scripts/install-global.sh
+  if ! AGENTIC_CONFIG_PATH="$INSTALL_DIR" ./scripts/install-global.sh; then
+    abort "install-global.sh failed"
+  fi
 fi
 
 echo ""

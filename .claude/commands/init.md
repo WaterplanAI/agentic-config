@@ -68,11 +68,7 @@ Before creating symlinks, clean up any invalid nested symlinks that may exist in
 cd /absolute/repo/root
 
 # Remove self-referential symlinks inside core/ directories
-for link in core/agents/agents core/skills/*/$(basename core/skills/*/. 2>/dev/null); do
-  [ -L "$link" ] && rm -f "$link" && echo "Removed invalid symlink: $link"
-done
-
-# More explicit cleanup for known patterns
+# Explicit cleanup for known patterns
 rm -f core/agents/agents 2>/dev/null
 for skill_dir in core/skills/*/; do
   skill_name=$(basename "$skill_dir")

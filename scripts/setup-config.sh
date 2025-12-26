@@ -37,8 +37,8 @@ discover_available_skills() {
   echo "${skills[@]}"
 }
 
-# Validate symlink target is not inside source directories (prevents invalid nested symlinks)
-validate_symlink_target() {
+# Validate symlink destination is not inside source directories (prevents invalid nested symlinks)
+validate_symlink_destination() {
   local target="$1"
   local source_dir="$REPO_ROOT/core"
 
@@ -487,8 +487,8 @@ if [[ "$DRY_RUN" != true ]]; then
           continue
         fi
       fi
-      # Validate target is not inside source directory
-      if ! validate_symlink_target "$TARGET_PATH/.claude/skills/$skill"; then
+      # Validate destination is not inside source directory
+      if ! validate_symlink_destination "$TARGET_PATH/.claude/skills/$skill"; then
         echo "   Skipping $skill - invalid target path"
         continue
       fi
