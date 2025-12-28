@@ -578,6 +578,54 @@ for hook_file in "$REPO_ROOT/core/hooks/pretooluse/"*.py; do
 done
 [[ $HOOKS_INSTALLED -eq 0 ]] && echo "  (all hooks already installed)"
 
+# Register hooks in .claude/settings.json (ensure dry-run-guard is configured)
+echo "Verifying hook registration in settings.json..."
+SETTINGS_FILE="$TARGET_PATH/.claude/settings.json"
+HOOK_CONFIG='{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit|NotebookEdit|Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "uv run --script .claude/hooks/pretooluse/dry-run-guard.py"
+          }
+        ]
+      }
+    ]
+  }
+}'
+
+HOOK_REGISTERED=false
+if [[ ! -f "$SETTINGS_FILE" ]]; then
+  # Create new settings.json with hook config
+  echo "$HOOK_CONFIG" > "$SETTINGS_FILE"
+  echo "  ✓ Created settings.json with hook registration"
+  HOOK_REGISTERED=true
+elif command -v jq &>/dev/null; then
+  # Check if hooks.PreToolUse already has dry-run-guard
+  if ! jq -e '.hooks.PreToolUse[]?.hooks[]? | select(.command | contains("dry-run-guard"))' "$SETTINGS_FILE" &>/dev/null; then
+    # Add our hook configuration
+    jq --argjson hook "$HOOK_CONFIG" '
+      .hooks = (.hooks // {}) |
+      .hooks.PreToolUse = ((.hooks.PreToolUse // []) + $hook.hooks.PreToolUse)
+    ' "$SETTINGS_FILE" > "$SETTINGS_FILE.tmp" && mv "$SETTINGS_FILE.tmp" "$SETTINGS_FILE"
+    echo "  ✓ Added dry-run-guard hook to settings.json"
+    HOOK_REGISTERED=true
+  else
+    echo "  (hook already registered)"
+  fi
+else
+  # No jq - check if we can detect the hook in the file
+  if ! grep -q "dry-run-guard" "$SETTINGS_FILE" 2>/dev/null; then
+    echo "  WARNING: Cannot verify hook registration (jq not available)"
+    echo "  Ensure dry-run-guard hook is registered in $SETTINGS_FILE"
+  else
+    echo "  (hook appears to be registered)"
+  fi
+fi
+
 # Clean up orphaned symlinks
 echo "Cleaning up orphaned symlinks..."
 ORPHANS=$(cleanup_orphan_symlinks "$TARGET_PATH" ".claude/commands")

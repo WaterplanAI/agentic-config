@@ -34,6 +34,7 @@ Show what will happen:
   - `agents/` → central workflow definitions
   - `.claude/commands/spec.md` → Claude integration
   - `.claude/hooks/pretooluse/` → Claude Code hooks
+  - `.claude/settings.json` → hook registration (created/merged)
   - `.gemini/commands/spec.toml` → Gemini integration
   - `.codex/prompts/spec.md` → Codex integration
   - `.agent/workflows/spec.md` → Antigravity integration

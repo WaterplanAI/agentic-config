@@ -36,6 +36,12 @@ Reference agents/spec/{STAGE}.md for detailed instructions.
 - Never commit to main; never amend unless 'amend commit' explicitly requested
 - One stage = one commit: spec(<NNN>): <STAGE> - <title>
 
+## CHANGELOG Guidelines
+- CHANGELOG entries are written **only against origin/main**
+- Fixes within the same branch/unreleased work are NOT separate entries
+- From main's linear history perspective, unreleased changes are ONE logical unit
+- Do NOT add "Fixed" entries for implementation iterations before merge to main
+
 ## Project-Specific Instructions
 READ @PROJECT_AGENTS.md for project-specific instructions - CRITICAL COMPLIANCE
 

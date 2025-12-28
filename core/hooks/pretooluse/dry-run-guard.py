@@ -6,11 +6,14 @@
 """
 Pretooluse hook for Claude Code that enforces dry-run mode.
 
-Blocks file-writing operations when outputs/session/status.yml contains dry_run: true.
+Blocks file-writing operations when session status contains dry_run: true.
+Session is scoped by Claude Code PID for parallel agent isolation.
 Fail-open principle: allow operations if hook encounters errors.
 """
 
 import json
+import os
+import subprocess
 import sys
 from pathlib import Path
 from typing import TypedDict
@@ -21,6 +24,40 @@ except ImportError:
     # Fail-open if dependencies missing
     print(json.dumps({"decision": "allow"}))
     sys.exit(0)
+
+
+def find_claude_pid() -> int | None:
+    """Trace up process tree to find claude process PID."""
+    try:
+        pid = os.getpid()
+        for _ in range(10):  # Max 10 levels
+            result = subprocess.run(
+                ["ps", "-o", "pid=,ppid=,comm=", "-p", str(pid)],
+                capture_output=True, text=True
+            )
+            line = result.stdout.strip()
+            if not line:
+                break
+            parts = line.split()
+            if len(parts) >= 3:
+                current_pid, ppid, comm = int(parts[0]), int(parts[1]), parts[2]
+                if "claude" in comm.lower():
+                    return current_pid
+                pid = ppid
+            else:
+                break
+    except Exception:
+        pass
+    return None
+
+
+def get_session_status_path() -> Path:
+    """Get session-specific status file path based on Claude PID."""
+    claude_pid = find_claude_pid()
+    if claude_pid:
+        return Path(f"outputs/session/{claude_pid}/status.yml")
+    # Fallback to shared path if Claude PID not found
+    return Path("outputs/session/status.yml")
 
 
 class ToolInput(TypedDict, total=False):
@@ -63,7 +100,7 @@ WRITE_PATTERNS = [
 def is_dry_run_enabled() -> bool:
     """Check if dry-run mode is enabled in session status."""
     try:
-        status_file = Path("outputs/session/status.yml")
+        status_file = get_session_status_path()
         if not status_file.exists():
             return False
 
@@ -83,7 +120,7 @@ def is_session_status_file(file_path: str | None) -> bool:
 
     try:
         path = Path(file_path).resolve()
-        status_path = Path("outputs/session/status.yml").resolve()
+        status_path = get_session_status_path().resolve()
         return path == status_path
     except Exception:
         return False

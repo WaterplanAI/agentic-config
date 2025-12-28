@@ -220,6 +220,7 @@ The `/init` command repairs symlinks in the **agentic-config repository itself**
 .claude/skills/*                        → ../../core/skills/*                       (relative symlinks)
 .claude/agents/*.md                     → ../../core/agents/*.md                    (relative symlinks)
 .claude/hooks/pretooluse/dry-run-guard.py → ../../../core/hooks/pretooluse/dry-run-guard.py (relative symlinks)
+.claude/settings.json                   → hook registration (created/merged)
 ```
 
 **Usage:**

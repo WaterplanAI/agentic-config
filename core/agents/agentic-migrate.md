@@ -43,7 +43,7 @@ Migration will:
 - Replace agents/ with symlink
 - Preserve AGENTS.md custom content
 - Install version X.Y.Z from central repo
-- Install pretooluse hooks
+- Install pretooluse hooks and register in settings.json
 
 Proceed? [y/N]
 ```

@@ -60,6 +60,42 @@ For each category, use Bash to:
    done
    ```
 
+4. **Hooks** (.claude/hooks/pretooluse/ -> core/hooks/pretooluse/)
+   ```bash
+   cd /absolute/repo/root
+   mkdir -p .claude/hooks/pretooluse
+   for file in core/hooks/pretooluse/*.py; do
+     name=$(basename "$file")
+     target="../../../core/hooks/pretooluse/$name"
+     ln -sf "$target" ".claude/hooks/pretooluse/$name"
+   done
+   ```
+
+5. **Settings** (.claude/settings.json - hook registration)
+   ```bash
+   cd /absolute/repo/root
+   # Create settings.json with hook registration if missing
+   if [[ ! -f .claude/settings.json ]]; then
+     cat > .claude/settings.json << 'EOF'
+   {
+     "hooks": {
+       "PreToolUse": [
+         {
+           "matcher": "Write|Edit|NotebookEdit|Bash",
+           "hooks": [
+             {
+               "type": "command",
+               "command": "uv run --script .claude/hooks/pretooluse/dry-run-guard.py"
+             }
+           ]
+         }
+       ]
+     }
+   }
+   EOF
+   fi
+   ```
+
 ## Pre-Cleanup (Remove Invalid Nested Symlinks)
 
 Before creating symlinks, clean up any invalid nested symlinks that may exist inside source directories:
@@ -81,12 +117,14 @@ done
 1. Get absolute repo root: `pwd`
 2. Validate repository (VERSION + core/ exist)
 3. **Run pre-cleanup to remove invalid nested symlinks**
-4. Create symlinks for all three categories using the logic above
+4. Create symlinks for all five categories using the logic above
 5. Verify symlinks are relative: `readlink .claude/commands/agentic.md` should show `../../core/commands/claude/agentic.md`
 6. Count results:
    - Commands created: `ls -1 .claude/commands/*.md | wc -l`
    - Skills created: `ls -1d .claude/skills/* | wc -l`
    - Agents created: `ls -1 .claude/agents/*.md | wc -l`
+   - Hooks created: `ls -1 .claude/hooks/pretooluse/*.py 2>/dev/null | wc -l`
+   - Settings.json: exists/created
 
 ## Output Format
 
@@ -102,6 +140,8 @@ Report results in markdown:
 - Commands: N files
 - Skills: N directories
 - Agents: N files
+- Hooks: N files
+- Settings.json: created/exists
 
 ## Validation
 - All symlinks are relative: ✓
