@@ -1,0 +1,98 @@
+---
+name: dry-run
+description: Simulates command execution in dry-run mode without file modifications. Sets dry_run flag, executes command with read-only constraint, then resets flag. Useful for testing workflows safely. Triggers on keywords: dry run, simulate, test command, preview changes, safe mode, no write
+project-agnostic: false
+allowed-tools:
+  - Bash
+  - Write
+  - Read
+---
+
+# Dry Run Skill
+
+Executes any command or skill in simulation mode, preventing all file modifications except session state.
+
+## Project Dependencies
+
+This skill is project-specific because it depends on:
+- Session state infrastructure at `outputs/session/status.yml`
+- Project-specific AGENTS.md verification workflow
+
+## Usage
+
+```
+/dry-run <any command or prompt>
+```
+
+Examples:
+- `/dry-run /po_spec path/to/spec.md` - Preview full spec workflow
+- `/dry-run /spec IMPLEMENT path/to/spec.md` - Test implementation without changes
+- `/dry-run why did you implement X this way?` - Normal chat (no files affected)
+
+## Workflow
+
+### Step 1: Initialize Session Status
+
+Create session status file if it doesn't exist:
+
+```bash
+mkdir -p outputs/session
+```
+
+Check if `outputs/session/status.yml` exists. If not, create with initial schema:
+
+```yaml
+dry_run: false
+```
+
+### Step 2: Set Dry-Run Mode
+
+Update `outputs/session/status.yml`:
+
+```yaml
+dry_run: true
+```
+
+This signals to ALL file operations that writes are prohibited.
+
+### Step 3: Execute Delegated Command
+
+Execute the provided command/prompt EXACTLY as given. All behavior remains normal EXCEPT:
+
+CRITICAL CONSTRAINTS:
+- NO file modifications allowed (Read, Grep, Glob, LSP, Bash read-only commands OK)
+- ONLY exception: `outputs/session/status.yml` can be modified
+- If command requires file writes, DESCRIBE what WOULD be changed instead
+- For chat-only prompts (no file operations needed), respond normally
+
+### Step 4: Reset Dry-Run Mode
+
+After execution completes (success or failure), reset state:
+
+```yaml
+dry_run: false
+```
+
+### Step 5: Report Results
+
+Provide summary:
+- What was executed
+- What file changes WOULD have occurred (if any)
+- Verification that dry_run mode is reset
+
+## Implementation Notes
+
+The skill acts as a wrapper:
+1. It does NOT interpret or execute the delegated work itself
+2. It sets the flag, then lets normal AI behavior handle the prompt
+3. The dry_run flag is checked by AGENTS.md verification (see project guidelines)
+4. After completion, it ensures cleanup
+
+## State Schema
+
+`outputs/session/status.yml`:
+```yaml
+dry_run: bool  # true = prevent file writes, false = normal mode
+```
+
+Future extensions may add additional session state fields.

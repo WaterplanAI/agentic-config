@@ -24,6 +24,21 @@
 - Keep prompts concise; log costs
 - EFFICIENCY in application performance and user experience - REFLECT this in EVERY implementation
 
+## Dry-Run Verification
+
+Before ANY file write operation (Write, Edit, NotebookEdit, Bash commands that modify files), verify dry-run status:
+
+1. Check if `outputs/session/status.yml` exists
+2. If exists, read `dry_run` field
+3. If `dry_run: true`, SKIP the file operation and instead:
+   - DESCRIBE what WOULD be changed
+   - LOG the proposed change for user review
+4. Exception: `outputs/session/status.yml` itself may always be modified
+5. For Bash commands:
+   - Read-only commands are allowed (ls, cat, grep, find, git status, git diff, etc.)
+   - File-writing commands must be skipped (echo >, cp, mv, touch, tee, dd, git add, git commit, etc.)
+   - DESCRIBE what the command WOULD do instead of executing
+
 ## /spec Workflow
 Reference agents/spec/{STAGE}.md for detailed instructions.
 - Default path: specs/<YYYY>/<MM>/<branch>/<NNN>-<title>.md

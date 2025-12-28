@@ -4,6 +4,14 @@ All notable changes to agentic-config.
 
 ## [Unreleased]
 
+### Added
+
+- `/dry-run` skill for simulating command execution without file modifications
+  - Sets dry_run flag in session state, executes commands with read-only constraint
+  - Prevents all file writes except outputs/session/status.yml during simulation
+  - Useful for testing workflows safely (e.g., `/dry-run /po_spec path/to/spec.md`)
+  - AGENTS.md verification ensures Write/Edit/NotebookEdit operations respect dry-run mode
+
 ### Fixed
 
 - IMPLEMENT spec stage now enforces `spec(NNN): IMPLEMENT - <title>` format on ALL commits (was missing on first commit)
