@@ -72,10 +72,16 @@ class HookInput(TypedDict):
     tool_input: ToolInput
 
 
+class HookSpecificOutput(TypedDict, total=False):
+    """Inner hook output structure."""
+    hookEventName: str
+    permissionDecision: str  # "allow" | "deny" | "ask"
+    permissionDecisionReason: str
+
+
 class HookOutput(TypedDict):
     """JSON output returned via stdout."""
-    decision: str  # "allow" | "block"
-    message: str | None
+    hookSpecificOutput: HookSpecificOutput
 
 
 # Read-only Bash commands (safe during dry-run)
@@ -200,16 +206,26 @@ def main() -> None:
         # Determine if should block
         should_block, message = should_block_tool(tool_name, tool_input)
 
-        # Return decision
-        output: HookOutput = {
-            "decision": "block" if should_block else "allow",
-            "message": message
+        # Return decision in Claude Code hook format
+        hook_output: HookSpecificOutput = {
+            "hookEventName": "PreToolUse",
+            "permissionDecision": "deny" if should_block else "allow",
         }
+        if message:
+            hook_output["permissionDecisionReason"] = message
+
+        output: HookOutput = {"hookSpecificOutput": hook_output}
         print(json.dumps(output))
 
     except Exception as e:
         # Fail-open: if hook crashes, allow the operation
-        print(json.dumps({"decision": "allow", "message": None}))
+        output: HookOutput = {
+            "hookSpecificOutput": {
+                "hookEventName": "PreToolUse",
+                "permissionDecision": "allow",
+            }
+        }
+        print(json.dumps(output))
         print(f"Hook error: {e}", file=sys.stderr)
         sys.exit(0)
 
