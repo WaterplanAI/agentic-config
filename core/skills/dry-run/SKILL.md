@@ -1,7 +1,7 @@
 ---
 name: dry-run
 description: Simulates command execution in dry-run mode without file modifications. Sets dry_run flag, executes command with read-only constraint, then resets flag. Useful for testing workflows safely. Triggers on keywords: dry run, simulate, test command, preview changes, safe mode, no write
-project-agnostic: false
+project-agnostic: true
 allowed-tools:
   - Bash
   - Write
@@ -11,12 +11,6 @@ allowed-tools:
 # Dry Run Skill
 
 Executes any command or skill in simulation mode, preventing all file modifications except session state.
-
-## Project Dependencies
-
-This skill is project-specific because it depends on:
-- Session state infrastructure at `outputs/session/status.yml`
-- Project-specific AGENTS.md verification workflow
 
 ## Usage
 
