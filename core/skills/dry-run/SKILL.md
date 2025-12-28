@@ -27,32 +27,19 @@ Examples:
 
 ### Step 1: Initialize Session Status
 
-First, find the Claude Code PID to scope the session:
+Find the Claude Code PID and create session directory:
 
 ```bash
-# Find Claude PID by tracing process tree
-find_claude_pid() {
-  local pid=$$
-  for i in {1..10}; do
-    local info=$(ps -o pid=,ppid=,comm= -p $pid 2>/dev/null)
-    [[ -z "$info" ]] && break
-    local current_pid=$(echo "$info" | awk '{print $1}')
-    local ppid=$(echo "$info" | awk '{print $2}')
-    local comm=$(echo "$info" | awk '{print $3}')
-    if [[ "$comm" == *"claude"* ]]; then
-      echo "$current_pid"
-      return
-    fi
-    pid=$ppid
-  done
-}
-
-CLAUDE_PID=$(find_claude_pid)
-SESSION_DIR="outputs/session/${CLAUDE_PID:-shared}"
-mkdir -p "$SESSION_DIR"
+pgrep -x claude | head -1 || echo "shared"
 ```
 
-Check if `$SESSION_DIR/status.yml` exists. If not, create with initial schema:
+Use the output as `CLAUDE_PID`. Then create the session directory:
+
+```bash
+mkdir -p outputs/session/<CLAUDE_PID>
+```
+
+Check if `outputs/session/<CLAUDE_PID>/status.yml` exists. If not, create with initial schema:
 
 ```yaml
 dry_run: false
@@ -60,7 +47,7 @@ dry_run: false
 
 ### Step 2: Set Dry-Run Mode
 
-Update `$SESSION_DIR/status.yml`:
+Update `outputs/session/<CLAUDE_PID>/status.yml`:
 
 ```yaml
 dry_run: true
@@ -75,13 +62,13 @@ Execute the provided command/prompt EXACTLY as given. All behavior remains norma
 
 CRITICAL CONSTRAINTS:
 - NO file modifications allowed (Read, Grep, Glob, LSP, Bash read-only commands OK)
-- ONLY exception: `$SESSION_DIR/status.yml` can be modified
+- ONLY exception: `outputs/session/<CLAUDE_PID>/status.yml` can be modified
 - If command requires file writes, DESCRIBE what WOULD be changed instead
 - For chat-only prompts (no file operations needed), respond normally
 
 ### Step 4: Reset Dry-Run Mode
 
-After execution completes (success or failure), reset state in `$SESSION_DIR/status.yml`:
+After execution completes (success or failure), reset state in `outputs/session/<CLAUDE_PID>/status.yml`:
 
 ```yaml
 dry_run: false
