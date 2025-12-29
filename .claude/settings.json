@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "uv run --no-project --script .claude/hooks/pretooluse/dry-run-guard.py"
+            "command": "uv run --no-project --script /Users/matias/projects/agentic-config/.claude/hooks/pretooluse/dry-run-guard.py /Users/matias/projects/agentic-config"
           }
         ]
       }

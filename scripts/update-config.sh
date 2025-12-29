@@ -581,21 +581,21 @@ done
 # Register hooks in .claude/settings.json (ensure dry-run-guard is configured)
 echo "Verifying hook registration in settings.json..."
 SETTINGS_FILE="$TARGET_PATH/.claude/settings.json"
-HOOK_CONFIG='{
-  "hooks": {
-    "PreToolUse": [
+HOOK_CONFIG="{
+  \"hooks\": {
+    \"PreToolUse\": [
       {
-        "matcher": "Write|Edit|NotebookEdit|Bash",
-        "hooks": [
+        \"matcher\": \"Write|Edit|NotebookEdit|Bash\",
+        \"hooks\": [
           {
-            "type": "command",
-            "command": "uv run --no-project --script .claude/hooks/pretooluse/dry-run-guard.py"
+            \"type\": \"command\",
+            \"command\": \"uv run --no-project --script $TARGET_PATH/.claude/hooks/pretooluse/dry-run-guard.py $TARGET_PATH\"
           }
         ]
       }
     ]
   }
-}'
+}"
 
 HOOK_REGISTERED=false
 if [[ ! -f "$SETTINGS_FILE" ]]; then

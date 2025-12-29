@@ -39,6 +39,11 @@ All notable changes to agentic-config.
 - Hook execution in non-Python projects - added `--no-project` flag to all `uv run` hook commands
   - Fixed in `.claude/settings.json`, `scripts/setup-config.sh`, `.claude/commands/init.md`, `scripts/update-config.sh`
   - Prevents "project not found" errors when hooks run in directories without `pyproject.toml`
+- Hook path resolution when Claude changes working directory
+  - Hook command now uses absolute paths instead of relative paths
+  - `dry-run-guard.py` accepts project root as CLI argument
+  - Prevents "No such file or directory" errors when CWD differs from project root
+  - Updated in `setup-config.sh`, `update-config.sh`, `init.md`, and hook script
 
 ## [0.1.14] - 2025-12-26
 

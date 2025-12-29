@@ -74,9 +74,10 @@ For each category, use Bash to:
 5. **Settings** (.claude/settings.json - hook registration)
    ```bash
    cd /absolute/repo/root
+   ROOT=$(pwd)
    # Create settings.json with hook registration if missing
    if [[ ! -f .claude/settings.json ]]; then
-     cat > .claude/settings.json << 'EOF'
+     cat > .claude/settings.json << EOF
    {
      "hooks": {
        "PreToolUse": [
@@ -85,7 +86,7 @@ For each category, use Bash to:
            "hooks": [
              {
                "type": "command",
-               "command": "uv run --no-project --script .claude/hooks/pretooluse/dry-run-guard.py"
+               "command": "uv run --no-project --script $ROOT/.claude/hooks/pretooluse/dry-run-guard.py $ROOT"
              }
            ]
          }

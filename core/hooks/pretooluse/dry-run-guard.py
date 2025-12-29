@@ -9,6 +9,12 @@ Pretooluse hook for Claude Code that enforces dry-run mode.
 Blocks file-writing operations when session status contains dry_run: true.
 Session is scoped by Claude Code PID for parallel agent isolation.
 Fail-open principle: allow operations if hook encounters errors.
+
+Usage:
+    uv run --no-project --script dry-run-guard.py <project_root>
+
+The project_root argument is required to resolve paths correctly when
+Claude's CWD differs from the project root (e.g., after cd commands).
 """
 
 import json
@@ -17,6 +23,10 @@ import subprocess
 import sys
 from pathlib import Path
 from typing import TypedDict
+
+# Project root passed as CLI argument (set by hook command in settings.json)
+# Falls back to CWD if not provided (legacy behavior)
+PROJECT_ROOT = Path(sys.argv[1]) if len(sys.argv) > 1 else Path.cwd()
 
 try:
     import yaml
@@ -55,9 +65,9 @@ def get_session_status_path() -> Path:
     """Get session-specific status file path based on Claude PID."""
     claude_pid = find_claude_pid()
     if claude_pid:
-        return Path(f"outputs/session/{claude_pid}/status.yml")
+        return PROJECT_ROOT / f"outputs/session/{claude_pid}/status.yml"
     # Fallback to shared path if Claude PID not found
-    return Path("outputs/session/status.yml")
+    return PROJECT_ROOT / "outputs/session/status.yml"
 
 
 class ToolInput(TypedDict, total=False):

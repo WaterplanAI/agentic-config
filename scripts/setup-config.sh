@@ -367,21 +367,21 @@ fi
 echo "Registering hooks in settings.json..."
 if [[ "$DRY_RUN" != true ]]; then
   SETTINGS_FILE="$TARGET_PATH/.claude/settings.json"
-  HOOK_CONFIG='{
-    "hooks": {
-      "PreToolUse": [
+  HOOK_CONFIG="{
+    \"hooks\": {
+      \"PreToolUse\": [
         {
-          "matcher": "Write|Edit|NotebookEdit|Bash",
-          "hooks": [
+          \"matcher\": \"Write|Edit|NotebookEdit|Bash\",
+          \"hooks\": [
             {
-              "type": "command",
-              "command": "uv run --no-project --script .claude/hooks/pretooluse/dry-run-guard.py"
+              \"type\": \"command\",
+              \"command\": \"uv run --no-project --script $TARGET_PATH/.claude/hooks/pretooluse/dry-run-guard.py $TARGET_PATH\"
             }
           ]
         }
       ]
     }
-  }'
+  }"
 
   if [[ ! -f "$SETTINGS_FILE" ]]; then
     # Create new settings.json with hook config
