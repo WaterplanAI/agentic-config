@@ -25,7 +25,18 @@ SPEC: $ARGUMENT
 4. RE-EVALUATE ACTUAL status AFTER `IMPLEMENT` stage. Answer: WAS THE GOAL of SPEC achieved? WRITE a CLEAR `Yes/No` answer with 1 line justification. Propose Next steps.
 5. APPEND the output in section `# AI Section > ## Review`.
 6. SUMMARIZE result to user in output (max: 150 words).
-7. COMMIT with: `spec(NNN): REVIEW - <title>`
+7. COMMIT using spec resolver:
+   ```bash
+   # Source spec resolver (pure bash - no external commands)
+   _agp=""
+   [[ -f ~/.agents/.path ]] && _agp=$(<~/.agents/.path)
+   AGENTIC_GLOBAL="${AGENTIC_CONFIG_PATH:-${_agp:-$HOME/.agents/agentic-config}}"
+   unset _agp
+   source "$AGENTIC_GLOBAL/core/lib/spec-resolver.sh"
+
+   # Commit spec changes
+   commit_spec_changes "<spec_path>" "REVIEW" "<NNN>" "<title>"
+   ```
 
 ## Behavior
 

@@ -29,7 +29,18 @@ SPEC: $ARGUMENT
    - Fixes applied (if any)
    - Number of fix-rerun cycles (if > 0)
 7. SUMMARIZE result (max: 100 words).
-8. COMMIT with: `spec(NNN): TEST - <title>` (only if fixes made)
+8. COMMIT using spec resolver:
+   ```bash
+   # Source spec resolver (pure bash - no external commands)
+   _agp=""
+   [[ -f ~/.agents/.path ]] && _agp=$(<~/.agents/.path)
+   AGENTIC_GLOBAL="${AGENTIC_CONFIG_PATH:-${_agp:-$HOME/.agents/agentic-config}}"
+   unset _agp
+   source "$AGENTIC_GLOBAL/core/lib/spec-resolver.sh"
+
+   # Commit spec changes
+   commit_spec_changes "<spec_path>" "TEST" "<NNN>" "<title>"
+   ```
 
 ## Behavior
 

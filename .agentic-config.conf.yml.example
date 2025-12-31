@@ -1,0 +1,8 @@
+# Agentic Configuration File
+# Alternative to .env for project configuration
+# Priority: Environment variables > .env > .agentic-config.conf.yml
+
+# External Specs Storage
+# Store specification files in a separate repository
+ext_specs_repo_url: git@github.com:YOUR_USERNAME/YOUR_PROJECT--specs.git
+ext_specs_local_path: .specs

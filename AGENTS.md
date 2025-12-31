@@ -30,6 +30,23 @@ Reference agents/spec/{STAGE}.md for detailed instructions.
 - Modify AI Section only; never touch Human Section
 - Commit after each stage: spec(<NNN>): <STAGE> - <title>
 
+## Path Resolution
+
+**Project root** = `$PWD` (where Claude is launched, `.agentic-config.json` stored)
+**Global installation** = `$AGENTIC_CONFIG_PATH` or `~/.agents/agentic-config` (where `core/`, `VERSION` exist)
+
+**CRITICAL**: `core/` does NOT exist at project root. Only specific command files are symlinked.
+
+To source global libs (spec-resolver.sh, etc.):
+```bash
+# Pure bash (no external commands like cat) for restricted shell compatibility
+_agp=""
+[[ -f ~/.agents/.path ]] && _agp=$(<~/.agents/.path)
+AGENTIC_GLOBAL="${AGENTIC_CONFIG_PATH:-${_agp:-$HOME/.agents/agentic-config}}"
+unset _agp
+source "$AGENTIC_GLOBAL/core/lib/spec-resolver.sh"
+```
+
 ## Git Workflow
 - Base branch: main (not master)
 - git status returns CWD-relative paths - use those exact paths with git add
@@ -44,5 +61,14 @@ Reference agents/spec/{STAGE}.md for detailed instructions.
 
 ## Project-Specific Instructions
 READ @PROJECT_AGENTS.md for project-specific instructions - CRITICAL COMPLIANCE
+
+## Conditional Documentation
+
+Read documentation only when relevant to your task:
+
+- **docs/external-specs-storage.md** - When:
+  - Working with `/spec`, `/o_spec`, `/po_spec`, or `/branch` commands
+  - Configuring external specs repository
+  - Modifying spec path resolution or commit routing
 
 <!-- PROJECT_AGENTS.md contains project-specific guidelines that override defaults -->

@@ -17,7 +17,7 @@ Thumbs.db
 
 # Testing
 /test-projects/
-
+tests/__pycache__/
 # Installation tracking
 .installations.json
 
@@ -29,6 +29,10 @@ specs/
 
 # Local environment
 .env
+.agentic-config.conf.yml
+
+# External specs repository (cloned locally, tracked separately)
+.specs/
 
 # Invalid nested symlinks (artifacts from misconfigured setups)
 core/agents/agents

@@ -49,8 +49,19 @@ Proceed? [y/N]
 ```
 
 ### 3. Execute Migration
+
+Discover global path:
 ```bash
-~/projects/agentic-config/scripts/migrate-existing.sh \
+# Pure bash - no external commands
+_agp=""
+[[ -f ~/.agents/.path ]] && _agp=$(<~/.agents/.path)
+AGENTIC_GLOBAL="${AGENTIC_CONFIG_PATH:-${_agp:-$HOME/.agents/agentic-config}}"
+unset _agp
+```
+
+Run migration:
+```bash
+"$AGENTIC_GLOBAL/scripts/migrate-existing.sh" \
   [--dry-run] \
   [--force] \
   <target_path>
@@ -63,6 +74,11 @@ Proceed? [y/N]
   diff .agentic-config.backup.<timestamp>/AGENTS.md AGENTS.md
   ```
 - Guide manual merge of unique customizations
+- Verify path persistence (v1.2.0+):
+  ```bash
+  cat ~/.agents/.path
+  echo $AGENTIC_CONFIG_PATH  # after new shell
+  ```
 - Test /spec command: `/spec RESEARCH <test_spec>`
 
 ## Rollback Instructions

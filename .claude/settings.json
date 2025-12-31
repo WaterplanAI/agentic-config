@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "uv run --no-project --script /Users/matias/projects/agentic-config/.claude/hooks/pretooluse/dry-run-guard.py /Users/matias/projects/agentic-config"
+            "command": "bash -c 'AGENTIC_ROOT=\"$PWD\"; while [ ! -f \"$AGENTIC_ROOT/.agentic-config.json\" ] && [ \"$AGENTIC_ROOT\" != \"/\" ]; do AGENTIC_ROOT=$(dirname \"$AGENTIC_ROOT\"); done; cd \"$AGENTIC_ROOT\" && uv run --no-project --script .claude/hooks/pretooluse/dry-run-guard.py \"$AGENTIC_ROOT\"'"
           }
         ]
       }

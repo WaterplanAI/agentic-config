@@ -26,9 +26,28 @@ SPEC: $ARGUMENT
 6. IF an unexpected error/failure occurs, surface it to the user. If you cannot recover from it, stop and ask user feedback. DO NOT ignore the error/failure.
 7. SUMMARIZE result to user in output (max: 150 words).
 8. COMMIT implementation, tests, and spec (ONLY the files you changed):
-	1. Commit code changes + tests + spec file with task statuses using message: `spec(NNN): IMPLEMENT - <title>`
-	2. Update spec with commit hash, placing it clearly at the end of the '# AI Section > ## Implement' section.
-	3. Commit spec file again with message: `spec(NNN): IMPLEMENT - <title> [hash]`
+   1. Commit code changes + tests to main repository:
+      ```bash
+      # Standard git commit for code changes
+      git add <changed_files>
+      git commit -m "spec(NNN): IMPLEMENT - <title>"
+      ```
+   2. Capture commit hash and update spec file with hash at end of `## Implement` section
+   3. Commit spec file using spec resolver:
+      ```bash
+      # Source spec resolver (pure bash - no external commands)
+      _agp=""
+      [[ -f ~/.agents/.path ]] && _agp=$(<~/.agents/.path)
+      AGENTIC_GLOBAL="${AGENTIC_CONFIG_PATH:-${_agp:-$HOME/.agents/agentic-config}}"
+      unset _agp
+      source "$AGENTIC_GLOBAL/core/lib/spec-resolver.sh"
+
+      # Get commit hash from previous commit
+      COMMIT_HASH=$(git rev-parse HEAD)
+
+      # Commit spec changes with hash reference
+      commit_spec_changes "<spec_path>" "IMPLEMENT" "<NNN>" "<title> [${COMMIT_HASH:0:7}]"
+      ```
 
 ## Behavior
 

@@ -77,7 +77,7 @@ phases:
   - id: "phase-1"
     title: "Auth models and migrations"
     status: "completed"
-    spec_path: "specs/2025/12/feat/oauth/001-auth-models.md"
+    spec_path: "/absolute/path/to/spec.md"  # Resolved via spec-resolver.sh
     o_spec_config:
       modifier: "lean"
       model: null
@@ -167,6 +167,13 @@ SESSION_UUID=$(uuidgen | tr 'A-Z' 'a-z' | cut -c1-8)
 SESSION_ID="$(date +%H%M%S)-${SESSION_UUID}"
 SESSION_DIR="outputs/phases/$(date +%Y/%m/%d)/${SESSION_ID}"
 mkdir -p "$SESSION_DIR"
+
+# Source spec resolver (pure bash - no external commands)
+_agp=""
+[[ -f ~/.agents/.path ]] && _agp=$(<~/.agents/.path)
+AGENTIC_GLOBAL="${AGENTIC_CONFIG_PATH:-${_agp:-$HOME/.agents/agentic-config}}"
+unset _agp
+source "$AGENTIC_GLOBAL/core/lib/spec-resolver.sh"
 ```
 
 2. Analyze input (file or inline prompt)
@@ -188,7 +195,8 @@ mkdir -p "$SESSION_DIR"
 For each phase in manifest, generate a spec file:
 
 ```
-specs/{YYYY}/{MM}/{branch}/{NNN}-{phase-slug}.md
+# Resolve path for external/local routing
+PHASE_SPEC=$(resolve_spec_path "{YYYY}/{MM}/{branch}/{NNN}-{phase-slug}.md")
 ```
 
 Where NNN increments per phase (001, 002, etc.).
@@ -197,7 +205,7 @@ Where NNN increments per phase (001, 002, etc.).
 
 Spec creation is handled by `/o_spec` when the spec file doesn't exist. For each phase:
 
-1. Build spec path: `specs/{YYYY}/{MM}/{branch}/{NNN}-{phase.slug}.md`
+1. Build spec path: `PHASE_SPEC=$(resolve_spec_path "{YYYY}/{MM}/{branch}/{NNN}-{phase.slug}.md")`
 2. `/o_spec` will invoke `/spec CREATE` if file is missing
 3. Phase execution (PHASE 3) handles both spec creation and implementation
 
@@ -299,7 +307,8 @@ Execute all phases sequentially within single implementation cycle. Each phase p
 Critical: AI can ONLY modify this section.
 ```
 
-**Spec Naming**: `specs/{YYYY}/{MM}/{branch}/bundle-{NNN}-{bundle-slug}.md`
+**Spec Naming**: Resolve path for external/local routing:
+`BUNDLE_SPEC=$(resolve_spec_path "{YYYY}/{MM}/{branch}/bundle-{NNN}-{bundle-slug}.md")`
 
 ### Parallel Execution
 

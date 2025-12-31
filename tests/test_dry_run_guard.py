@@ -12,7 +12,6 @@ Tests all scenarios:
 
 import json
 import subprocess
-import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -45,6 +44,43 @@ def get_repo_root() -> Path:
     return Path(__file__).parent.parent
 
 
+def find_claude_pid() -> int | None:
+    """Find Claude process PID from process tree (matches hook implementation)."""
+    import subprocess
+    import os
+
+    try:
+        pid = os.getpid()
+        for _ in range(10):
+            result = subprocess.run(
+                ["ps", "-o", "pid=,ppid=,comm=", "-p", str(pid)],
+                capture_output=True, text=True
+            )
+            line = result.stdout.strip()
+            if not line:
+                break
+            parts = line.split()
+            if len(parts) >= 3:
+                current_pid, ppid, comm = int(parts[0]), int(parts[1]), parts[2]
+                if "claude" in comm.lower():
+                    return current_pid
+                pid = ppid
+            else:
+                break
+    except Exception:
+        pass
+    return None
+
+
+def get_status_file_path() -> Path:
+    """Get session status file path (matches hook behavior)."""
+    repo_root = get_repo_root()
+    claude_pid = find_claude_pid()
+    if claude_pid:
+        return repo_root / f"outputs/session/{claude_pid}/status.yml"
+    return repo_root / "outputs/session/status.yml"
+
+
 def run_hook(tool_name: str, tool_input: dict[str, Any]) -> dict[str, Any]:
     """
     Execute the dry-run-guard hook with given input.
@@ -71,7 +107,13 @@ def run_hook(tool_name: str, tool_input: dict[str, Any]) -> dict[str, Any]:
     if result.returncode != 0:
         raise RuntimeError(f"Hook exited with code {result.returncode}: {result.stderr}")
 
-    return json.loads(result.stdout)
+    output = json.loads(result.stdout)
+    # Convert hook output format to test-friendly format
+    hook_output = output.get("hookSpecificOutput", {})
+    return {
+        "decision": hook_output.get("permissionDecision", "allow"),
+        "message": hook_output.get("permissionDecisionReason", "")
+    }
 
 
 def test_allow_when_no_dry_run() -> TestResult:
@@ -80,8 +122,7 @@ def test_allow_when_no_dry_run() -> TestResult:
 
     try:
         # Ensure no dry-run status file exists
-        repo_root = get_repo_root()
-        status_file = repo_root / "outputs/session/status.yml"
+        status_file = get_status_file_path()
         if status_file.exists():
             status_file.unlink()
 
@@ -114,14 +155,13 @@ def test_block_write_when_dry_run() -> TestResult:
 
     try:
         # Enable dry-run
-        repo_root = get_repo_root()
-        status_file = repo_root / "outputs/session/status.yml"
+        status_file = get_status_file_path()
         status_file.parent.mkdir(parents=True, exist_ok=True)
         status_file.write_text("dry_run: true\n")
 
         # Test Write tool
         output = run_hook("Write", {"file_path": "/tmp/test.txt", "content": "test"})
-        assert output["decision"] == "block", f"Expected block, got {output['decision']}"
+        assert output["decision"] == "deny", f"Expected deny, got {output['decision']}"
         assert "Blocked by dry-run mode" in output["message"], "Missing block message"
         assert "/tmp/test.txt" in output["message"], "Missing file path in message"
 
@@ -130,8 +170,7 @@ def test_block_write_when_dry_run() -> TestResult:
         result.mark_fail(str(e))
     finally:
         # Cleanup
-        repo_root = get_repo_root()
-        status_file = repo_root / "outputs/session/status.yml"
+        status_file = get_status_file_path()
         if status_file.exists():
             status_file.unlink()
 
@@ -144,14 +183,13 @@ def test_block_edit_when_dry_run() -> TestResult:
 
     try:
         # Enable dry-run
-        repo_root = get_repo_root()
-        status_file = repo_root / "outputs/session/status.yml"
+        status_file = get_status_file_path()
         status_file.parent.mkdir(parents=True, exist_ok=True)
         status_file.write_text("dry_run: true\n")
 
         # Test Edit tool
         output = run_hook("Edit", {"file_path": "/tmp/test.txt", "old_string": "a", "new_string": "b"})
-        assert output["decision"] == "block", f"Expected block, got {output['decision']}"
+        assert output["decision"] == "deny", f"Expected deny, got {output['decision']}"
         assert "Blocked by dry-run mode" in output["message"], "Missing block message"
 
         result.mark_pass()
@@ -159,8 +197,7 @@ def test_block_edit_when_dry_run() -> TestResult:
         result.mark_fail(str(e))
     finally:
         # Cleanup
-        repo_root = get_repo_root()
-        status_file = repo_root / "outputs/session/status.yml"
+        status_file = get_status_file_path()
         if status_file.exists():
             status_file.unlink()
 
@@ -173,14 +210,13 @@ def test_block_notebook_edit_when_dry_run() -> TestResult:
 
     try:
         # Enable dry-run
-        repo_root = get_repo_root()
-        status_file = repo_root / "outputs/session/status.yml"
+        status_file = get_status_file_path()
         status_file.parent.mkdir(parents=True, exist_ok=True)
         status_file.write_text("dry_run: true\n")
 
         # Test NotebookEdit tool
         output = run_hook("NotebookEdit", {"notebook_path": "/tmp/test.ipynb", "new_source": "test"})
-        assert output["decision"] == "block", f"Expected block, got {output['decision']}"
+        assert output["decision"] == "deny", f"Expected deny, got {output['decision']}"
         assert "Blocked by dry-run mode" in output["message"], "Missing block message"
 
         result.mark_pass()
@@ -188,8 +224,7 @@ def test_block_notebook_edit_when_dry_run() -> TestResult:
         result.mark_fail(str(e))
     finally:
         # Cleanup
-        repo_root = get_repo_root()
-        status_file = repo_root / "outputs/session/status.yml"
+        status_file = get_status_file_path()
         if status_file.exists():
             status_file.unlink()
 
@@ -202,27 +237,22 @@ def test_allow_session_status_exception() -> TestResult:
 
     try:
         # Enable dry-run
-        repo_root = get_repo_root()
-        status_file = repo_root / "outputs/session/status.yml"
+        status_file = get_status_file_path()
         status_file.parent.mkdir(parents=True, exist_ok=True)
         status_file.write_text("dry_run: true\n")
 
         # Test Write to status file (should be allowed as exception)
-        output = run_hook("Write", {"file_path": "outputs/session/status.yml", "content": "dry_run: false"})
-        assert output["decision"] == "allow", f"Expected allow for status file exception, got {output['decision']}"
-
-        # Test with absolute path
+        # Use absolute path to match hook's resolution logic
         abs_path = status_file.resolve()
         output = run_hook("Write", {"file_path": str(abs_path), "content": "dry_run: false"})
-        assert output["decision"] == "allow", f"Expected allow for absolute path, got {output['decision']}"
+        assert output["decision"] == "allow", f"Expected allow for status file exception, got {output['decision']}"
 
         result.mark_pass()
     except Exception as e:
         result.mark_fail(str(e))
     finally:
         # Cleanup
-        repo_root = get_repo_root()
-        status_file = repo_root / "outputs/session/status.yml"
+        status_file = get_status_file_path()
         if status_file.exists():
             status_file.unlink()
 
@@ -235,8 +265,7 @@ def test_block_bash_write_commands() -> TestResult:
 
     try:
         # Enable dry-run
-        repo_root = get_repo_root()
-        status_file = repo_root / "outputs/session/status.yml"
+        status_file = get_status_file_path()
         status_file.parent.mkdir(parents=True, exist_ok=True)
         status_file.write_text("dry_run: true\n")
 
@@ -257,7 +286,7 @@ def test_block_bash_write_commands() -> TestResult:
 
         for command in write_commands:
             output = run_hook("Bash", {"command": command})
-            assert output["decision"] == "block", f"Expected block for '{command}', got {output['decision']}"
+            assert output["decision"] == "deny", f"Expected deny for '{command}', got {output['decision']}"
             assert "Blocked by dry-run mode" in output["message"], f"Missing block message for '{command}'"
 
         result.mark_pass()
@@ -265,8 +294,7 @@ def test_block_bash_write_commands() -> TestResult:
         result.mark_fail(str(e))
     finally:
         # Cleanup
-        repo_root = get_repo_root()
-        status_file = repo_root / "outputs/session/status.yml"
+        status_file = get_status_file_path()
         if status_file.exists():
             status_file.unlink()
 
@@ -279,8 +307,7 @@ def test_allow_bash_safe_commands() -> TestResult:
 
     try:
         # Enable dry-run
-        repo_root = get_repo_root()
-        status_file = repo_root / "outputs/session/status.yml"
+        status_file = get_status_file_path()
         status_file.parent.mkdir(parents=True, exist_ok=True)
         status_file.write_text("dry_run: true\n")
 
@@ -310,8 +337,7 @@ def test_allow_bash_safe_commands() -> TestResult:
         result.mark_fail(str(e))
     finally:
         # Cleanup
-        repo_root = get_repo_root()
-        status_file = repo_root / "outputs/session/status.yml"
+        status_file = get_status_file_path()
         if status_file.exists():
             status_file.unlink()
 
@@ -324,8 +350,7 @@ def test_allow_read_only_tools() -> TestResult:
 
     try:
         # Enable dry-run
-        repo_root = get_repo_root()
-        status_file = repo_root / "outputs/session/status.yml"
+        status_file = get_status_file_path()
         status_file.parent.mkdir(parents=True, exist_ok=True)
         status_file.write_text("dry_run: true\n")
 
@@ -346,8 +371,7 @@ def test_allow_read_only_tools() -> TestResult:
         result.mark_fail(str(e))
     finally:
         # Cleanup
-        repo_root = get_repo_root()
-        status_file = repo_root / "outputs/session/status.yml"
+        status_file = get_status_file_path()
         if status_file.exists():
             status_file.unlink()
 
@@ -373,7 +397,9 @@ def test_fail_open_on_invalid_json() -> TestResult:
 
         assert proc_result.returncode == 0, "Hook should exit 0 on error (fail-open)"
         output = json.loads(proc_result.stdout)
-        assert output["decision"] == "allow", f"Expected allow on error, got {output['decision']}"
+        hook_output = output.get("hookSpecificOutput", {})
+        decision = hook_output.get("permissionDecision", "allow")
+        assert decision == "allow", f"Expected allow on error, got {decision}"
 
         result.mark_pass()
     except Exception as e:
@@ -388,8 +414,7 @@ def test_fail_open_on_malformed_status_file() -> TestResult:
 
     try:
         # Create malformed status file
-        repo_root = get_repo_root()
-        status_file = repo_root / "outputs/session/status.yml"
+        status_file = get_status_file_path()
         status_file.parent.mkdir(parents=True, exist_ok=True)
         status_file.write_text("invalid: yaml: content: [[[")
 
@@ -402,8 +427,7 @@ def test_fail_open_on_malformed_status_file() -> TestResult:
         result.mark_fail(str(e))
     finally:
         # Cleanup
-        repo_root = get_repo_root()
-        status_file = repo_root / "outputs/session/status.yml"
+        status_file = get_status_file_path()
         if status_file.exists():
             status_file.unlink()
 
@@ -418,8 +442,7 @@ def test_performance() -> TestResult:
         import time
 
         # Enable dry-run
-        repo_root = get_repo_root()
-        status_file = repo_root / "outputs/session/status.yml"
+        status_file = get_status_file_path()
         status_file.parent.mkdir(parents=True, exist_ok=True)
         status_file.write_text("dry_run: true\n")
 
@@ -440,8 +463,7 @@ def test_performance() -> TestResult:
         result.mark_fail(str(e))
     finally:
         # Cleanup
-        repo_root = get_repo_root()
-        status_file = repo_root / "outputs/session/status.yml"
+        status_file = get_status_file_path()
         if status_file.exists():
             status_file.unlink()
 

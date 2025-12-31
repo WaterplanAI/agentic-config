@@ -26,7 +26,18 @@ SPEC: $ARGUMENT
    - DOCUMENT changes in `# AI Section > ## Plan Review`
 5. IF no issues: APPEND "Plan validated - no changes needed" to `# AI Section > ## Plan Review`
 6. SUMMARIZE result (max: 100 words).
-7. COMMIT with: `spec(NNN): PLAN_REVIEW - <title>`
+7. COMMIT using spec resolver:
+   ```bash
+   # Source spec resolver (pure bash - no external commands)
+   _agp=""
+   [[ -f ~/.agents/.path ]] && _agp=$(<~/.agents/.path)
+   AGENTIC_GLOBAL="${AGENTIC_CONFIG_PATH:-${_agp:-$HOME/.agents/agentic-config}}"
+   unset _agp
+   source "$AGENTIC_GLOBAL/core/lib/spec-resolver.sh"
+
+   # Commit spec changes
+   commit_spec_changes "<spec_path>" "PLAN_REVIEW" "<NNN>" "<title>"
+   ```
 
 ## Behavior
 

@@ -9,6 +9,7 @@ LATEST_VERSION=$(cat "$REPO_ROOT/VERSION")
 
 # Source utilities
 source "$SCRIPT_DIR/lib/version-manager.sh"
+source "$SCRIPT_DIR/lib/path-persistence.sh"
 
 # Dynamically discover all available commands from core directory
 discover_available_commands() {
@@ -36,7 +37,14 @@ discover_all_commands() {
 # Check if target is the self-hosted agentic-config repo
 is_self_hosted() {
   local target="$1"
-  [[ -f "$target/VERSION" && -d "$target/core/commands/claude" && -d "$target/core/agents" ]]
+
+  # Verify all markers exist (symlink targets must exist)
+  if [[ -f "$target/VERSION" && -d "$target/core/commands/claude" && -d "$target/core/agents" ]]; then
+    # Additional check: ensure symlink targets exist (if target contains symlinks)
+    [[ -d "$target/core" ]] || return 1
+    return 0
+  fi
+  return 1
 }
 
 # Clean up invalid nested symlinks inside core/ directories
@@ -74,10 +82,11 @@ cleanup_invalid_nested_symlinks() {
 # Sync all command symlinks for self-hosted repo
 sync_self_hosted_commands() {
   local target="$1"
+  local is_self=false
 
-  # Skip if target IS the repo root (prevents recursive symlinks)
+  # Check if target IS the repo root (self-restoration mode)
   if [[ "$(cd "$target" && pwd)" == "$REPO_ROOT" ]]; then
-    return 0
+    is_self=true
   fi
 
   local all_cmds=($(discover_all_commands))
@@ -95,11 +104,18 @@ sync_self_hosted_commands() {
       if [[ "$INSTALL_MODE" == "copy" ]]; then
         cp "$src" "$dest"
       else
-        # Calculate relative path from .claude/commands/ to core/commands/claude/
-        # Target is at: ../../core/commands/claude/$cmd.md
-        local rel_target="../../core/commands/claude/$cmd.md"
-        # Create symlink from within target directory to ensure correct relative path
-        (cd "$target/.claude/commands" && ln -sf "$rel_target" "$cmd.md")
+        if [[ "$is_self" == true ]]; then
+          # Self-restoration: use relative path (same as init.md)
+          (cd "$target/.claude/commands" && ln -sf "../../core/commands/claude/$cmd.md" "$cmd.md")
+        else
+          # Verify source exists before creating symlink
+          if [[ ! -f "$src" ]]; then
+            echo "  WARNING: Source file missing for $cmd.md - skipping" >&2
+            continue
+          fi
+          # Cross-repo sync: use absolute path
+          ln -sf "$src" "$dest"
+        fi
       fi
       echo "  ✓ $cmd.md (created)"
       ((synced++)) || true
@@ -116,10 +132,11 @@ sync_self_hosted_commands() {
 # Sync all hook symlinks for self-hosted repo
 sync_self_hosted_hooks() {
   local target="$1"
+  local is_self=false
 
-  # Skip if target IS the repo root (prevents recursive symlinks)
+  # Check if target IS the repo root (self-restoration mode)
   if [[ "$(cd "$target" && pwd)" == "$REPO_ROOT" ]]; then
-    return 0
+    is_self=true
   fi
 
   local synced=0
@@ -135,8 +152,13 @@ sync_self_hosted_hooks() {
     if [[ ! -L "$dest" ]]; then
       missing+=("$hook")
       mkdir -p "$target/.claude/hooks/pretooluse"
-      local rel_target="../../../core/hooks/pretooluse/$hook"
-      (cd "$target/.claude/hooks/pretooluse" && ln -sf "$rel_target" "$hook")
+      if [[ "$is_self" == true ]]; then
+        # Self-restoration: use relative path
+        (cd "$target/.claude/hooks/pretooluse" && ln -sf "../../../core/hooks/pretooluse/$hook" "$hook")
+      else
+        # Cross-repo sync: use absolute path
+        ln -sf "$hook_file" "$dest"
+      fi
       echo "  ✓ $hook (created)"
       ((synced++)) || true
     fi
@@ -162,6 +184,7 @@ AVAILABLE_SKILLS=($(discover_available_skills))
 
 # Defaults
 FORCE=false
+NIGHTLY=false
 
 usage() {
   cat <<EOF
@@ -171,12 +194,14 @@ Update agentic configuration to latest version from central repository.
 
 Options:
   --force                Force update of copied files without prompting
+  --nightly              Force symlink rebuild and config reconciliation (ignores version match)
   -h, --help             Show this help message
 
 Notes:
   - Symlinked files update automatically
   - Copied files (.agent/config.yml, AGENTS.md) require manual review
   - If target_path not specified, uses current directory
+  - Nightly mode updates config schema to latest even when version matches
 EOF
 }
 
@@ -186,6 +211,10 @@ while [[ $# -gt 0 ]]; do
   case $1 in
     --force)
       FORCE=true
+      shift
+      ;;
+    --nightly)
+      NIGHTLY=true
       shift
       ;;
     -h|--help)
@@ -205,6 +234,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 # Function to clean up orphaned symlinks
+# Returns count via stdout (no other output to stdout)
 cleanup_orphan_symlinks() {
   local target="$1"
   local dir="$2"
@@ -214,7 +244,8 @@ cleanup_orphan_symlinks() {
     for link in "$target/$dir"/*; do
       if [[ -L "$link" && ! -e "$link" ]]; then
         rm "$link"
-        echo "  Removed orphan: $(basename "$link")"
+        # Progress to stderr so it doesn't interfere with count capture
+        echo "  Removed orphan: $(basename "$link")" >&2
         ((removed++)) || true
       fi
     done
@@ -311,37 +342,120 @@ if is_self_hosted "$TARGET_PATH"; then
   sync_self_hosted_hooks "$TARGET_PATH"
 fi
 
+# Handle version match - but still check for missing assets/orphans
 if [[ "$CURRENT_VERSION" == "$LATEST_VERSION" ]]; then
-  echo "Already up to date!"
-  exit 0
+  if [[ "$NIGHTLY" == true ]]; then
+    echo "Nightly mode: reconciling config and rebuilding symlinks..."
+    echo ""
+    echo "Reconciling configuration..."
+    reconcile_config "$TARGET_PATH" "$LATEST_VERSION"
+    # Continue to symlink rebuild (don't exit)
+  elif [[ "$FORCE" == true ]]; then
+    echo "Already up to date (force mode - checking templates)..."
+    # Continue to template check section (don't exit)
+  else
+    echo "Already up to date!"
+    # Still check for missing commands/skills and clean orphans
+    # This handles cases where user manually deleted files
+    NEED_MAINTENANCE=false
+
+    # Check for missing commands
+    for cmd in "${AVAILABLE_CMDS[@]}"; do
+      if [[ -f "$REPO_ROOT/core/commands/claude/$cmd.md" ]] && [[ ! -e "$TARGET_PATH/.claude/commands/$cmd.md" ]]; then
+        NEED_MAINTENANCE=true
+        break
+      fi
+    done
+
+    # Check for missing skills
+    if [[ "$NEED_MAINTENANCE" == false ]]; then
+      for skill in "${AVAILABLE_SKILLS[@]}"; do
+        if [[ -d "$REPO_ROOT/core/skills/$skill" ]] && [[ ! -e "$TARGET_PATH/.claude/skills/$skill" ]]; then
+          NEED_MAINTENANCE=true
+          break
+        fi
+      done
+    fi
+
+    # Check for orphan symlinks
+    if [[ "$NEED_MAINTENANCE" == false ]]; then
+      if [[ -d "$TARGET_PATH/.claude/commands" ]]; then
+        for link in "$TARGET_PATH/.claude/commands"/*; do
+          if [[ -L "$link" && ! -e "$link" ]]; then
+            NEED_MAINTENANCE=true
+            break
+          fi
+        done
+      fi
+    fi
+
+    # Check if config needs reconciliation (missing fields)
+    if [[ "$NEED_MAINTENANCE" == false ]] && command -v jq >/dev/null 2>&1; then
+      config="$TARGET_PATH/.agentic-config.json"
+      if [[ ! $(jq -r '.agentic_global_path // empty' "$config") ]]; then
+        NEED_MAINTENANCE=true
+      fi
+    fi
+
+    if [[ "$NEED_MAINTENANCE" == false ]]; then
+      # Nothing to do, just refresh path and exit
+      echo "Refreshing path persistence..."
+      if persist_agentic_path "$REPO_ROOT"; then
+        echo "  ✓ Path persisted to all locations"
+      else
+        echo "  ⊘ Some persistence locations failed (non-fatal)"
+      fi
+      exit 0
+    else
+      echo "Performing maintenance (restoring missing assets, cleaning orphans)..."
+      echo ""
+      # Continue to maintenance section below
+    fi
+  fi
 fi
 
 # Get project type from config
 if command -v jq &>/dev/null; then
   PROJECT_TYPE=$(jq -r '.project_type' "$TARGET_PATH/.agentic-config.json")
+
+  # Validate PROJECT_TYPE against known types
+  KNOWN_TYPES=("generic" "python" "node" "rust" "go" "java")
+  VALID_TYPE=false
+  for known_type in "${KNOWN_TYPES[@]}"; do
+    if [[ "$PROJECT_TYPE" == "$known_type" ]]; then
+      VALID_TYPE=true
+      break
+    fi
+  done
+  if [[ "$VALID_TYPE" == false ]]; then
+    echo "WARNING: Unknown project_type '$PROJECT_TYPE' - using 'generic' template as fallback" >&2
+    PROJECT_TYPE="generic"
+  fi
 else
   PROJECT_TYPE=$(grep -o '"project_type"[[:space:]]*:[[:space:]]*"[^"]*"' "$TARGET_PATH/.agentic-config.json" | cut -d'"' -f4)
 fi
 TEMPLATE_DIR="$REPO_ROOT/templates/$PROJECT_TYPE"
 
-# Only run version update flow if there's actually a version change
-if [[ "$CURRENT_VERSION" != "$LATEST_VERSION" ]]; then
-  # Check if updates are opt-in
-  AUTO_CHECK=$(jq -r '.auto_check // true' "$TARGET_PATH/.agentic-config.json" 2>/dev/null || echo "true")
-  if [[ "$AUTO_CHECK" == "false" ]]; then
-    echo "WARNING: Auto-check disabled for this project"
-    echo "   To enable: jq '.auto_check = true' .agentic-config.json > tmp && mv tmp .agentic-config.json"
-  fi
+# Run version update flow if there's a version change OR force mode
+if [[ "$CURRENT_VERSION" != "$LATEST_VERSION" ]] || [[ "$FORCE" == true ]]; then
+  if [[ "$CURRENT_VERSION" != "$LATEST_VERSION" ]]; then
+    # Check if updates are opt-in
+    AUTO_CHECK=$(jq -r '.auto_check // true' "$TARGET_PATH/.agentic-config.json" 2>/dev/null || echo "true")
+    if [[ "$AUTO_CHECK" == "false" ]]; then
+      echo "WARNING: Auto-check disabled for this project"
+      echo "   To enable: jq '.auto_check = true' .agentic-config.json > tmp && mv tmp .agentic-config.json"
+    fi
 
-  echo ""
-  echo "Update available: $CURRENT_VERSION → $LATEST_VERSION"
-  echo ""
-  echo "Symlinked files will update automatically:"
-  echo "  - agents/ (workflows)"
-  echo "  - .claude/commands/spec.md"
-  echo "  - .gemini/commands/spec.toml"
-  echo "  - .codex/prompts/spec.md"
-  echo ""
+    echo ""
+    echo "Update available: $CURRENT_VERSION → $LATEST_VERSION"
+    echo ""
+    echo "Symlinked files will update automatically:"
+    echo "  - agents/ (workflows)"
+    echo "  - .claude/commands/spec.md"
+    echo "  - .gemini/commands/spec.toml"
+    echo "  - .codex/prompts/spec.md"
+    echo ""
+  fi
 
   # Check for changes in templates
   echo "Checking for template updates..."
@@ -370,6 +484,15 @@ if [[ "$CURRENT_VERSION" != "$LATEST_VERSION" ]]; then
     echo ""
 
     if [[ "$FORCE" == true ]]; then
+      # Create backup before force updating
+      if [[ "$HAS_CONFIG_CHANGES" == true || "$HAS_AGENTS_CHANGES" == true ]]; then
+        BACKUP_DIR="$TARGET_PATH/.agentic-config.backup.$(date +%s)"
+        mkdir -p "$BACKUP_DIR"
+        [[ "$HAS_CONFIG_CHANGES" == true && -f "$TARGET_PATH/.agent/config.yml" ]] && cp "$TARGET_PATH/.agent/config.yml" "$BACKUP_DIR/config.yml"
+        [[ "$HAS_AGENTS_CHANGES" == true && -f "$TARGET_PATH/AGENTS.md" ]] && cp "$TARGET_PATH/AGENTS.md" "$BACKUP_DIR/AGENTS.md"
+        echo "Created backup: $BACKUP_DIR"
+      fi
+
       # Migrate customizations to PROJECT_AGENTS.md if needed
       migrate_to_project_agents "$TARGET_PATH"
 
@@ -495,6 +618,12 @@ if [[ "$INSTALL_MODE" == "copy" && "$CURRENT_VERSION" != "$LATEST_VERSION" ]]; t
   echo "   Backup location: $COPY_BACKUP_DIR"
 fi
 
+# Check if target IS the repo root (self-hosted mode for relative symlinks)
+IS_SELF_HOSTED=false
+if [[ "$(cd "$TARGET_PATH" && pwd)" == "$REPO_ROOT" ]]; then
+  IS_SELF_HOSTED=true
+fi
+
 # Install all commands from core (respect install_mode)
 echo ""
 echo "Installing commands..."
@@ -508,9 +637,13 @@ for cmd in "${AVAILABLE_CMDS[@]}"; do
       if [[ "$INSTALL_MODE" == "copy" ]]; then
         cp "$REPO_ROOT/core/commands/claude/$cmd.md" "$TARGET_PATH/.claude/commands/$cmd.md"
       else
-        # Use relative path from .claude/commands/ to core/commands/claude/
-        rel_target="../../core/commands/claude/$cmd.md"
-        (cd "$TARGET_PATH/.claude/commands" && ln -sf "$rel_target" "$cmd.md")
+        if [[ "$IS_SELF_HOSTED" == true ]]; then
+          # Self-hosted: use relative path per PROJECT_AGENTS.md
+          (cd "$TARGET_PATH/.claude/commands" && ln -sf "../../core/commands/claude/$cmd.md" "$cmd.md")
+        else
+          # Cross-project: use absolute path
+          ln -sf "$REPO_ROOT/core/commands/claude/$cmd.md" "$TARGET_PATH/.claude/commands/$cmd.md"
+        fi
       fi
       echo "  ✓ $cmd.md"
       ((CMDS_INSTALLED++)) || true
@@ -532,9 +665,13 @@ for skill in "${AVAILABLE_SKILLS[@]}"; do
       if [[ "$INSTALL_MODE" == "copy" ]]; then
         cp -r "$REPO_ROOT/core/skills/$skill" "$TARGET_PATH/.claude/skills/$skill"
       else
-        # Use relative path from .claude/skills/ to core/skills/
-        rel_target="../../core/skills/$skill"
-        (cd "$TARGET_PATH/.claude/skills" && ln -sf "$rel_target" "$skill")
+        if [[ "$IS_SELF_HOSTED" == true ]]; then
+          # Self-hosted: use relative path per PROJECT_AGENTS.md
+          (cd "$TARGET_PATH/.claude/skills" && ln -sf "../../core/skills/$skill" "$skill")
+        else
+          # Cross-project: use absolute path
+          ln -sf "$REPO_ROOT/core/skills/$skill" "$TARGET_PATH/.claude/skills/$skill"
+        fi
       fi
       echo "  ✓ $skill"
       ((SKILLS_INSTALLED++)) || true
@@ -547,9 +684,13 @@ for skill in "${AVAILABLE_SKILLS[@]}"; do
         fi
         mv "$TARGET_PATH/.claude/skills/$skill" "$SKILLS_BACKUP_DIR/$skill"
         echo "  ⚠ Backed up: $skill → $SKILLS_BACKUP_DIR/$skill"
-        # Use relative path from .claude/skills/ to core/skills/
-        rel_target="../../core/skills/$skill"
-        (cd "$TARGET_PATH/.claude/skills" && ln -sf "$rel_target" "$skill")
+        if [[ "$IS_SELF_HOSTED" == true ]]; then
+          # Self-hosted: use relative path per PROJECT_AGENTS.md
+          (cd "$TARGET_PATH/.claude/skills" && ln -sf "../../core/skills/$skill" "$skill")
+        else
+          # Cross-project: use absolute path
+          ln -sf "$REPO_ROOT/core/skills/$skill" "$TARGET_PATH/.claude/skills/$skill"
+        fi
         echo "  ✓ $skill (converted to symlink)"
         ((SKILLS_INSTALLED++)) || true
       fi
@@ -569,8 +710,13 @@ for hook_file in "$REPO_ROOT/core/hooks/pretooluse/"*.py; do
     if [[ "$INSTALL_MODE" == "copy" ]]; then
       cp "$hook_file" "$TARGET_PATH/.claude/hooks/pretooluse/$hook"
     else
-      rel_target="../../../core/hooks/pretooluse/$hook"
-      (cd "$TARGET_PATH/.claude/hooks/pretooluse" && ln -sf "$rel_target" "$hook")
+      if [[ "$IS_SELF_HOSTED" == true ]]; then
+        # Self-hosted: use relative path per PROJECT_AGENTS.md
+        (cd "$TARGET_PATH/.claude/hooks/pretooluse" && ln -sf "../../../core/hooks/pretooluse/$hook" "$hook")
+      else
+        # Cross-project: use absolute path
+        ln -sf "$hook_file" "$TARGET_PATH/.claude/hooks/pretooluse/$hook"
+      fi
     fi
     echo "  ✓ $hook"
     ((HOOKS_INSTALLED++)) || true
@@ -581,6 +727,12 @@ done
 # Register hooks in .claude/settings.json (ensure dry-run-guard is configured)
 echo "Verifying hook registration in settings.json..."
 SETTINGS_FILE="$TARGET_PATH/.claude/settings.json"
+
+# Backup SETTINGS_FILE before modify (if it exists)
+if [[ -f "$SETTINGS_FILE" ]]; then
+  cp "$SETTINGS_FILE" "$SETTINGS_FILE.bak.$(date +%s)" 2>/dev/null || true
+fi
+
 HOOK_CONFIG="{
   \"hooks\": {
     \"PreToolUse\": [
@@ -589,7 +741,7 @@ HOOK_CONFIG="{
         \"hooks\": [
           {
             \"type\": \"command\",
-            \"command\": \"uv run --no-project --script $TARGET_PATH/.claude/hooks/pretooluse/dry-run-guard.py $TARGET_PATH\"
+            \"command\": \"bash -c 'AGENTIC_ROOT=\\\"\$PWD\\\"; while [ ! -f \\\"\$AGENTIC_ROOT/.agentic-config.json\\\" ] && [ \\\"\$AGENTIC_ROOT\\\" != \\\"/\\\" ]; do AGENTIC_ROOT=\$(dirname \\\"\$AGENTIC_ROOT\\\"); done; cd \\\"\$AGENTIC_ROOT\\\" && uv run --no-project --script .claude/hooks/pretooluse/dry-run-guard.py \\\"\$AGENTIC_ROOT\\\"'\"
           }
         ]
       }
@@ -629,39 +781,46 @@ fi
 # Clean up orphaned symlinks
 echo "Cleaning up orphaned symlinks..."
 ORPHANS=$(cleanup_orphan_symlinks "$TARGET_PATH" ".claude/commands")
-if [[ $ORPHANS -gt 0 ]]; then
+if [[ "${ORPHANS:-0}" -gt 0 ]]; then
   echo "  Cleaned $ORPHANS orphan command symlink(s)"
 else
   echo "  (no orphans found)"
 fi
 
 ORPHANS=$(cleanup_orphan_symlinks "$TARGET_PATH" ".claude/skills")
-if [[ $ORPHANS -gt 0 ]]; then
+if [[ "${ORPHANS:-0}" -gt 0 ]]; then
   echo "  Cleaned $ORPHANS orphan skill symlink(s)"
 fi
 
-# Update version tracking (only after all operations complete)
-# Always update version when: force mode, no pending config changes, or copy mode replaced assets
+# Reconcile config and update version (only after all operations complete)
+# Run when: version mismatch, force mode, nightly mode, or maintenance detected missing fields
 if [[ "$CURRENT_VERSION" != "$LATEST_VERSION" ]]; then
   if [[ "$FORCE" == true || "${HAS_CONFIG_CHANGES:-false}" == false || "$COPY_MODE_REPLACED" == true ]]; then
-    echo "Updating version tracking..."
-    TIMESTAMP="$(date -Iseconds 2>/dev/null || date +%Y-%m-%dT%H:%M:%S%z)"
-    if command -v jq &>/dev/null; then
-      jq --arg version "$LATEST_VERSION" \
-         --arg timestamp "$TIMESTAMP" \
-         '.version = $version | .updated_at = $timestamp' \
-         "$TARGET_PATH/.agentic-config.json" > "$TARGET_PATH/.agentic-config.json.tmp"
-      mv "$TARGET_PATH/.agentic-config.json.tmp" "$TARGET_PATH/.agentic-config.json"
-    else
-      # Fallback: use sed for simple field replacement
-      sed -i.bak \
-        -e "s/\"version\"[[:space:]]*:[[:space:]]*\"[^\"]*\"/\"version\": \"$LATEST_VERSION\"/" \
-        -e "s/\"updated_at\"[[:space:]]*:[[:space:]]*\"[^\"]*\"/\"updated_at\": \"$TIMESTAMP\"/" \
-        "$TARGET_PATH/.agentic-config.json" && \
-      rm -f "$TARGET_PATH/.agentic-config.json.bak"
-    fi
-    echo "Version updated to $LATEST_VERSION"
+    echo "Reconciling configuration..."
+    reconcile_config "$TARGET_PATH" "$LATEST_VERSION"
   fi
+elif [[ "$NIGHTLY" == true ]]; then
+  # Nightly already reconciled above, just confirm
+  echo "  (config already reconciled in nightly mode)"
+elif [[ "${NEED_MAINTENANCE:-false}" == true ]]; then
+  # Same version but maintenance mode detected missing config fields
+  echo "Reconciling configuration..."
+  reconcile_config "$TARGET_PATH" "$CURRENT_VERSION"
+fi
+
+# Refresh path persistence (ensure all locations are up to date)
+echo "Refreshing path persistence..."
+
+# Check git availability before git operations
+if ! command -v git >/dev/null 2>&1; then
+  echo "WARNING: git command not found - skipping git-based validation" >&2
+  # Continue anyway - git not required for all operations
+fi
+
+if persist_agentic_path "$REPO_ROOT"; then
+  echo "  ✓ Path persisted to all locations"
+else
+  echo "  ⊘ Some persistence locations failed (non-fatal)"
 fi
 
 echo ""

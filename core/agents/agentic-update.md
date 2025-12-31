@@ -24,16 +24,24 @@ Parse `$ARGUMENTS` for optional flags:
 ### 1. Version Check
 - Detect installation mode from `.agentic-config.json` (symlink or copy)
 - Read `.agentic-config.json` current version
-- Compare with `~/projects/agentic-config/VERSION`
+- Discover global path:
+  ```bash
+  # Pure bash - no external commands
+  _agp=""
+  [[ -f ~/.agents/.path ]] && _agp=$(<~/.agents/.path)
+  AGENTIC_GLOBAL="${AGENTIC_CONFIG_PATH:-${_agp:-$HOME/.agents/agentic-config}}"
+  unset _agp
+  ```
+- Compare with `$AGENTIC_GLOBAL/VERSION`
 - Read `CHANGELOG.md` for what changed between versions
 
 ### 1b. Nightly Mode
 If `nightly` explicitly provided in `$ARGUMENTS`:
-- **Rebuild all symlinks** (useful when new commands/skills added, or for development)
+- **Reconcile config + rebuild symlinks** (useful when new commands/skills/config fields added)
 - Use AskUserQuestion:
-  - "Version matches - rebuild all symlinks in nightly mode?"
-  - Options: "Yes, rebuild" (Recommended), "No, skip"
-- If yes: proceed to symlink rebuild (skip template checks)
+  - "Version matches - reconcile config and rebuild symlinks in nightly mode?"
+  - Options: "Yes, reconcile" (Recommended), "No, skip"
+- If yes: run `update-config.sh --nightly` (handles config reconciliation and symlink rebuild)
 - If no: exit with "Already up to date!"
 
 ### 2. Impact Assessment
@@ -160,61 +168,58 @@ This ensures NOTHING is ever lost.
 
 **For "Update" (symlinks only):**
 ```bash
-~/projects/agentic-config/scripts/update-config.sh <target_path>
+# Pure bash - no external commands
+_agp=""
+[[ -f ~/.agents/.path ]] && _agp=$(<~/.agents/.path)
+AGENTIC_GLOBAL="${AGENTIC_CONFIG_PATH:-${_agp:-$HOME/.agents/agentic-config}}"
+unset _agp
+"$AGENTIC_GLOBAL/scripts/update-config.sh" <target_path>
 ```
 
 **For "Full Update" (with template refresh):**
 ```bash
 # Backup is created automatically by script
-~/projects/agentic-config/scripts/update-config.sh --force <target_path>
+# Pure bash - no external commands
+_agp=""
+[[ -f ~/.agents/.path ]] && _agp=$(<~/.agents/.path)
+AGENTIC_GLOBAL="${AGENTIC_CONFIG_PATH:-${_agp:-$HOME/.agents/agentic-config}}"
+unset _agp
+"$AGENTIC_GLOBAL/scripts/update-config.sh" --force <target_path>
+```
+
+**Refresh Persistence Locations** (v1.2.0+):
+```bash
+source "$AGENTIC_GLOBAL/scripts/lib/path-persistence.sh"
+persist_agentic_path "$AGENTIC_GLOBAL"
 ```
 
 ### 5. Symlink Rebuild (nightly or same-version mode)
 
-When rebuilding symlinks:
-
+**Use update-config.sh with --nightly flag:**
 ```bash
-# Core symlinks
-ln -sf ../../core/agents agents
-
-# Commands - rebuild ALL from core
-for cmd in ../../core/commands/claude/*.md; do
-  [[ ! -f "$cmd" ]] && continue  # Skip if source missing
-  name=$(basename "$cmd")
-  target="../../core/commands/claude/$name"
-  (cd .claude/commands && ln -sf "$target" "$name")
-done
-
-# Skills - rebuild ALL from core
-for skill in ../../core/skills/*; do
-  [[ ! -e "$skill" ]] && continue  # Skip if source missing
-  name=$(basename "$skill")
-  (cd .claude/skills && ln -sf "../../core/skills/$name" "$name")
-done
-
-# Hooks - rebuild ALL from core
-mkdir -p .claude/hooks/pretooluse
-for hook in ../../core/hooks/pretooluse/*.py; do
-  [[ ! -f "$hook" ]] && continue
-  name=$(basename "$hook")
-  (cd .claude/hooks/pretooluse && ln -sf "../../../core/hooks/pretooluse/$name" "$name")
-done
-
-# settings.json - ensure hooks are registered
-# (update-config.sh handles this automatically)
-
-# Clean orphans
-for link in .claude/commands/*.md .claude/skills/*; do
-  [[ -L "$link" && ! -e "$link" ]] && rm "$link"
-done
+# Pure bash - no external commands
+_agp=""
+[[ -f ~/.agents/.path ]] && _agp=$(<~/.agents/.path)
+AGENTIC_GLOBAL="${AGENTIC_CONFIG_PATH:-${_agp:-$HOME/.agents/agentic-config}}"
+unset _agp
+"$AGENTIC_GLOBAL/scripts/update-config.sh" --nightly <target_path>
 ```
 
-Report:
-- Commands rebuilt: N
-- Skills rebuilt: N
-- Hooks rebuilt: N
-- Settings.json: verified/updated
-- Orphans removed: N
+This automatically:
+- Reconciles `.agentic-config.json` with latest schema (adds missing fields)
+- Rebuilds all command symlinks from core
+- Rebuilds all skill symlinks from core
+- Rebuilds all hook symlinks from core
+- Verifies/updates settings.json hook registration
+- Cleans orphan symlinks
+- Refreshes path persistence
+
+Report from script shows:
+- Config reconciled (fields added/updated)
+- Commands installed/rebuilt
+- Skills installed/rebuilt
+- Hooks installed/rebuilt
+- Orphans cleaned
 
 ### 6. Validation
 - Check version updated in `.agentic-config.json`

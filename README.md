@@ -445,6 +445,54 @@ Structured development workflow with AI assistance:
 
 See `core/agents/spec/*.md` for stage definitions.
 
+### External Specs Storage
+
+Specification files can be stored in a separate external repository to reduce clutter in the main repository while maintaining version control.
+
+**Configuration:**
+
+Create a `.env` file in the repository root (based on `.env.example`):
+```bash
+EXT_SPECS_REPO_URL=git@github.com:user/specs.git  # Git repository URL (SSH or HTTPS)
+EXT_SPECS_LOCAL_PATH=.specs                       # Local directory path (default: .specs)
+```
+
+**Automatic Path Resolution:**
+
+The spec workflow automatically detects external vs local configuration:
+
+- When `EXT_SPECS_REPO_URL` is set:
+  - Specs stored in `.specs/specs/`
+  - Commits pushed to external repository
+
+- When `EXT_SPECS_REPO_URL` is NOT set:
+  - Specs stored in `specs/`
+  - Commits pushed to main repository
+
+**No code changes needed** when switching between external and local configurations. The spec-resolver library (`core/lib/spec-resolver.sh`) handles all path resolution and commit routing automatically.
+
+**Available Functions:**
+
+For manual operations, source the wrapper script:
+```bash
+source scripts/external-specs.sh
+
+# Initialize/update external repository
+ext_specs_init
+
+# Commit and push changes
+ext_specs_commit "commit message"
+
+# Get absolute path to external specs directory
+ext_specs_path
+```
+
+**Integrated Commands:**
+- `/branch` - Creates spec directories using resolved paths
+- All `/spec` stages - Automatically commit to appropriate repository
+
+See `AGENTS.md` for detailed spec resolver documentation.
+
 ## Troubleshooting
 
 ### Broken Symlinks

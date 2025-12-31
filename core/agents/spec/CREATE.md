@@ -15,7 +15,7 @@ NONE (user provides objectives via conversation)
 - On "CREATE spec": enter PLANNING MODE.
 - PROPOSE path using smart defaulting (see Path Defaulting Logic below).
 - CREATE file using exact template below.
-- COMMIT immediately with message: `spec(NNN): CREATE - <title>`
+- COMMIT immediately using spec resolver (see Workflow step 9)
 
 ## Path Defaulting Logic
 
@@ -60,9 +60,18 @@ NONE (user provides objectives via conversation)
    - `## Details ### Testing` if testing requirements were discussed
    - `## Behavior` if special AI instructions provided
 8. VERIFY file created successfully.
-9. COMMIT ONLY the new spec file:
-   - `git add -- <spec_path>`
-   - `git commit -m "spec(NNN): CREATE - <title>"`
+9. COMMIT ONLY the new spec file using spec resolver:
+   ```bash
+   # Source spec resolver (pure bash - no external commands)
+   _agp=""
+   [[ -f ~/.agents/.path ]] && _agp=$(<~/.agents/.path)
+   AGENTIC_GLOBAL="${AGENTIC_CONFIG_PATH:-${_agp:-$HOME/.agents/agentic-config}}"
+   unset _agp
+   source "$AGENTIC_GLOBAL/core/lib/spec-resolver.sh"
+
+   # Commit spec changes
+   commit_spec_changes "<spec_path>" "CREATE" "<NNN>" "<title>"
+   ```
 10. CONFIRM commit success.
 
 ## Spec File Template

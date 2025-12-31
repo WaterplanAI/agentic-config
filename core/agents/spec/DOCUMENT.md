@@ -23,7 +23,21 @@ SPEC: $ARGUMENT
    - Files updated
    - Changes made
 6. SUMMARIZE result (max: 100 words).
-7. COMMIT with: `spec(NNN): DOCUMENT - <title>`
+7. COMMIT documentation changes to main repository, then spec using resolver:
+   ```bash
+   # Commit documentation to main repository
+   git add <documentation_files>
+   git commit -m "spec(NNN): DOCUMENT - <title>"
+
+   # Source spec resolver (pure bash - no external commands)
+   _agp=""
+   [[ -f ~/.agents/.path ]] && _agp=$(<~/.agents/.path)
+   AGENTIC_GLOBAL="${AGENTIC_CONFIG_PATH:-${_agp:-$HOME/.agents/agentic-config}}"
+   unset _agp
+   source "$AGENTIC_GLOBAL/core/lib/spec-resolver.sh"
+
+   commit_spec_changes "<spec_path>" "DOCUMENT" "<NNN>" "<title>"
+   ```
 
 ## Behavior
 

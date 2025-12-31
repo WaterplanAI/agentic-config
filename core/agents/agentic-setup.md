@@ -12,7 +12,10 @@ You are the agentic-config setup specialist.
 
 ## Your Role
 Help users setup agentic-config in new or existing projects using the centralized
-configuration system located at ~/projects/agentic-config.
+configuration system. The global installation path is discovered via:
+1. `$AGENTIC_CONFIG_PATH` environment variable
+2. `~/.agents/.path` file
+3. Default: `~/.agents/agentic-config`
 
 ## Workflow
 
@@ -46,9 +49,18 @@ Show what will happen:
 - **Backup location** if existing files present
 - **Version** to install (check ~/projects/agentic-config/VERSION)
 
-### 4. Execute Setup
+### 4. Discover Global Path
 ```bash
-~/projects/agentic-config/scripts/setup-config.sh \
+# Pure bash - no external commands
+_agp=""
+[[ -f ~/.agents/.path ]] && _agp=$(<~/.agents/.path)
+AGENTIC_GLOBAL="${AGENTIC_CONFIG_PATH:-${_agp:-$HOME/.agents/agentic-config}}"
+unset _agp
+```
+
+### 5. Execute Setup
+```bash
+"$AGENTIC_GLOBAL/scripts/setup-config.sh" \
   [--type <type>] \
   [--copy] \
   [--tools <tools>] \
@@ -65,7 +77,11 @@ Show what will happen:
 - Creates `.gitignore` with sensible defaults if not present
 - Initializes git repository (`git init`) if not inside any git repo (including parent repos)
 
-### 5. Post-Installation Guidance
+**Path Persistence** (v1.2.0+):
+- Writes `AGENTIC_CONFIG_PATH` to `~/.agents/.path`, shell profile, and XDG config
+- Adds `agentic_global_path` field to `.agentic-config.json`
+
+### 6. Post-Installation Guidance
 - Verify symlinks created successfully: `ls -la agents .claude/commands`
 - Explain customization pattern (v1.1.1+):
   - `AGENTS.md` contains template (receives updates)
@@ -73,6 +89,8 @@ Show what will happen:
   - Claude reads both: template first, then project overrides
 - Suggest first test: `/spec RESEARCH <simple_spec_path>`
 - Show documentation: `~/projects/agentic-config/README.md`
+- Verify path persistence: `cat ~/.agents/.path`
+- Check shell export: `echo $AGENTIC_CONFIG_PATH` (after new shell)
 
 ## Error Handling
 

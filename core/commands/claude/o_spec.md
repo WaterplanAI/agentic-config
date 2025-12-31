@@ -24,7 +24,7 @@ IMPLEMENT PRODUCTION-READY full autonomous end-to-end features/fixes/chores leve
 
 - ONLY use `/spec <STAGE> <path>` commands - NEVER invent custom instructions
 - Format: `/spawn <model> "/spec <STAGE> <path> [ultrathink]"` - NOTHING ELSE
-- DEFINE CORRECT spec path for spec creation using `specs/<YYYY>/<MM>/<branch>/<NNN>-<title>.md`. PRIORITIZE using the spec path used in RECENT commits (branch).
+- Spec paths are resolved via `spec-resolver.sh` for external/local routing. Use relative path format: `specs/<YYYY>/<MM>/<branch>/<NNN>-<title>.md`. PRIORITIZE using the spec path used in RECENT commits (branch).
 
 # VARIABLES
 
@@ -63,7 +63,7 @@ status: "in_progress"
 
 arguments:
   modifier: "normal"
-  spec_path: "specs/2025/12/feat/my-feature/001-spec.md"
+  spec_path: "/absolute/path/to/spec.md"  # Resolved via spec-resolver.sh
   model_override: null
   skip_steps: []
 
@@ -181,6 +181,20 @@ SESSION_ID="$(date +%H%M%S)-${SESSION_UUID}"
 SESSION_DIR="outputs/orc/$(date +%Y/%m/%d)/${SESSION_ID}"
 mkdir -p "$SESSION_DIR"
 
+# Source spec resolver (pure bash - no external commands)
+_agp=""
+[[ -f ~/.agents/.path ]] && _agp=$(<~/.agents/.path)
+AGENTIC_GLOBAL="${AGENTIC_CONFIG_PATH:-${_agp:-$HOME/.agents/agentic-config}}"
+unset _agp
+source "$AGENTIC_GLOBAL/core/lib/spec-resolver.sh"
+
+# Resolve spec path - handles external/local routing
+if [[ "$SPEC" == specs/* ]]; then
+  RESOLVED_SPEC=$(resolve_spec_path "${SPEC#specs/}")
+else
+  RESOLVED_SPEC="$SPEC"  # Already absolute or external path
+fi
+
 cat > "$SESSION_DIR/workflow_state.yml" << EOF
 session_id: "$SESSION_ID"
 command: "o_spec"
@@ -189,7 +203,7 @@ updated_at: "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 status: "in_progress"
 arguments:
   modifier: "$MODIFIER"
-  spec_path: "$SPEC"
+  spec_path: "$RESOLVED_SPEC"
   model_override: "$MODEL_OVERRIDE"
   skip_steps: [$SKIP_STEPS]
 current_stage: "CREATE"

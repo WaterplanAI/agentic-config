@@ -45,7 +45,18 @@ SPEC: $ARGUMENT
 10. RE-READ `Human Section` and VALIDATE you comply with every requirement.
    1. LIST EVERY requirement in a subsection `## Plan > ### Validate` and append a 1 line summary (with spec line reference `L<X>`) on how you are complying with that requirement.
 11. SUMMARIZE result to user in output (max: 150 words).
-12. COMMIT with: `spec(NNN): PLAN - <title>`
+12. COMMIT using spec resolver:
+    ```bash
+    # Source spec resolver (pure bash - no external commands)
+    _agp=""
+    [[ -f ~/.agents/.path ]] && _agp=$(<~/.agents/.path)
+    AGENTIC_GLOBAL="${AGENTIC_CONFIG_PATH:-${_agp:-$HOME/.agents/agentic-config}}"
+    unset _agp
+    source "$AGENTIC_GLOBAL/core/lib/spec-resolver.sh"
+
+    # Commit spec changes
+    commit_spec_changes "<spec_path>" "PLAN" "<NNN>" "<title>"
+    ```
 
 ## Format
 

@@ -152,7 +152,6 @@ Creates AND COMMITS (CRITICAL):
 ### Step 3: Create worktree
 
 ```bash
-REPO_ROOT=$(git rev-parse --show-toplevel)
 git worktree add "trees/$FULL_NAME" "$FULL_NAME"
 ```
 

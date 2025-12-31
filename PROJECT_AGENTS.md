@@ -9,6 +9,14 @@ Project overrides for agentic-config repository.
 - All documentation and code must be anonymized (no personal names, emails, or identifiable information)
 - CRITICAL: NEVER add `outputs/` content to git - this directory is gitignored for a reason
 
+## Installation Flexibility
+
+CRITICAL - agentic-config MUST be agnostic and work seamlessly in all scenarios:
+- Repository root installation
+- Subdirectory installation (any depth)
+- Non-git directory installation
+- All paths, hooks, and configurations must resolve correctly regardless of installation location or current working directory
+
 ## Symlinks
 
 CRITICAL - All project symlinks MUST use relative paths (NEVER create symlinks inside `core/` directories):

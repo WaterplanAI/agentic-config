@@ -12,6 +12,7 @@ VERSION=$(cat "$REPO_ROOT/VERSION")
 source "$SCRIPT_DIR/lib/detect-project-type.sh"
 source "$SCRIPT_DIR/lib/template-processor.sh"
 source "$SCRIPT_DIR/lib/version-manager.sh"
+source "$SCRIPT_DIR/lib/path-persistence.sh"
 
 # Dynamically discover all available commands from core directory
 discover_available_commands() {
@@ -375,7 +376,7 @@ if [[ "$DRY_RUN" != true ]]; then
           \"hooks\": [
             {
               \"type\": \"command\",
-              \"command\": \"uv run --no-project --script $TARGET_PATH/.claude/hooks/pretooluse/dry-run-guard.py $TARGET_PATH\"
+              \"command\": \"bash -c 'AGENTIC_ROOT=\\\"\$PWD\\\"; while [ ! -f \\\"\$AGENTIC_ROOT/.agentic-config.json\\\" ] && [ \\\"\$AGENTIC_ROOT\\\" != \\\"/\\\" ]; do AGENTIC_ROOT=\$(dirname \\\"\$AGENTIC_ROOT\\\"); done; cd \\\"\$AGENTIC_ROOT\\\" && uv run --no-project --script .claude/hooks/pretooluse/dry-run-guard.py \\\"\$AGENTIC_ROOT\\\"'\"
             }
           ]
         }
@@ -564,6 +565,14 @@ if [[ "$NO_REGISTRY" != true && "$DRY_RUN" != true ]]; then
     register_installation "$TARGET_PATH" "$PROJECT_TYPE" "$VERSION" "copy"
   else
     register_installation "$TARGET_PATH" "$PROJECT_TYPE" "$VERSION" "symlink"
+  fi
+fi
+
+# Persist AGENTIC_CONFIG_PATH to all locations
+echo "Persisting global path..."
+if [[ "$DRY_RUN" != true ]]; then
+  if ! persist_agentic_path "$REPO_ROOT"; then
+    echo "   WARNING: Some persistence locations failed (non-fatal)"
   fi
 fi
 

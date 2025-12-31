@@ -25,7 +25,18 @@ SPEC: $ARGUMENT
    - Specify expected test coverage
 6. APPEND the output in section `# AI Section > ## Research ### Strategy`. YOU MUST NOT APPEND in any other section.
 7. SUMMARIZE result to user in output (max: 150 words).
-8. COMMIT with: `spec(NNN): RESEARCH - <title>`
+8. COMMIT using spec resolver:
+   ```bash
+   # Source spec resolver (pure bash - no external commands)
+   _agp=""
+   [[ -f ~/.agents/.path ]] && _agp=$(<~/.agents/.path)
+   AGENTIC_GLOBAL="${AGENTIC_CONFIG_PATH:-${_agp:-$HOME/.agents/agentic-config}}"
+   unset _agp
+   source "$AGENTIC_GLOBAL/core/lib/spec-resolver.sh"
+
+   # Commit spec changes
+   commit_spec_changes "<spec_path>" "RESEARCH" "<NNN>" "<title>"
+   ```
 
 ## Behavior
 

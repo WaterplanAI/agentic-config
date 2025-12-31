@@ -6,6 +6,28 @@ All notable changes to agentic-config.
 
 ### Added
 
+- Path persistence library (`scripts/lib/path-persistence.sh`) for reliable AGENTIC_CONFIG_PATH persistence
+  - `persist_agentic_path`: Writes installation path to multiple locations
+  - `discover_agentic_path`: Priority-based discovery algorithm across all locations
+  - `persist_to_dotpath`: Creates `~/.agents/.path` with absolute installation path
+  - `persist_to_shell_profile`: Adds export to shell profiles with idempotency (bash/zsh)
+  - `persist_to_xdg_config`: Creates XDG-compliant config at `~/.config/agentic/config`
+  - Marker-based idempotency prevents duplicate shell profile entries
+- Agentic root discovery library (`core/lib/agentic-root.sh`) for finding installation root
+  - `get_agentic_root`: Walks up directory tree to find agentic-config installation
+  - Looks for `VERSION` marker file and `core/` directory
+  - Git repository root fallback when VERSION file exists there
+  - Enables commands/skills to work from any nested directory or git worktree
+- Config loader library (`core/lib/config-loader.sh`) for unified configuration loading
+  - Priority order: Environment variables > `.env` > `.agentic-config.conf.yml`
+  - `load_agentic_config`: Loads all config with priority resolution
+  - `get_agentic_config`: Get specific value with priority lookup
+- `.agentic-config.conf.yml` as YAML alternative to `.env` for project configuration
+- Spec path resolver library (`core/lib/spec-resolver.sh`) for automatic external/local specs routing
+  - `resolve_spec_path`: Automatically determines spec location based on configuration
+  - `commit_spec_changes`: Routes commits to external or local repository based on spec path
+  - No code changes needed when switching between external/local configurations
+- External specs documentation (`docs/external-specs-storage.md`) with conditional loading pattern
 - `/dry-run` skill for simulating command execution without file modifications
   - Sets dry_run flag in session state, executes commands with read-only constraint
   - Prevents all file writes except outputs/session/status.yml during simulation
@@ -19,9 +41,39 @@ All notable changes to agentic-config.
 - Source file validation in `/agentic update nightly` symlink rebuild
   - Validates source files exist before creating symlinks
   - Skips missing files with clear reporting to prevent broken symlinks
+- `install.sh --nightly` flag to skip git reset and use local state (for development)
+- `install.sh` positional argument for custom installation path (e.g., `bash -s -- /custom/path`)
+- Config reconciliation function (`reconcile_config`) in version-manager.sh
+  - Adds missing fields to `.agentic-config.json` without overwriting existing values
+  - Ensures `install_mode`, `agentic_global_path`, and `auto_check` fields exist
+  - Updates version and timestamp when changes are made
+- `update-config.sh --nightly` flag for same-version updates
+  - Reconciles config schema even when versions match
+  - Rebuilds all symlinks (commands, skills, hooks)
+  - Useful when new config fields added in development
+- `install.sh` now reconciles self-hosted config after global install
 
 ### Changed
 
+- `.agentic-config.json` schema now includes `agentic_global_path` field for project-local discovery
+- Agentic root discovery (`core/lib/agentic-root.sh`) enhanced with 6-level priority algorithm:
+  1. `$AGENTIC_CONFIG_PATH` environment variable (if set)
+  2. `~/.agents/.path` file (simple text file)
+  3. `~/.config/agentic/config` (XDG-compliant)
+  4. `.agentic-config.json` in current project (`agentic_global_path` field)
+  5. PWD traversal for `VERSION` + `core/` markers (backward compatibility)
+  6. Default fallback: `$HOME/.agents/agentic-config`
+- Installation scripts now persist `AGENTIC_CONFIG_PATH` to multiple locations for robust discovery
+  - `install.sh` calls `persist_agentic_path` after successful installation
+  - `scripts/install-global.sh` adds export to shell profiles with marker-based idempotency
+  - Shell profile modification detects user's shell (bash/zsh) and adds export only once
+- Agent workflows updated with path persistence:
+  - `/agentic setup` now writes `agentic_global_path` to `.agentic-config.json`
+  - `/agentic update` refreshes persistence locations during update
+  - `/agentic migrate` sets up persistence during migration
+- AGENTS.md simplified with conditional documentation pattern (detailed docs in `docs/`)
+- `/branch` command now uses spec-resolver.sh for automatic path resolution
+- All `/spec` stage files (CREATE, RESEARCH, PLAN, PLAN_REVIEW, IMPLEMENT, REVIEW, TEST, DOCUMENT) now use `commit_spec_changes` for spec commits
 - Dry-run enforcement migrated from instruction-based to hook-based
   - Removed AGENTS.md dry-run verification section (replaced by pretooluse hook)
   - Hard enforcement at Claude Code tool level prevents accidental file modifications
@@ -35,6 +87,29 @@ All notable changes to agentic-config.
 
 ### Fixed
 
+- Removed redundant empty string check in spec-resolver.sh (line 204 unreachable due to `${VAR:-default}` handling empty strings)
+- Fixed pattern match false-positive in spec-resolver.sh when `EXT_SPECS_LOCAL_PATH` is empty (guards against `*"//specs/"*` false matches)
+- Added git reset on commit failure in spec-resolver.sh to unstage files after failed commits (prevents partial state)
+- Standardized timestamp format in version-manager.sh to UTC ISO 8601 (`date -u +%Y-%m-%dT%H:%M:%SZ`) eliminating GNU/BSD date timezone inconsistencies
+- **Critical**: Config file lookup now uses project root instead of global installation path
+  - Added `get_project_root()` function to `agentic-root.sh` for proper project discovery
+  - `config-loader.sh` now uses `get_project_root()` for `.env` and `.agentic-config.conf.yml`
+  - `spec-resolver.sh` now uses `get_project_root()` for spec directory paths
+  - `external-specs.sh` now uses `get_project_root()` for `.specs` directory
+  - Previously: all projects using development repo as global install inherited its `.env` config
+  - Now: each project correctly loads its own configuration files
+- spec-resolver.sh pure bash depth calculation - replaced `tr`/`wc` with `${parent_dir//[!\/]/}` pattern for restricted shell compatibility
+- external-specs.sh trap-based lock cleanup - added `trap '_release_lock "$lockdir"' EXIT` to prevent lock leaks on failure paths
+- path-persistence.sh path validation - validates install path contains only safe characters `[a-zA-Z0-9_./-]+` before writing to shell profile (prevents shell injection)
+- install.sh git clean flag - removed `-x` flag to preserve gitignored files (changed from `git clean -fdx` to `git clean -fd`)
+- config-loader.sh unbalanced quote handling - removed contradictory stripping code that violated "leave as-is" comment
+- update-config.sh relative symlinks in self-hosted mode - uses relative paths when target is repository root per PROJECT_AGENTS.md requirement
+- Path resolution documentation in AGENTS.md and templates - clarified distinction between project root (`$PWD`) and global agentic installation (`$AGENTIC_CONFIG_PATH` or `~/.agents/agentic-config`)
+  - Replaced confusing traversal pattern with explicit AGENTIC_GLOBAL pattern across 20 files
+  - Updated all spec stage agents (CREATE, PLAN, RESEARCH, PLAN_REVIEW, IMPLEMENT, REVIEW, DOCUMENT, TEST) to use AGENTIC_GLOBAL
+  - Updated command files (branch, o_spec, po_spec) to use AGENTIC_GLOBAL
+  - Updated docs/external-specs-storage.md to document new pattern
+  - CRITICAL note added: `core/` does NOT exist at project root (only specific commands are symlinked)
 - IMPLEMENT spec stage now enforces `spec(NNN): IMPLEMENT - <title>` format on ALL commits (was missing on first commit)
 - Hook execution in non-Python projects - added `--no-project` flag to all `uv run` hook commands
   - Fixed in `.claude/settings.json`, `scripts/setup-config.sh`, `.claude/commands/init.md`, `scripts/update-config.sh`

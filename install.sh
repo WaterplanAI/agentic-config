@@ -1,21 +1,32 @@
 #!/usr/bin/env bash
 # Agentic-Config Installer
 # Usage: curl -sL https://raw.githubusercontent.com/MatiasComercio/agentic-config/main/install.sh | bash
-#        curl -sL ... | bash -s -- --dry-run  # Preview mode
+#        curl -sL ... | bash -s -- /custom/path  # Custom install location
+#        curl -sL ... | bash -s -- --dry-run     # Preview mode
+#        curl -sL ... | bash -s -- --nightly     # Skip git reset (use local state)
 set -euo pipefail
 
 # Parse arguments
 DRY_RUN=false
+NIGHTLY=false
+DEST_PATH=""
 for arg in "$@"; do
   case "$arg" in
     --dry-run) DRY_RUN=true ;;
+    --nightly) NIGHTLY=true ;;
+    -*) ;; # Ignore other flags
+    *) DEST_PATH="$arg" ;;  # Positional argument = destination path
   esac
 done
 
-# Configuration (override via environment variables)
+# Configuration (override via environment variables or positional argument)
 # AGENTIC_CONFIG_DIR: Installation directory (default: ~/.agents/agentic-config)
 # AGENTIC_CONFIG_REPO: Git repository URL (default: https://github.com/MatiasComercio/agentic-config.git)
 # AGENTIC_CONFIG_BRANCH: Git branch to install (default: main)
+# Positional argument takes precedence over environment variable
+if [[ -n "$DEST_PATH" ]]; then
+  AGENTIC_CONFIG_DIR="$DEST_PATH"
+fi
 INSTALL_DIR="${AGENTIC_CONFIG_DIR:-$HOME/.agents/agentic-config}"
 REPO_URL="${AGENTIC_CONFIG_REPO:-https://github.com/MatiasComercio/agentic-config.git}"
 BRANCH="${AGENTIC_CONFIG_BRANCH:-main}"
@@ -55,6 +66,9 @@ info "Agentic-Config Installer"
 if $DRY_RUN; then
   warn "DRY-RUN MODE: No changes will be made"
 fi
+if $NIGHTLY; then
+  warn "NIGHTLY MODE: Skipping git reset (using local state)"
+fi
 echo ""
 
 # Determine OS - only macOS (Darwin) and Linux are supported
@@ -72,19 +86,26 @@ if [[ ! -d "$PARENT_DIR" ]]; then
 fi
 
 # Clone or update: detect existing installation by checking for .git directory
-# If .git exists: fetch latest and reset hard (discards local changes)
+# If .git exists: fetch latest and reset hard (discards local changes) unless --nightly
 # If directory exists but no .git: backup and clone fresh
 # Otherwise: clone to new directory
 if [[ -d "$INSTALL_DIR/.git" ]]; then
-  info "Updating existing installation..."
-  if $DRY_RUN; then
-    info "Would: git fetch + reset --hard origin/$BRANCH"
-  else
+  if $NIGHTLY; then
+    info "Using existing installation (nightly mode)..."
     cd "$INSTALL_DIR"
-    git fetch origin "$BRANCH" --quiet
-    git reset --hard "origin/$BRANCH" --quiet
+    success "Using local state"
+  else
+    info "Updating existing installation..."
+    if $DRY_RUN; then
+      info "Would: git fetch + reset --hard origin/$BRANCH + git clean"
+    else
+      cd "$INSTALL_DIR"
+      git fetch origin "$BRANCH" --quiet
+      git reset --hard "origin/$BRANCH" --quiet
+      git clean -fd --quiet
+    fi
+    success "Updated to latest version"
   fi
-  success "Updated to latest version"
 else
   if [[ -d "$INSTALL_DIR" ]]; then
     warn "Directory exists but is not a git repo: $INSTALL_DIR"
@@ -108,6 +129,30 @@ else
   cd "$INSTALL_DIR"
   if ! AGENTIC_CONFIG_PATH="$INSTALL_DIR" ./scripts/install-global.sh; then
     abort "install-global.sh failed"
+  fi
+fi
+
+# Persist AGENTIC_CONFIG_PATH to all locations
+info "Persisting AGENTIC_CONFIG_PATH..."
+if $DRY_RUN; then
+  info "Would: persist path to ~/.agents/.path, shell profile, and XDG config"
+else
+  if ! source "$INSTALL_DIR/scripts/lib/path-persistence.sh" || ! persist_agentic_path "$INSTALL_DIR"; then
+    warn "Some persistence locations failed (non-fatal)"
+  fi
+fi
+
+# Reconcile self-hosted config (if this is the agentic-config repo itself)
+if [[ -f "$INSTALL_DIR/.agentic-config.json" ]]; then
+  info "Reconciling self-hosted configuration..."
+  if $DRY_RUN; then
+    info "Would: update-config.sh --nightly $INSTALL_DIR"
+  else
+    NIGHTLY_FLAG=""
+    $NIGHTLY && NIGHTLY_FLAG="--nightly"
+    if ! AGENTIC_CONFIG_PATH="$INSTALL_DIR" "$INSTALL_DIR/scripts/update-config.sh" $NIGHTLY_FLAG "$INSTALL_DIR"; then
+      warn "Self-hosted config reconciliation failed (non-fatal)"
+    fi
   fi
 fi
 

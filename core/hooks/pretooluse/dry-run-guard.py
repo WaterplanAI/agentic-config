@@ -36,6 +36,41 @@ except ImportError:
     sys.exit(0)
 
 
+def find_agentic_root() -> Path:
+    """Find agentic-config installation root by walking up tree for VERSION marker."""
+    current_dir = Path.cwd()
+    max_depth = 10
+    depth = 0
+
+    # Walk up directory tree looking for VERSION marker
+    while depth < max_depth:
+        if (current_dir / "VERSION").exists() and (current_dir / "core").is_dir():
+            return current_dir
+
+        # Move up one directory
+        parent_dir = current_dir.parent
+        if parent_dir == current_dir:
+            break  # Reached filesystem root
+        current_dir = parent_dir
+        depth += 1
+
+    # Fallback 1: git repo root
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--show-toplevel"],
+            capture_output=True, text=True, check=False
+        )
+        if result.returncode == 0:
+            git_root = Path(result.stdout.strip())
+            if (git_root / "VERSION").exists():
+                return git_root
+    except Exception:
+        pass
+
+    # Fallback 2: current directory
+    return Path.cwd()
+
+
 def find_claude_pid() -> int | None:
     """Trace up process tree to find claude process PID."""
     try:
@@ -63,11 +98,12 @@ def find_claude_pid() -> int | None:
 
 def get_session_status_path() -> Path:
     """Get session-specific status file path based on Claude PID."""
+    agentic_root = find_agentic_root()
     claude_pid = find_claude_pid()
     if claude_pid:
-        return PROJECT_ROOT / f"outputs/session/{claude_pid}/status.yml"
+        return agentic_root / f"outputs/session/{claude_pid}/status.yml"
     # Fallback to shared path if Claude PID not found
-    return PROJECT_ROOT / "outputs/session/status.yml"
+    return agentic_root / "outputs/session/status.yml"
 
 
 class ToolInput(TypedDict, total=False):
