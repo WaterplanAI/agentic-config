@@ -750,23 +750,42 @@ HOOK_CONFIG="{
 }"
 
 HOOK_REGISTERED=false
+EXPECTED_COMMAND=$(echo "$HOOK_CONFIG" | jq -r '.hooks.PreToolUse[0].hooks[0].command' 2>/dev/null)
+
 if [[ ! -f "$SETTINGS_FILE" ]]; then
   # Create new settings.json with hook config
   echo "$HOOK_CONFIG" > "$SETTINGS_FILE"
   echo "  ✓ Created settings.json with hook registration"
   HOOK_REGISTERED=true
 elif command -v jq &>/dev/null; then
-  # Check if hooks.PreToolUse already has dry-run-guard
-  if ! jq -e '.hooks.PreToolUse[]?.hooks[]? | select(.command | contains("dry-run-guard"))' "$SETTINGS_FILE" &>/dev/null; then
-    # Add our hook configuration
+  # Extract current dry-run-guard command (if any)
+  CURRENT_COMMAND=$(jq -r '.hooks.PreToolUse[]?.hooks[]? | select(.command | contains("dry-run-guard")) | .command' "$SETTINGS_FILE" 2>/dev/null | head -1)
+
+  if [[ -z "$CURRENT_COMMAND" ]]; then
+    # No dry-run-guard hook found - add it
     jq --argjson hook "$HOOK_CONFIG" '
       .hooks = (.hooks // {}) |
       .hooks.PreToolUse = ((.hooks.PreToolUse // []) + $hook.hooks.PreToolUse)
     ' "$SETTINGS_FILE" > "$SETTINGS_FILE.tmp" && mv "$SETTINGS_FILE.tmp" "$SETTINGS_FILE"
     echo "  ✓ Added dry-run-guard hook to settings.json"
     HOOK_REGISTERED=true
+  elif [[ "$CURRENT_COMMAND" != "$EXPECTED_COMMAND" ]]; then
+    # Hook exists but command differs - replace it
+    jq --arg expected "$EXPECTED_COMMAND" '
+      .hooks.PreToolUse = [.hooks.PreToolUse[] |
+        if (.hooks | any(.command | contains("dry-run-guard"))) then
+          .hooks = [.hooks[] |
+            if (.command | contains("dry-run-guard")) then
+              .command = $expected
+            else . end
+          ]
+        else . end
+      ]
+    ' "$SETTINGS_FILE" > "$SETTINGS_FILE.tmp" && mv "$SETTINGS_FILE.tmp" "$SETTINGS_FILE"
+    echo "  ✓ Updated dry-run-guard hook command in settings.json"
+    HOOK_REGISTERED=true
   else
-    echo "  (hook already registered)"
+    echo "  (hook already up-to-date)"
   fi
 else
   # No jq - check if we can detect the hook in the file
@@ -774,7 +793,7 @@ else
     echo "  WARNING: Cannot verify hook registration (jq not available)"
     echo "  Ensure dry-run-guard hook is registered in $SETTINGS_FILE"
   else
-    echo "  (hook appears to be registered)"
+    echo "  (hook appears to be registered - cannot verify version without jq)"
   fi
 fi
 

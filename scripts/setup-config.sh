@@ -384,17 +384,33 @@ if [[ "$DRY_RUN" != true ]]; then
     }
   }"
 
+  EXPECTED_COMMAND=$(echo "$HOOK_CONFIG" | jq -r '.hooks.PreToolUse[0].hooks[0].command' 2>/dev/null)
+
   if [[ ! -f "$SETTINGS_FILE" ]]; then
     # Create new settings.json with hook config
     echo "$HOOK_CONFIG" > "$SETTINGS_FILE"
   elif command -v jq &>/dev/null; then
-    # Merge hook config into existing settings.json using jq
-    # Check if hooks.PreToolUse already exists and has dry-run-guard
-    if ! jq -e '.hooks.PreToolUse[]?.hooks[]? | select(.command | contains("dry-run-guard"))' "$SETTINGS_FILE" &>/dev/null; then
-      # Add our hook configuration
+    # Extract current dry-run-guard command (if any)
+    CURRENT_COMMAND=$(jq -r '.hooks.PreToolUse[]?.hooks[]? | select(.command | contains("dry-run-guard")) | .command' "$SETTINGS_FILE" 2>/dev/null | head -1)
+
+    if [[ -z "$CURRENT_COMMAND" ]]; then
+      # No dry-run-guard hook found - add it
       jq --argjson hook "$HOOK_CONFIG" '
         .hooks = (.hooks // {}) |
         .hooks.PreToolUse = ((.hooks.PreToolUse // []) + $hook.hooks.PreToolUse)
+      ' "$SETTINGS_FILE" > "$SETTINGS_FILE.tmp" && mv "$SETTINGS_FILE.tmp" "$SETTINGS_FILE"
+    elif [[ "$CURRENT_COMMAND" != "$EXPECTED_COMMAND" ]]; then
+      # Hook exists but command differs - replace it
+      jq --arg expected "$EXPECTED_COMMAND" '
+        .hooks.PreToolUse = [.hooks.PreToolUse[] |
+          if (.hooks | any(.command | contains("dry-run-guard"))) then
+            .hooks = [.hooks[] |
+              if (.command | contains("dry-run-guard")) then
+                .command = $expected
+              else . end
+            ]
+          else . end
+        ]
       ' "$SETTINGS_FILE" > "$SETTINGS_FILE.tmp" && mv "$SETTINGS_FILE.tmp" "$SETTINGS_FILE"
     fi
   else
