@@ -4,6 +4,8 @@ All notable changes to agentic-config.
 
 ## [Unreleased]
 
+## [0.1.15] - 2026-01-03
+
 ### Added
 
 - `/ac-issue` command for reporting issues to agentic-config repository via GitHub CLI
