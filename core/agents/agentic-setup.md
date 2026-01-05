@@ -30,6 +30,7 @@ Use AskUserQuestion to ask:
 - Project type if not auto-detectable (typescript, python-poetry, python-pip, rust, generic)
 - Which tools to install (claude, gemini, codex, antigravity, or all)
 - MCP servers to install (optional, e.g., playwright for browser automation)
+- External specs repository (optional, keeps specs in separate repo)
 - Dry-run first? (recommended for first-time users)
 
 ### 2b. MCP Server Setup (Optional)
@@ -51,6 +52,44 @@ If user requests MCP servers, explain the configuration:
 - Creates `videos/` and `outputs/e2e/` directories
 - Adds entries to `.gitignore`
 - Runs `npx playwright install chromium` (if playwright selected)
+
+### 2c. External Specs Setup (Optional)
+
+If user requests external specs repository, configure spec storage:
+
+**Purpose:**
+- Store spec files in separate git repository
+- Keeps main repo clean of spec content
+- Useful for large projects or teams with many specs
+
+**Prompt Flow:**
+1. Use AskUserQuestion:
+   - **Question**: "Would you like to store specs in a separate repository?"
+   - **Options**:
+     - "Yes, configure external specs" - Separate repo for specs
+     - "No, use local specs/" (Recommended) - Default behavior
+2. If yes, ask for repository URL:
+   - **Question**: "Enter the external specs repository URL (SSH or HTTPS):"
+   - Example: `git@github.com:user/project--specs.git`
+3. Optionally ask for local path (default: `.specs`)
+
+**Configuration:**
+Create `.agentic-config.conf.yml` with:
+```yaml
+ext_specs_repo_url: <user-provided-url>
+ext_specs_local_path: .specs
+```
+
+Or create/append to `.env`:
+```bash
+EXT_SPECS_REPO_URL=<user-provided-url>
+EXT_SPECS_LOCAL_PATH=.specs
+```
+
+**Post-config actions:**
+- Add `.specs/` to `.gitignore`
+- Validate repository is accessible (clone test)
+- Report configuration location to user
 
 ### 3. Explain Before Execution
 Show what will happen:

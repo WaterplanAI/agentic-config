@@ -283,6 +283,48 @@ unset _agp
 - Mention directories created (videos/, outputs/e2e/)
 - Note any post-install commands run (npx playwright install chromium)
 
+### 8. External Specs Check (Post-Update)
+
+After completing core update, check if external specs should be offered:
+
+**Detection:**
+```bash
+# Check for existing external specs configuration
+EXT_SPECS_CONFIGURED=false
+[[ -f ".agentic-config.conf.yml" ]] && grep -q "ext_specs_repo_url" ".agentic-config.conf.yml" 2>/dev/null && EXT_SPECS_CONFIGURED=true
+[[ -f ".env" ]] && grep -q "EXT_SPECS_REPO_URL" ".env" 2>/dev/null && EXT_SPECS_CONFIGURED=true
+```
+
+**Prompt Logic:**
+- If external specs NOT configured AND update was successful:
+  - Use AskUserQuestion:
+    - **Question**: "Would you like to store specs in a separate repository?"
+    - **Options**:
+      - "Yes, configure external specs" - Separate repo for specs
+      - "No, use local specs/" (Recommended) - Default behavior
+- If external specs already configured:
+  - Skip prompt (no action needed)
+
+**If user selects "Yes":**
+1. Ask for repository URL:
+   - **Question**: "Enter the external specs repository URL (SSH or HTTPS):"
+   - Example: `git@github.com:user/project--specs.git`
+2. Create configuration file (`.agentic-config.conf.yml` or `.env`)
+3. Add `.specs/` to `.gitignore`
+4. Validate repository is accessible
+
+**Configuration Format:**
+```yaml
+# .agentic-config.conf.yml
+ext_specs_repo_url: <user-provided-url>
+ext_specs_local_path: .specs
+```
+
+**Report result:**
+- Show configuration file created/updated
+- Confirm `.specs/` added to `.gitignore`
+- Remind user to test with `/spec RESEARCH <test_spec>`
+
 ## Template Diff Workflow
 
 When AGENTS.md template changed:

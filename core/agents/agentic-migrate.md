@@ -81,6 +81,49 @@ Run migration:
   ```
 - Test /spec command: `/spec RESEARCH <test_spec>`
 
+### 5. Optional Feature Setup (Post-Migration)
+
+After successful migration, offer optional features:
+
+#### 5a. MCP Server Check
+
+**Detection:**
+```bash
+MCP_CONFIGURED=false
+[[ -f ".mcp.json" ]] && MCP_CONFIGURED=true
+[[ -f ".gemini/settings.json" ]] && grep -q "mcpServers" ".gemini/settings.json" 2>/dev/null && MCP_CONFIGURED=true
+```
+
+**Prompt (if NOT configured):**
+- Use AskUserQuestion:
+  - **Question**: "Would you like to install MCP servers for browser automation and E2E testing?"
+  - **Options**:
+    - "Yes, install playwright" (Recommended) - Enables browser automation via MCP
+    - "No, skip" - Continue without MCP
+
+**If yes:** Run `update-config.sh --mcp playwright <target_path>`
+
+#### 5b. External Specs Check
+
+**Detection:**
+```bash
+EXT_SPECS_CONFIGURED=false
+[[ -f ".agentic-config.conf.yml" ]] && grep -q "ext_specs_repo_url" ".agentic-config.conf.yml" 2>/dev/null && EXT_SPECS_CONFIGURED=true
+[[ -f ".env" ]] && grep -q "EXT_SPECS_REPO_URL" ".env" 2>/dev/null && EXT_SPECS_CONFIGURED=true
+```
+
+**Prompt (if NOT configured):**
+- Use AskUserQuestion:
+  - **Question**: "Would you like to store specs in a separate repository?"
+  - **Options**:
+    - "Yes, configure external specs" - Separate repo for specs
+    - "No, use local specs/" (Recommended) - Default behavior
+
+**If yes:**
+1. Ask for repository URL
+2. Create `.agentic-config.conf.yml` with `ext_specs_repo_url` and `ext_specs_local_path`
+3. Add `.specs/` to `.gitignore`
+
 ## Rollback Instructions
 
 If migration fails or user unsatisfied:
