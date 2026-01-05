@@ -158,6 +158,9 @@ cd ~/projects/my-new-app
 # With explicit type
 ~/.agents/agentic-config/scripts/setup-config.sh --type python-poetry .
 
+# With MCP server (e.g., Playwright for browser automation)
+~/.agents/agentic-config/scripts/setup-config.sh --mcp playwright .
+
 # Dry run to preview
 ~/.agents/agentic-config/scripts/setup-config.sh --dry-run .
 ```
@@ -181,6 +184,9 @@ cd ~/projects/my-app
 
 # Force update templates without prompting
 ~/.agents/agentic-config/scripts/update-config.sh --force .
+
+# Add MCP server to existing installation
+~/.agents/agentic-config/scripts/update-config.sh --mcp playwright .
 ```
 
 ### What Gets Installed (Commands & Skills)
