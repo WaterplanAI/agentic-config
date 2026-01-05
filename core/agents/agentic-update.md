@@ -18,6 +18,7 @@ template changes and preserving customizations.
 
 Parse `$ARGUMENTS` for optional flags:
 - `nightly` - Force symlink rebuild regardless of version match
+- `--mcp <servers>` - Install MCP servers (e.g., `--mcp playwright`)
 
 ## Update Analysis
 
@@ -186,6 +187,24 @@ AGENTIC_GLOBAL="${AGENTIC_CONFIG_PATH:-${_agp:-$HOME/.agents/agentic-config}}"
 unset _agp
 "$AGENTIC_GLOBAL/scripts/update-config.sh" --force <target_path>
 ```
+
+**For MCP Installation (add MCP to existing project):**
+```bash
+# Pure bash - no external commands
+_agp=""
+[[ -f ~/.agents/.path ]] && _agp=$(<~/.agents/.path)
+AGENTIC_GLOBAL="${AGENTIC_CONFIG_PATH:-${_agp:-$HOME/.agents/agentic-config}}"
+unset _agp
+"$AGENTIC_GLOBAL/scripts/update-config.sh" --mcp playwright <target_path>
+```
+
+**MCP Config Locations:**
+| Tool | Config File |
+|------|-------------|
+| Claude Code | `.mcp.json` |
+| Gemini CLI | `.gemini/settings.json` |
+| Codex CLI | `~/.codex/config.toml` |
+| Antigravity | `.antigravity/mcp.json` |
 
 **Refresh Persistence Locations** (v1.2.0+):
 ```bash

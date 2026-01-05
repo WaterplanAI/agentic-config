@@ -29,7 +29,28 @@ Use AskUserQuestion to ask:
 - Target directory (default: current)
 - Project type if not auto-detectable (typescript, python-poetry, python-pip, rust, generic)
 - Which tools to install (claude, gemini, codex, antigravity, or all)
+- MCP servers to install (optional, e.g., playwright for browser automation)
 - Dry-run first? (recommended for first-time users)
+
+### 2b. MCP Server Setup (Optional)
+If user requests MCP servers, explain the configuration:
+
+**Available MCP Servers:**
+- `playwright` - Browser automation and E2E testing
+
+**Config Locations by Tool:**
+
+| Tool | Scope | Config File | Format |
+|------|-------|-------------|--------|
+| Claude Code | Project | `.mcp.json` | JSON (`mcpServers`) |
+| Gemini CLI | Project | `.gemini/settings.json` | JSON (`mcpServers`) |
+| Codex CLI | Global | `~/.codex/config.toml` | TOML (`[mcp_servers.*]`) |
+| Antigravity | Project | `.antigravity/mcp.json` | JSON (`mcpServers`) |
+
+**Post-install actions:**
+- Creates `videos/` and `outputs/e2e/` directories
+- Adds entries to `.gitignore`
+- Runs `npx playwright install chromium` (if playwright selected)
 
 ### 3. Explain Before Execution
 Show what will happen:
@@ -64,10 +85,15 @@ unset _agp
   [--type <type>] \
   [--copy] \
   [--tools <tools>] \
+  [--mcp <servers>] \
   [--force] \
   [--dry-run] \
   <target_path>
 ```
+
+**MCP flag examples:**
+- `--mcp playwright` - Install Playwright MCP server
+- `--mcp playwright,filesystem` - Install multiple servers (when available)
 
 **All commands and skills are installed by default:**
 - Commands: `/orc`, `/spawn`, `/squash`, `/pull_request`, `/gh_pr_review`, `/adr`, `/init`

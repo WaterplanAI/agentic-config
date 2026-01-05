@@ -10,6 +10,7 @@ LATEST_VERSION=$(cat "$REPO_ROOT/VERSION")
 # Source utilities
 source "$SCRIPT_DIR/lib/version-manager.sh"
 source "$SCRIPT_DIR/lib/path-persistence.sh"
+source "$SCRIPT_DIR/lib/mcp-manager.sh"
 
 # Dynamically discover all available commands from core directory
 discover_available_commands() {
@@ -185,6 +186,8 @@ AVAILABLE_SKILLS=($(discover_available_skills))
 # Defaults
 FORCE=false
 NIGHTLY=false
+MCP_SERVERS=""
+TOOLS="all"
 
 usage() {
   cat <<EOF
@@ -195,6 +198,9 @@ Update agentic configuration to latest version from central repository.
 Options:
   --force                Force update of copied files without prompting
   --nightly              Force symlink rebuild and config reconciliation (ignores version match)
+  --mcp <servers>        MCP servers to install (comma-separated, e.g., playwright)
+  --tools <claude,gemini,codex,all>
+                         Which AI tool configs to use for MCP (default: all)
   -h, --help             Show this help message
 
 Notes:
@@ -216,6 +222,14 @@ while [[ $# -gt 0 ]]; do
     --nightly)
       NIGHTLY=true
       shift
+      ;;
+    --mcp)
+      MCP_SERVERS="$2"
+      shift 2
+      ;;
+    --tools)
+      TOOLS="$2"
+      shift 2
       ;;
     -h|--help)
       usage
@@ -840,6 +854,13 @@ if persist_agentic_path "$REPO_ROOT"; then
   echo "  ✓ Path persisted to all locations"
 else
   echo "  ⊘ Some persistence locations failed (non-fatal)"
+fi
+
+# Install MCP servers (if requested)
+if [[ -n "$MCP_SERVERS" ]]; then
+  echo ""
+  echo "Installing MCP servers..."
+  install_mcp_for_tools "$MCP_SERVERS" "$TOOLS" "$TARGET_PATH" false
 fi
 
 echo ""
