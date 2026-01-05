@@ -24,72 +24,57 @@ configuration system. The global installation path is discovered via:
 - Check for existing manual installation (`agents/`, `.agent/`, `AGENTS.md`)
 - Determine project type via package indicators (package.json, pyproject.toml, Cargo.toml)
 
-### 2. Gather Requirements
+### 2. Gather Requirements (MANDATORY)
+
+**CRITICAL: You MUST ask ALL questions below using AskUserQuestion. DO NOT skip any.**
+
 Use AskUserQuestion to ask:
 - Target directory (default: current)
 - Project type if not auto-detectable (typescript, python-poetry, python-pip, rust, generic)
 - Which tools to install (claude, gemini, codex, antigravity, or all)
-- MCP servers to install (optional, e.g., playwright for browser automation)
-- External specs repository (optional, keeps specs in separate repo)
 - Dry-run first? (recommended for first-time users)
 
-### 2b. MCP Server Setup (Optional)
-If user requests MCP servers, explain the configuration:
+### 2b. Feature Configuration Prompts (MANDATORY)
 
-**Available MCP Servers:**
-- `playwright` - Browser automation and E2E testing
+**CRITICAL: You MUST execute this section. DO NOT skip these prompts.**
 
-**Config Locations by Tool:**
+#### MCP Server Setup
 
-| Tool | Scope | Config File | Format |
-|------|-------|-------------|--------|
-| Claude Code | Project | `.mcp.json` | JSON (`mcpServers`) |
-| Gemini CLI | Project | `.gemini/settings.json` | JSON (`mcpServers`) |
-| Codex CLI | Global | `~/.codex/config.toml` | TOML (`[mcp_servers.*]`) |
-| Antigravity | Project | `.antigravity/mcp.json` | JSON (`mcpServers`) |
+Use AskUserQuestion:
+- **Question**: "Would you like to install MCP servers for browser automation and E2E testing?"
+- **Options**:
+  - "Yes, install playwright" (Recommended) - Enables browser automation via MCP
+  - "No, skip" - Continue without MCP
 
-**Post-install actions:**
-- Creates `videos/` and `outputs/e2e/` directories
-- Adds entries to `.gitignore`
-- Runs `npx playwright install chromium` (if playwright selected)
+**If user selects "Yes":**
+- Pass `--mcp playwright` to setup-config.sh
+- Post-install: Creates `videos/`, `outputs/e2e/`, updates `.gitignore`, runs `npx playwright install chromium`
 
-### 2c. External Specs Setup (Optional)
+**MCP Config Locations (for reference):**
 
-If user requests external specs repository, configure spec storage:
+| Tool | Config File |
+|------|-------------|
+| Claude Code | `.mcp.json` |
+| Gemini CLI | `.gemini/settings.json` |
+| Codex CLI | `~/.codex/config.toml` |
+| Antigravity | `.antigravity/mcp.json` |
 
-**Purpose:**
-- Store spec files in separate git repository
-- Keeps main repo clean of spec content
-- Useful for large projects or teams with many specs
+#### External Specs Setup
 
-**Prompt Flow:**
-1. Use AskUserQuestion:
-   - **Question**: "Would you like to store specs in a separate repository?"
-   - **Options**:
-     - "Yes, configure external specs" - Separate repo for specs
-     - "No, use local specs/" (Recommended) - Default behavior
-2. If yes, ask for repository URL:
-   - **Question**: "Enter the external specs repository URL (SSH or HTTPS):"
-   - Example: `git@github.com:user/project--specs.git`
-3. Optionally ask for local path (default: `.specs`)
+Use AskUserQuestion:
+- **Question**: "Would you like to store specs in a separate repository?"
+- **Options**:
+  - "Yes, configure external specs" - Separate repo for specs
+  - "No, use local specs/" (Recommended) - Default behavior
 
-**Configuration:**
-Create `.agentic-config.conf.yml` with:
-```yaml
-ext_specs_repo_url: <user-provided-url>
-ext_specs_local_path: .specs
-```
-
-Or create/append to `.env`:
-```bash
-EXT_SPECS_REPO_URL=<user-provided-url>
-EXT_SPECS_LOCAL_PATH=.specs
-```
-
-**Post-config actions:**
-- Add `.specs/` to `.gitignore`
-- Validate repository is accessible (clone test)
-- Report configuration location to user
+**If user selects "Yes":**
+1. Ask for repository URL (text input): "Enter the external specs repository URL (SSH or HTTPS):"
+2. Create `.agentic-config.conf.yml`:
+   ```yaml
+   ext_specs_repo_url: <user-provided-url>
+   ext_specs_local_path: .specs
+   ```
+3. Add `.specs/` to `.gitignore`
 
 ### 3. Explain Before Execution
 Show what will happen:

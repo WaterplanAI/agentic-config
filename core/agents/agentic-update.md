@@ -247,30 +247,33 @@ Report from script shows:
 - Test /spec command: `/spec RESEARCH <test_spec>`
 - Confirm no broken references
 
-### 7. MCP Server Check (Post-Update)
+### 7. Optional Feature Prompts (MANDATORY)
 
-After completing core update, check if MCP servers should be offered:
+**CRITICAL: You MUST execute this section BEFORE reporting update completion.**
+**DO NOT skip this section. DO NOT report "Update complete" until these checks run.**
+
+After core update succeeds, ALWAYS check and prompt for optional features:
+
+#### 7a. MCP Server Check
 
 **Detection:**
 ```bash
 # Check for existing MCP configuration
+MCP_CONFIGURED=false
 [[ -f ".mcp.json" ]] && MCP_CONFIGURED=true
 [[ -f ".gemini/settings.json" ]] && grep -q "mcpServers" ".gemini/settings.json" 2>/dev/null && MCP_CONFIGURED=true
 ```
 
-**Prompt Logic:**
-- If MCP NOT configured AND update was successful:
-  - Use AskUserQuestion:
-    - **Question**: "Would you like to install MCP servers for browser automation and E2E testing?"
-    - **Options**:
-      - "Yes, install playwright" (Recommended) - Enables browser automation via MCP
-      - "No, skip" - Continue without MCP
-- If MCP already configured:
-  - Skip prompt (no action needed)
+**Action:**
+- If `MCP_CONFIGURED=false`: Use AskUserQuestion:
+  - **Question**: "Would you like to install MCP servers for browser automation and E2E testing?"
+  - **Options**:
+    - "Yes, install playwright" (Recommended) - Enables browser automation via MCP
+    - "No, skip" - Continue without MCP
+- If `MCP_CONFIGURED=true`: Report "MCP: Already configured" and continue
 
 **If user selects "Yes":**
 ```bash
-# Pure bash - no external commands
 _agp=""
 [[ -f ~/.agents/.path ]] && _agp=$(<~/.agents/.path)
 AGENTIC_GLOBAL="${AGENTIC_CONFIG_PATH:-${_agp:-$HOME/.agents/agentic-config}}"
@@ -278,14 +281,7 @@ unset _agp
 "$AGENTIC_GLOBAL/scripts/update-config.sh" --mcp playwright <target_path>
 ```
 
-**Report MCP installation result:**
-- Show which tools were configured (Claude, Gemini, Codex, Antigravity)
-- Mention directories created (videos/, outputs/e2e/)
-- Note any post-install commands run (npx playwright install chromium)
-
-### 8. External Specs Check (Post-Update)
-
-After completing core update, check if external specs should be offered:
+#### 7b. External Specs Check
 
 **Detection:**
 ```bash
@@ -295,35 +291,36 @@ EXT_SPECS_CONFIGURED=false
 [[ -f ".env" ]] && grep -q "EXT_SPECS_REPO_URL" ".env" 2>/dev/null && EXT_SPECS_CONFIGURED=true
 ```
 
-**Prompt Logic:**
-- If external specs NOT configured AND update was successful:
-  - Use AskUserQuestion:
-    - **Question**: "Would you like to store specs in a separate repository?"
-    - **Options**:
-      - "Yes, configure external specs" - Separate repo for specs
-      - "No, use local specs/" (Recommended) - Default behavior
-- If external specs already configured:
-  - Skip prompt (no action needed)
+**Action:**
+- If `EXT_SPECS_CONFIGURED=false`: Use AskUserQuestion:
+  - **Question**: "Would you like to store specs in a separate repository?"
+  - **Options**:
+    - "Yes, configure external specs" - Separate repo for specs
+    - "No, use local specs/" (Recommended) - Default behavior
+- If `EXT_SPECS_CONFIGURED=true`: Report "External specs: Already configured" and continue
 
 **If user selects "Yes":**
-1. Ask for repository URL:
-   - **Question**: "Enter the external specs repository URL (SSH or HTTPS):"
-   - Example: `git@github.com:user/project--specs.git`
-2. Create configuration file (`.agentic-config.conf.yml` or `.env`)
+1. Ask for repository URL (text input)
+2. Create `.agentic-config.conf.yml`:
+   ```yaml
+   ext_specs_repo_url: <user-provided-url>
+   ext_specs_local_path: .specs
+   ```
 3. Add `.specs/` to `.gitignore`
-4. Validate repository is accessible
 
-**Configuration Format:**
-```yaml
-# .agentic-config.conf.yml
-ext_specs_repo_url: <user-provided-url>
-ext_specs_local_path: .specs
+### 8. Report Completion
+
+**Only after sections 1-7 are complete**, report final status:
+
 ```
+Update Complete
 
-**Report result:**
-- Show configuration file created/updated
-- Confirm `.specs/` added to `.gitignore`
-- Remind user to test with `/spec RESEARCH <test_spec>`
+Version: X.Y.Z
+- Symlinks: N commands, M skills
+- MCP: [Configured/Skipped/Already configured]
+- External Specs: [Configured/Skipped/Already configured]
+- Customizations: Preserved
+```
 
 ## Template Diff Workflow
 
