@@ -144,7 +144,11 @@ Expand details? (type number to expand)
 3. Orphan details - show what would be removed
 ```
 
-### 3. Offer Options
+### 3. Offer Options and Feature Configuration
+
+**CRITICAL: This section has THREE parts. You MUST complete ALL parts BEFORE proceeding to execution.**
+
+#### 3a. Core Update Options
 
 Based on analysis, show appropriate options:
 
@@ -157,13 +161,58 @@ Based on analysis, show appropriate options:
 - **Full Update** → Backup + refresh templates + add symlinks (customizations preserved in PROJECT_AGENTS.md)
 - **Skip** → Stay on current version
 
+#### 3b. MCP Server Configuration (MANDATORY PROMPT)
+
+**IMMEDIATELY after user confirms update option, check and prompt for MCP:**
+
+```bash
+MCP_CONFIGURED=false
+[[ -f ".mcp.json" ]] && MCP_CONFIGURED=true
+```
+
+**If `MCP_CONFIGURED=false`:** Use AskUserQuestion:
+- **Question**: "Would you like to install MCP servers for browser automation and E2E testing?"
+- **Options**:
+  - "Yes, install playwright" (Recommended)
+  - "No, skip"
+
+**If `MCP_CONFIGURED=true`:** Skip prompt, note "MCP: Already configured"
+
+#### 3c. External Specs Configuration (MANDATORY PROMPT)
+
+**IMMEDIATELY after MCP prompt, check and prompt for External Specs:**
+
+```bash
+EXT_SPECS_CONFIGURED=false
+[[ -f ".agentic-config.conf.yml" ]] && grep -q "ext_specs_repo_url" ".agentic-config.conf.yml" 2>/dev/null && EXT_SPECS_CONFIGURED=true
+[[ -f ".env" ]] && grep -q "EXT_SPECS_REPO_URL" ".env" 2>/dev/null && EXT_SPECS_CONFIGURED=true
+```
+
+**If `EXT_SPECS_CONFIGURED=false`:** Use AskUserQuestion:
+- **Question**: "Would you like to store specs in a separate repository?"
+- **Options**:
+  - "Yes, configure external specs"
+  - "No, use local specs/" (Recommended)
+
+**If user selects "Yes":** Ask for repository URL, then create config.
+
+**If `EXT_SPECS_CONFIGURED=true`:** Skip prompt, note "External Specs: Already configured"
+
+#### 3d. Confirm All Selections
+
+Show summary of all selections before execution:
+```
+Proceeding with:
+- Core: [Update/Full Update/Nightly]
+- MCP: [Install playwright/Skip/Already configured]
+- External Specs: [Configure/Skip/Already configured]
+```
+
 **CRITICAL: Full Update Safety**
 Before any template override:
 1. Create timestamped backup: `.agentic-config.backup.{timestamp}/`
 2. Preserve customizations to PROJECT_AGENTS.md (if not already there)
 3. Then apply template refresh
-
-This ensures NOTHING is ever lost.
 
 ### 4. Execute Update
 
@@ -244,73 +293,11 @@ Report from script shows:
 - Check version updated in `.agentic-config.json`
 - Verify symlinks still valid: `ls -la agents`
 - Verify command/skill symlinks: `ls -la .claude/commands/` and `ls -la .claude/skills/`
-- Test /spec command: `/spec RESEARCH <test_spec>`
 - Confirm no broken references
 
-### 7. Optional Feature Prompts (MANDATORY)
+### 7. Report Completion
 
-**CRITICAL: You MUST execute this section BEFORE reporting update completion.**
-**DO NOT skip this section. DO NOT report "Update complete" until these checks run.**
-
-After core update succeeds, ALWAYS check and prompt for optional features:
-
-#### 7a. MCP Server Check
-
-**Detection:**
-```bash
-# Check for existing MCP configuration
-MCP_CONFIGURED=false
-[[ -f ".mcp.json" ]] && MCP_CONFIGURED=true
-[[ -f ".gemini/settings.json" ]] && grep -q "mcpServers" ".gemini/settings.json" 2>/dev/null && MCP_CONFIGURED=true
-```
-
-**Action:**
-- If `MCP_CONFIGURED=false`: Use AskUserQuestion:
-  - **Question**: "Would you like to install MCP servers for browser automation and E2E testing?"
-  - **Options**:
-    - "Yes, install playwright" (Recommended) - Enables browser automation via MCP
-    - "No, skip" - Continue without MCP
-- If `MCP_CONFIGURED=true`: Report "MCP: Already configured" and continue
-
-**If user selects "Yes":**
-```bash
-_agp=""
-[[ -f ~/.agents/.path ]] && _agp=$(<~/.agents/.path)
-AGENTIC_GLOBAL="${AGENTIC_CONFIG_PATH:-${_agp:-$HOME/.agents/agentic-config}}"
-unset _agp
-"$AGENTIC_GLOBAL/scripts/update-config.sh" --mcp playwright <target_path>
-```
-
-#### 7b. External Specs Check
-
-**Detection:**
-```bash
-# Check for existing external specs configuration
-EXT_SPECS_CONFIGURED=false
-[[ -f ".agentic-config.conf.yml" ]] && grep -q "ext_specs_repo_url" ".agentic-config.conf.yml" 2>/dev/null && EXT_SPECS_CONFIGURED=true
-[[ -f ".env" ]] && grep -q "EXT_SPECS_REPO_URL" ".env" 2>/dev/null && EXT_SPECS_CONFIGURED=true
-```
-
-**Action:**
-- If `EXT_SPECS_CONFIGURED=false`: Use AskUserQuestion:
-  - **Question**: "Would you like to store specs in a separate repository?"
-  - **Options**:
-    - "Yes, configure external specs" - Separate repo for specs
-    - "No, use local specs/" (Recommended) - Default behavior
-- If `EXT_SPECS_CONFIGURED=true`: Report "External specs: Already configured" and continue
-
-**If user selects "Yes":**
-1. Ask for repository URL (text input)
-2. Create `.agentic-config.conf.yml`:
-   ```yaml
-   ext_specs_repo_url: <user-provided-url>
-   ext_specs_local_path: .specs
-   ```
-3. Add `.specs/` to `.gitignore`
-
-### 8. Report Completion
-
-**Only after sections 1-7 are complete**, report final status:
+Report final status including feature configuration results from section 3:
 
 ```
 Update Complete

@@ -36,7 +36,12 @@ Show user:
 - What customizations will be preserved (`AGENTS.md` custom content)
 - Backup location: `.agentic-config.backup.<timestamp>`
 
-### 2. Confirm Before Proceeding
+### 2. Confirm and Configure Features (MANDATORY)
+
+**CRITICAL: This section has THREE parts. You MUST complete ALL parts BEFORE proceeding to execution.**
+
+#### 2a. Core Migration Confirmation
+
 ```
 Migration will:
 - Backup: .agentic-config.backup.<timestamp>
@@ -44,9 +49,46 @@ Migration will:
 - Preserve AGENTS.md custom content
 - Install version X.Y.Z from central repo
 - Install pretooluse hooks and register in settings.json
-
-Proceed? [y/N]
 ```
+
+Use AskUserQuestion to confirm: "Proceed with migration?"
+
+#### 2b. MCP Server Configuration (MANDATORY PROMPT)
+
+**IMMEDIATELY after user confirms migration, check and prompt for MCP:**
+
+```bash
+MCP_CONFIGURED=false
+[[ -f ".mcp.json" ]] && MCP_CONFIGURED=true
+```
+
+**If `MCP_CONFIGURED=false`:** Use AskUserQuestion:
+- **Question**: "Would you like to install MCP servers for browser automation and E2E testing?"
+- **Options**:
+  - "Yes, install playwright" (Recommended)
+  - "No, skip"
+
+**If `MCP_CONFIGURED=true`:** Skip prompt, note "MCP: Already configured"
+
+#### 2c. External Specs Configuration (MANDATORY PROMPT)
+
+**IMMEDIATELY after MCP prompt, check and prompt for External Specs:**
+
+```bash
+EXT_SPECS_CONFIGURED=false
+[[ -f ".agentic-config.conf.yml" ]] && grep -q "ext_specs_repo_url" ".agentic-config.conf.yml" 2>/dev/null && EXT_SPECS_CONFIGURED=true
+[[ -f ".env" ]] && grep -q "EXT_SPECS_REPO_URL" ".env" 2>/dev/null && EXT_SPECS_CONFIGURED=true
+```
+
+**If `EXT_SPECS_CONFIGURED=false`:** Use AskUserQuestion:
+- **Question**: "Would you like to store specs in a separate repository?"
+- **Options**:
+  - "Yes, configure external specs"
+  - "No, use local specs/" (Recommended)
+
+**If user selects "Yes":** Ask for repository URL, then create config after migration.
+
+**If `EXT_SPECS_CONFIGURED=true`:** Skip prompt, note "External Specs: Already configured"
 
 ### 3. Execute Migration
 
@@ -81,57 +123,9 @@ Run migration:
   ```
 - Test /spec command: `/spec RESEARCH <test_spec>`
 
-### 5. Feature Configuration Prompts (MANDATORY)
+### 5. Report Completion
 
-**CRITICAL: You MUST execute this section BEFORE reporting migration completion.**
-**DO NOT skip these prompts. DO NOT report "Migration complete" until these checks run.**
-
-After successful migration, ALWAYS check and prompt for optional features:
-
-#### 5a. MCP Server Check
-
-**Detection:**
-```bash
-MCP_CONFIGURED=false
-[[ -f ".mcp.json" ]] && MCP_CONFIGURED=true
-[[ -f ".gemini/settings.json" ]] && grep -q "mcpServers" ".gemini/settings.json" 2>/dev/null && MCP_CONFIGURED=true
-```
-
-**Action:**
-- If `MCP_CONFIGURED=false`: Use AskUserQuestion:
-  - **Question**: "Would you like to install MCP servers for browser automation and E2E testing?"
-  - **Options**:
-    - "Yes, install playwright" (Recommended) - Enables browser automation via MCP
-    - "No, skip" - Continue without MCP
-- If `MCP_CONFIGURED=true`: Report "MCP: Already configured" and continue
-
-**If user selects "Yes":** Run `update-config.sh --mcp playwright <target_path>`
-
-#### 5b. External Specs Check
-
-**Detection:**
-```bash
-EXT_SPECS_CONFIGURED=false
-[[ -f ".agentic-config.conf.yml" ]] && grep -q "ext_specs_repo_url" ".agentic-config.conf.yml" 2>/dev/null && EXT_SPECS_CONFIGURED=true
-[[ -f ".env" ]] && grep -q "EXT_SPECS_REPO_URL" ".env" 2>/dev/null && EXT_SPECS_CONFIGURED=true
-```
-
-**Action:**
-- If `EXT_SPECS_CONFIGURED=false`: Use AskUserQuestion:
-  - **Question**: "Would you like to store specs in a separate repository?"
-  - **Options**:
-    - "Yes, configure external specs" - Separate repo for specs
-    - "No, use local specs/" (Recommended) - Default behavior
-- If `EXT_SPECS_CONFIGURED=true`: Report "External specs: Already configured" and continue
-
-**If user selects "Yes":**
-1. Ask for repository URL (text input)
-2. Create `.agentic-config.conf.yml` with `ext_specs_repo_url` and `ext_specs_local_path`
-3. Add `.specs/` to `.gitignore`
-
-### 6. Report Completion
-
-**Only after sections 1-5 are complete**, report final status:
+Report final status including feature configuration results from section 2:
 
 ```
 Migration Complete
