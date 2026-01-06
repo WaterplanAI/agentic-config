@@ -6,6 +6,31 @@ All notable changes to agentic-config.
 
 ### Added
 
+- `/video_query` command - Query video content using Gemini API for LLM-driven analysis
+- `/browser` command - Open browser for E2E testing via Playwright MCP
+- `/test_e2e` command - Execute E2E test definitions with Playwright
+- `/e2e_review` command - Visual spec implementation validation
+- `/prepare_app` command - Start development server for testing
+- `/e2e-template` command - Template for creating E2E test definitions
+- `core/scripts/video_query.py` - PEP 723 single-file video analysis script
+- `templates/mcp/playwright.json` - Playwright MCP configuration template
+- E2E testing documentation (`docs/playwright-mcp-setup.md`) and setup guide
+- MCP (Model Context Protocol) server auto-configuration during setup and update
+  - `--mcp <servers>` flag for `setup-config.sh` and `update-config.sh`
+  - Universal server templates in `templates/mcp/servers/` (starting with `playwright.json`)
+  - MCP manager library (`scripts/lib/mcp-manager.sh`) with functions:
+    - `discover_mcp_servers()` - List available MCP server templates
+    - `get_mcp_config_path()` - Return tool-specific config location
+    - `is_mcp_configured()` - Check if server already configured (idempotent)
+    - `install_mcp_server()` - Install server for specific tool
+    - `run_mcp_post_install()` - Execute post-install steps (dirs, gitignore)
+  - Supports all four AI tools with correct config formats:
+    - Claude Code: `.mcp.json` (JSON)
+    - Gemini CLI: `.gemini/settings.json` (JSON)
+    - Codex CLI: `~/.codex/config.toml` (TOML)
+    - Antigravity: `.antigravity/mcp.json` (JSON)
+  - Safety features: opt-in only, non-destructive backups, idempotent, tool-aware
+  - Post-install actions: directory creation, gitignore entries, browser installation
 - Conditional Documentation section in all AGENTS.md templates referencing `$AGENTIC_GLOBAL/docs/external-specs-storage.md`
   - Guides users to external specs documentation when configuring spec storage
   - Applies to all 7 project type templates (generic, python-*, rust, typescript, ts-bun)

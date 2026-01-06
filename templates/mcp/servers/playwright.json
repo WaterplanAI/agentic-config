@@ -1,0 +1,11 @@
+{
+  "name": "playwright",
+  "description": "Browser automation and E2E testing via Playwright",
+  "command": "npx",
+  "args": ["@playwright/mcp@latest", "--isolated", "--save-video=1920x1080", "--viewport-size=1920x1080"],
+  "env": {},
+  "prerequisites": ["node >= 18"],
+  "post_install": ["npx playwright install chromium"],
+  "dirs_to_create": ["videos", "outputs/e2e"],
+  "gitignore_entries": ["videos/", "outputs/", "*.webm"]
+}

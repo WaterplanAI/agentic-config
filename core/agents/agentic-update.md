@@ -18,6 +18,7 @@ template changes and preserving customizations.
 
 Parse `$ARGUMENTS` for optional flags:
 - `nightly` - Force symlink rebuild regardless of version match
+- `--mcp <servers>` - Install MCP servers (e.g., `--mcp playwright`)
 
 ## Update Analysis
 
@@ -41,8 +42,11 @@ If `nightly` explicitly provided in `$ARGUMENTS`:
 - Use AskUserQuestion:
   - "Version matches - reconcile config and rebuild symlinks in nightly mode?"
   - Options: "Yes, reconcile" (Recommended), "No, skip"
-- If yes: run `update-config.sh --nightly` (handles config reconciliation and symlink rebuild)
 - If no: exit with "Already up to date!"
+- If yes:
+  1. Run `update-config.sh --nightly` (handles config reconciliation and symlink rebuild)
+  2. **CRITICAL: IMMEDIATELY proceed to Section 3b (MCP) and Section 3c (External Specs) - feature prompts are MANDATORY for ALL update modes including nightly. DO NOT SKIP.**
+  3. Then proceed to Section 7 (Report Completion)
 
 ### 2. Impact Assessment
 
@@ -143,7 +147,11 @@ Expand details? (type number to expand)
 3. Orphan details - show what would be removed
 ```
 
-### 3. Offer Options
+### 3. Offer Options and Feature Configuration
+
+**CRITICAL: This section has THREE parts. You MUST complete ALL parts BEFORE proceeding to execution.**
+
+#### 3a. Core Update Options
 
 Based on analysis, show appropriate options:
 
@@ -156,13 +164,62 @@ Based on analysis, show appropriate options:
 - **Full Update** → Backup + refresh templates + add symlinks (customizations preserved in PROJECT_AGENTS.md)
 - **Skip** → Stay on current version
 
+#### 3b. MCP Server Configuration (MANDATORY PROMPT)
+
+**CRITICAL: This section is MANDATORY for ALL update modes (normal, full, nightly). You MUST execute this section. Failure to prompt for unconfigured features is a workflow violation.**
+
+**Check and prompt for MCP:**
+
+```bash
+MCP_CONFIGURED=false
+[[ -f ".mcp.json" ]] && MCP_CONFIGURED=true
+```
+
+**If `MCP_CONFIGURED=false`:** Use AskUserQuestion:
+- **Question**: "Would you like to install MCP servers for browser automation and E2E testing?"
+- **Options**:
+  - "Yes, install playwright" (Recommended)
+  - "No, skip"
+
+**If `MCP_CONFIGURED=true`:** Skip prompt, note "MCP: Already configured"
+
+#### 3c. External Specs Configuration (MANDATORY PROMPT)
+
+**CRITICAL: This section is MANDATORY for ALL update modes (normal, full, nightly). Execute IMMEDIATELY after Section 3b.**
+
+**Check and prompt for External Specs:**
+
+```bash
+EXT_SPECS_CONFIGURED=false
+[[ -f ".agentic-config.conf.yml" ]] && grep -q "ext_specs_repo_url" ".agentic-config.conf.yml" 2>/dev/null && EXT_SPECS_CONFIGURED=true
+[[ -f ".env" ]] && grep -q "EXT_SPECS_REPO_URL" ".env" 2>/dev/null && EXT_SPECS_CONFIGURED=true
+```
+
+**If `EXT_SPECS_CONFIGURED=false`:** Use AskUserQuestion:
+- **Question**: "Would you like to store specs in a separate repository?"
+- **Options**:
+  - "Yes, configure external specs"
+  - "No, use local specs/" (Recommended)
+
+**If user selects "Yes":** Ask for repository URL, then create config.
+
+**If `EXT_SPECS_CONFIGURED=true`:** Skip prompt, note "External Specs: Already configured"
+
+#### 3d. Confirm All Selections
+
+Show summary of all selections before execution:
+```
+Proceeding with:
+- Core: [Update/Full Update/Nightly]
+- MCP: [Install playwright/Skip/Already configured]
+- External Specs: [Configure/Skip/Already configured]
+```
+
 **CRITICAL: Full Update Safety**
 Before any template override:
 1. Create timestamped backup: `.agentic-config.backup.{timestamp}/`
 2. Preserve customizations to PROJECT_AGENTS.md (if not already there)
 3. Then apply template refresh
-
-This ensures NOTHING is ever lost.
 
 ### 4. Execute Update
 
@@ -186,6 +243,24 @@ AGENTIC_GLOBAL="${AGENTIC_CONFIG_PATH:-${_agp:-$HOME/.agents/agentic-config}}"
 unset _agp
 "$AGENTIC_GLOBAL/scripts/update-config.sh" --force <target_path>
 ```
+
+**For MCP Installation (add MCP to existing project):**
+```bash
+# Pure bash - no external commands
+_agp=""
+[[ -f ~/.agents/.path ]] && _agp=$(<~/.agents/.path)
+AGENTIC_GLOBAL="${AGENTIC_CONFIG_PATH:-${_agp:-$HOME/.agents/agentic-config}}"
+unset _agp
+"$AGENTIC_GLOBAL/scripts/update-config.sh" --mcp playwright <target_path>
+```
+
+**MCP Config Locations:**
+| Tool | Config File |
+|------|-------------|
+| Claude Code | `.mcp.json` |
+| Gemini CLI | `.gemini/settings.json` |
+| Codex CLI | `~/.codex/config.toml` |
+| Antigravity | `.antigravity/mcp.json` |
 
 **Refresh Persistence Locations** (v1.2.0+):
 ```bash
@@ -225,8 +300,21 @@ Report from script shows:
 - Check version updated in `.agentic-config.json`
 - Verify symlinks still valid: `ls -la agents`
 - Verify command/skill symlinks: `ls -la .claude/commands/` and `ls -la .claude/skills/`
-- Test /spec command: `/spec RESEARCH <test_spec>`
 - Confirm no broken references
+
+### 7. Report Completion
+
+Report final status including feature configuration results from section 3:
+
+```
+Update Complete
+
+Version: X.Y.Z
+- Symlinks: N commands, M skills
+- MCP: [Configured/Skipped/Already configured]
+- External Specs: [Configured/Skipped/Already configured]
+- Customizations: Preserved
+```
 
 ## Template Diff Workflow
 

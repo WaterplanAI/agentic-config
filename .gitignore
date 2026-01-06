@@ -24,6 +24,10 @@ tests/__pycache__/
 # Orchestration outputs
 outputs/
 
+# Playwright video recordings
+videos/
+*.webm
+
 # Specs - always ignore (local working files)
 specs/
 

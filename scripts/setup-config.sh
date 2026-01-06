@@ -13,6 +13,7 @@ source "$SCRIPT_DIR/lib/detect-project-type.sh"
 source "$SCRIPT_DIR/lib/template-processor.sh"
 source "$SCRIPT_DIR/lib/version-manager.sh"
 source "$SCRIPT_DIR/lib/path-persistence.sh"
+source "$SCRIPT_DIR/lib/mcp-manager.sh"
 
 # Dynamically discover all available commands from core directory
 discover_available_commands() {
@@ -64,6 +65,7 @@ TOOLS="all"
 PROJECT_TYPE=""
 TYPE_CHECKER=""
 LINTER=""
+MCP_SERVERS=""
 
 # Usage
 usage() {
@@ -81,6 +83,7 @@ Options:
   --no-registry          Don't register installation in central registry
   --tools <claude,gemini,codex,all>
                          Which AI tool configs to install (default: all)
+  --mcp <servers>        MCP servers to install (comma-separated, e.g., playwright)
   --type-checker <pyright|mypy>
                          Python type checker (default: pyright, auto-detected)
   --linter <ruff|pylint>
@@ -125,6 +128,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --tools)
       TOOLS="$2"
+      shift 2
+      ;;
+    --mcp)
+      MCP_SERVERS="$2"
       shift 2
       ;;
     --type-checker)
@@ -572,6 +579,16 @@ if [[ "$DRY_RUN" != true ]]; then
       fi
     fi
   done
+fi
+
+# Install MCP servers (if requested)
+if [[ -n "$MCP_SERVERS" ]]; then
+  echo "Installing MCP servers..."
+  if [[ "$DRY_RUN" == true ]]; then
+    install_mcp_for_tools "$MCP_SERVERS" "$TOOLS" "$TARGET_PATH" true
+  else
+    install_mcp_for_tools "$MCP_SERVERS" "$TOOLS" "$TARGET_PATH" false
+  fi
 fi
 
 # Register installation

@@ -68,6 +68,8 @@ AGENTIC_CONFIG_DIR=~/custom/path curl -sL https://raw.githubusercontent.com/Mati
 - `/agentic-migrate` - Direct migrate command
 - `/agentic-update` - Direct update command
 - `/agentic-status` - Direct status command
+- `/video_query` - Analyze video files using Gemini API
+- Playwright MCP - E2E browser testing (see [Playwright MCP Setup](docs/playwright-mcp-setup.md))
 
 ## What Gets Installed
 
@@ -134,7 +136,8 @@ Project type is auto-detected (via lockfiles/config files) or can be specified w
 │   ├── python-uv/
 │   ├── python-pip/
 │   ├── rust/
-│   └── generic/
+│   ├── generic/
+│   └── mcp/               # MCP server configurations
 ├── scripts/               # Management tools
 │   ├── setup-config.sh
 │   ├── migrate-existing.sh
@@ -154,6 +157,9 @@ cd ~/projects/my-new-app
 
 # With explicit type
 ~/.agents/agentic-config/scripts/setup-config.sh --type python-poetry .
+
+# With MCP server (e.g., Playwright for browser automation)
+~/.agents/agentic-config/scripts/setup-config.sh --mcp playwright .
 
 # Dry run to preview
 ~/.agents/agentic-config/scripts/setup-config.sh --dry-run .
@@ -178,6 +184,9 @@ cd ~/projects/my-app
 
 # Force update templates without prompting
 ~/.agents/agentic-config/scripts/update-config.sh --force .
+
+# Add MCP server to existing installation
+~/.agents/agentic-config/scripts/update-config.sh --mcp playwright .
 ```
 
 ### What Gets Installed (Commands & Skills)
@@ -192,6 +201,12 @@ All commands and skills are installed by default:
 - `/squash` - Squash commits intelligently
 - `/pull_request` - Create GitHub PRs with comprehensive descriptions
 - `/gh_pr_review` - Review GitHub PRs with multi-agent orchestration
+- `/video_query` - Analyze video files using Gemini API (requires GEMINI_API_KEY)
+- `/browser` - Open browser for E2E testing via Playwright MCP
+- `/test_e2e` - Execute E2E test from definition file
+- `/e2e_review` - Review spec implementation with E2E visual validation
+- `/prepare_app` - Start development server for E2E testing
+- `/e2e-template` - Template for E2E test definitions
 
 **Skills:**
 - `agent-orchestrator-manager` - Multi-agent delegation workflows

@@ -24,12 +24,57 @@ configuration system. The global installation path is discovered via:
 - Check for existing manual installation (`agents/`, `.agent/`, `AGENTS.md`)
 - Determine project type via package indicators (package.json, pyproject.toml, Cargo.toml)
 
-### 2. Gather Requirements
+### 2. Gather Requirements (MANDATORY)
+
+**CRITICAL: You MUST ask ALL questions below using AskUserQuestion. DO NOT skip any.**
+
 Use AskUserQuestion to ask:
 - Target directory (default: current)
 - Project type if not auto-detectable (typescript, python-poetry, python-pip, rust, generic)
 - Which tools to install (claude, gemini, codex, antigravity, or all)
 - Dry-run first? (recommended for first-time users)
+
+### 2b. Feature Configuration Prompts (MANDATORY)
+
+**CRITICAL: You MUST execute this section. DO NOT skip these prompts.**
+
+#### MCP Server Setup
+
+Use AskUserQuestion:
+- **Question**: "Would you like to install MCP servers for browser automation and E2E testing?"
+- **Options**:
+  - "Yes, install playwright" (Recommended) - Enables browser automation via MCP
+  - "No, skip" - Continue without MCP
+
+**If user selects "Yes":**
+- Pass `--mcp playwright` to setup-config.sh
+- Post-install: Creates `videos/`, `outputs/e2e/`, updates `.gitignore`, runs `npx playwright install chromium`
+
+**MCP Config Locations (for reference):**
+
+| Tool | Config File |
+|------|-------------|
+| Claude Code | `.mcp.json` |
+| Gemini CLI | `.gemini/settings.json` |
+| Codex CLI | `~/.codex/config.toml` |
+| Antigravity | `.antigravity/mcp.json` |
+
+#### External Specs Setup
+
+Use AskUserQuestion:
+- **Question**: "Would you like to store specs in a separate repository?"
+- **Options**:
+  - "Yes, configure external specs" - Separate repo for specs
+  - "No, use local specs/" (Recommended) - Default behavior
+
+**If user selects "Yes":**
+1. Ask for repository URL (text input): "Enter the external specs repository URL (SSH or HTTPS):"
+2. Create `.agentic-config.conf.yml`:
+   ```yaml
+   ext_specs_repo_url: <user-provided-url>
+   ext_specs_local_path: .specs
+   ```
+3. Add `.specs/` to `.gitignore`
 
 ### 3. Explain Before Execution
 Show what will happen:
@@ -64,10 +109,15 @@ unset _agp
   [--type <type>] \
   [--copy] \
   [--tools <tools>] \
+  [--mcp <servers>] \
   [--force] \
   [--dry-run] \
   <target_path>
 ```
+
+**MCP flag examples:**
+- `--mcp playwright` - Install Playwright MCP server
+- `--mcp playwright,filesystem` - Install multiple servers (when available)
 
 **All commands and skills are installed by default:**
 - Commands: `/orc`, `/spawn`, `/squash`, `/pull_request`, `/gh_pr_review`, `/adr`, `/init`
