@@ -9,6 +9,9 @@ Thumbs.db
 *.swo
 *~
 
+# Claude settings backups
+.claude/settings.json.bak.*
+
 # Temporary files
 *.tmp
 *.bak
