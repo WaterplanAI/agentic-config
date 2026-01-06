@@ -1,0 +1,1 @@
+../../core/commands/claude/video_query.md

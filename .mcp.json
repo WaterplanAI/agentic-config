@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "playwright": {
+      "command": "npx",
+      "args": ["@playwright/mcp@latest", "--isolated", "--save-video=1920x1080", "--viewport-size=1920x1080"],
+      "env": {}
+    }
+  }
+}

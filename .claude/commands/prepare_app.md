@@ -1,0 +1,1 @@
+../../core/commands/claude/prepare_app.md
