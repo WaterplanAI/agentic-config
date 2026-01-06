@@ -40,4 +40,3 @@ specs/
 
 # Invalid nested symlinks (artifacts from misconfigured setups)
 core/agents/agents
-core/skills/*/[!S]*

@@ -6,6 +6,15 @@ All notable changes to agentic-config.
 
 ### Added
 
+- `gh-assets-branch-mgmt` skill for managing GitHub assets branch (persistent image/video hosting in PRs)
+  - Solves transient CDN token expiration problem for private repo images
+  - Commands: `init`, `upload`, `list`, `cleanup`, `url`, `convert-video`, `download-video`
+  - Auto-converts videos to optimized H.264 MP4 + GIF for GitHub embedding
+  - Presets for different quality/size targets (`pr-small`, `pr-medium`, `pr-large`, `demo`)
+  - Uses blob URL with `?raw=true` for reliable private repo embedding
+- `core/scripts/gh-assets-upload.sh` - Batch upload files to GitHub assets branch with auto video conversion
+- `core/scripts/gh-video-convert.sh` - Convert videos to H.264 MP4/GIF with size presets and speed control
+- `core/scripts/gh-assets-download.sh` - Download videos from assets branch with auto-open
 - `/video_query` command - Query video content using Gemini API for LLM-driven analysis
 - `/browser` command - Open browser for E2E testing via Playwright MCP
 - `/test_e2e` command - Execute E2E test definitions with Playwright
