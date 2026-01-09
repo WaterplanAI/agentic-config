@@ -13,6 +13,41 @@ allowed-tools:
 
 Automates the "assets branch" strategy for persistent image hosting in GitHub PRs. Solves the problem of transient CDN tokens (`?jwt=...`) that expire on private repo images.
 
+## Playwright MCP Integration
+
+**CRITICAL**: When using Playwright MCP for E2E testing, video is recorded automatically.
+
+### Video Recording (Automatic)
+
+Playwright MCP configured with `--save-video=<resolution>` records ALL browser sessions:
+- **Storage**: `.playwright-mcp/` directory (project root)
+- **Format**: `.webm` files with timestamp (e.g., `page-2026-01-06T22-49-59-407Z.webm`)
+- **Resolution**: Matches config (default: `1920x1080`)
+
+### Evidence Upload Workflow
+
+When adding visual evidence to PRs:
+
+| Evidence Type | Source | Tool |
+|---------------|--------|------|
+| Screenshots | `browser_take_screenshot` | Direct capture |
+| Video | `.playwright-mcp/*.webm` | **Use existing file** |
+
+**DO NOT** record a new video when adding video evidence. The video already exists from the browser session.
+
+### Standard Workflow
+
+1. **Screenshots**: Use `browser_take_screenshot` during E2E validation
+2. **Video**: After E2E session completes, find the `.webm` in `.playwright-mcp/`
+3. **Upload**: Use this skill to upload screenshots + video (auto-converts to MP4+GIF)
+
+```bash
+# Upload all evidence (screenshots + video)
+/gh-assets-branch-mgmt upload outputs/screenshots/*.png .playwright-mcp/*.webm --context pr-42
+```
+
+The video will be automatically converted to H.264 MP4 (8x speed) + GIF for PR embedding.
+
 ## Commands
 
 | Command | Description |
