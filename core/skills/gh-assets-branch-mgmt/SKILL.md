@@ -222,10 +222,10 @@ gh api repos/$OWNER/$REPO/git/refs -X POST \
 
 ### File Upload Strategy
 
-**CRITICAL**: Files must be uploaded sequentially (not in parallel). Use the bash script tool:
+**CRITICAL**: Files must be uploaded sequentially (not in parallel). Use the bash script:
 
 ```bash
-./tools/gh-assets-upload.sh <source-dir> <context> <owner/repo>
+./gh-assets-upload.sh <source-dir> <context> <owner/repo>
 ```
 
 Each file is uploaded via GitHub Contents API with inline base64 encoding:

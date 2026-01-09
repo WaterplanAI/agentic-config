@@ -219,6 +219,9 @@ SRC_H=$(echo "$RESOLUTION" | cut -d',' -f2)
 # Calculate output duration based on speed
 OUTPUT_DURATION=$(echo "scale=0; $DURATION / $SPEED" | bc)
 
+# Guard against division by zero for short videos with high speed
+[[ $OUTPUT_DURATION -lt 1 ]] && OUTPUT_DURATION=1
+
 log_step "Source: ${SRC_W}x${SRC_H}, ${DURATION}s -> ${OUTPUT_DURATION}s at ${SPEED}x"
 
 # Calculate if we need to scale
