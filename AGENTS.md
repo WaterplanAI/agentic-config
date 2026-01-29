@@ -44,6 +44,21 @@ eval "uvx --from pyright $deps pyright $script"
 - DO NOT OVERCOMPLICATE
 - DO NOT OVERSIMPLIFY
 
+## Skill Triggering Enforcement
+
+**MANDATORY** - No exceptions, no rationalization:
+
+- If even 1% chance a skill applies to the current task, you MUST invoke it
+- You do not have a choice. You cannot rationalize your way out.
+- When user explicitly requests a skill (e.g., "/swarm", "/spec"), invoke it IMMEDIATELY
+- NEVER skip skill invocation to "save time" or because "I can handle it myself"
+- Skills exist because they encode specialized knowledge and workflows you lack
+
+**Violations:**
+- Describing what a skill would do instead of invoking it
+- Partially implementing skill behavior manually
+- Claiming the task is "too simple" for the skill
+
 ## Critical Rules
 - NEVER amend commits unless user says 'amend commit'
 - NEVER commit files in gitignored directories unless explicitly requested - DO NOT use git add -f to bypass .gitignore

@@ -46,6 +46,7 @@ You ONLY: decompose, delegate via agent definitions, track via TaskOutput, verif
 | Consolidator | `agents/consolidator.md` | sonnet | Aggregate findings |
 | Coordinator | `agents/coordinator.md` | opus | Design structure, delegate writing |
 | Writer | `agents/writer.md` | sonnet | Write deliverable components |
+| Sentinel | `agents/sentinel.md` | sonnet | Phase review, gap analysis, quality gate |
 
 ## COMPLETION MECHANISM
 
