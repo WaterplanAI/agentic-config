@@ -28,8 +28,13 @@ You ONLY: decompose, delegate via agent definitions, track via TaskOutput, verif
 
 **TOOL CONSTRAINTS:**
 - BLOCKED: Read, Write, Edit, NotebookEdit
-- ALLOWED: TaskOutput (for native completion waiting)
 - ALL file operations delegated to agents defined in `agents/` directory
+
+**ASYNC CONSTRAINTS (MANDATORY):**
+- ALL `Task()` calls MUST use `run_in_background=True`
+- ALL `TaskOutput()` calls MUST use `block=False`
+- NEVER wait synchronously for any agent
+- Voice updates provide async notification to user
 
 ## AGENT HIERARCHY
 
@@ -48,16 +53,57 @@ You ONLY: decompose, delegate via agent definitions, track via TaskOutput, verif
 
 ```
 1. Launch workers with run_in_background=true → collect task_ids
-2. Launch Monitor agent (haiku) with worker task_ids
-3. TaskOutput(monitor_id, block=false) to check status without blocking
-4. When monitor returns "done" → proceed to next phase
+2. Launch Monitor agent (haiku) with run_in_background=true → monitor_id
+3. IMMEDIATELY continue with other work (orchestrator NOT blocked)
+4. Periodically check: TaskOutput(monitor_id, block=false, timeout=1000)
+5. When monitor returns "done" → proceed to next phase
 ```
 
 The Monitor agent:
 - Calls TaskOutput(worker_id, block=true) for each worker
 - Acts as context firewall (pollution contained in monitor)
 - Returns only "done" to orchestrator
-- Sends voice updates for progress
+- Sends voice updates for progress (async notification to user)
+
+### Non-Blocking Pattern (MANDATORY)
+
+```python
+# 1. Launch agent in background (ALWAYS)
+result = Task(
+    prompt="...",
+    model="haiku",
+    run_in_background=True  # MANDATORY
+)
+task_id = result.task_id
+
+# 2. Continue immediately - NEVER wait
+voice("Agent launched in background.")
+
+# 3. Check status (ALWAYS non-blocking)
+status = TaskOutput(task_id=task_id, block=False, timeout=1000)
+# If still running: returns error/timeout → continue other work
+# If complete: returns result → proceed to next phase
+
+# 4. Loop or proceed based on status
+if status.is_complete:
+    # Proceed to next phase
+else:
+    # Continue other work, check again later
+```
+
+**VIOLATIONS:**
+- `run_in_background=False` (or omitted)
+- `block=True`
+- Any synchronous waiting
+
+### Voice as Async Notification
+
+The monitor sends voice updates AS workers complete - user is notified without orchestrator blocking:
+- "1 of 5 workers complete"
+- "3 of 5 workers complete"
+- "All 5 workers complete"
+
+Orchestrator can continue work; user hears progress.
 
 ## TASK
 
@@ -106,10 +152,12 @@ TASK: "lean - fix extract-summary.sh to include TOC"
 3. Launch ONE writer agent:
    Task(
        prompt="Read agents/writer.md. Fix {file}. OUTPUT: {path}. SIGNAL: {signal}",
-       model="sonnet"
+       model="sonnet",
+       run_in_background=True  # MANDATORY
    )
-4. Verify via signal file
-5. Report to user
+4. Check status: TaskOutput(task_id, block=False)
+5. Verify via signal file
+6. Report to user
 ```
 
 ### CRITICAL: No Self-Execution
@@ -164,25 +212,30 @@ Task(
 
 Launch in SAME message as Phase 2 when possible.
 
-### Phase 2-3 Monitoring
+### Phase 2-3 Monitoring (Async)
 
 After launching all workers:
 
 ```python
-# Launch monitor
-monitor_id = Task(
+# Launch monitor in BACKGROUND (MANDATORY)
+monitor_result = Task(
     prompt="Read agents/monitor.md. Monitor workers: {worker_ids}. Session: {session_dir}",
     subagent_type="general-purpose",
     model="haiku",
-    run_in_background=True
+    run_in_background=True  # MANDATORY
 )
+monitor_id = monitor_result.task_id
 
-# Non-blocking status check (orchestrator stays interactive)
-TaskOutput(monitor_id, block=False, timeout=1000)
-# Returns error if still running, "done" when complete
+# IMMEDIATELY proceed - NEVER wait
+voice("Launched {N} research agents. Monitor tracking in background.")
+
+# Continue with other work, check status periodically
+# ...do independent tasks...
+status = TaskOutput(task_id=monitor_id, block=False, timeout=1000)  # ALWAYS block=False
 ```
 
-Voice: "Launched {N} research agents. Monitor tracking progress."
+**User receives voice notifications** from monitor as workers complete.
+Orchestrator is NEVER blocked.
 
 ### Phase 4: Consolidation (if total > 80KB)
 
@@ -193,35 +246,41 @@ grep "^size:" tmp/swarm/$SESSION_ID/.signals/*.done | awk -F': ' '{sum+=$2} END 
 
 If > 80KB:
 ```python
-Task(
+consolidator_result = Task(
     prompt="Read agents/consolidator.md. Consolidate {session_dir} for {goal}. OUTPUT: {path}",
     subagent_type="general-purpose",
-    model="sonnet"
-) → wait for "done"
+    model="sonnet",
+    run_in_background=True  # MANDATORY
+)
+# Check status (ALWAYS non-blocking)
+TaskOutput(task_id=consolidator_result.task_id, block=False, timeout=1000)
 ```
 
 ### Phase 5: Coordination
 
 **Standard mode:**
 ```python
-Task(
+coordinator_result = Task(
     prompt="Read agents/coordinator.md. INPUT: {consolidated}. TYPE: {type}. OUTPUT: {path}. PILLARS: {pillars}",
     subagent_type="general-purpose",
     model="opus",
-    run_in_background=True
-) → coordinator_id
+    run_in_background=True  # MANDATORY
+)
+coordinator_id = coordinator_result.task_id
 
-# Coordinator manages its own workers and monitor internally
-TaskOutput(coordinator_id, block=False)  # Check status
+# Check status (ALWAYS non-blocking)
+TaskOutput(task_id=coordinator_id, block=False, timeout=1000)
 ```
 
 **Lean mode** (single worker, no coordinator):
 ```python
-Task(
+writer_result = Task(
     prompt="Read agents/writer.md. TASK: {task}. OUTPUT: {path}. SIGNAL: {signal}",
     subagent_type="general-purpose",
-    model="sonnet"
-) → wait for "done"
+    model="sonnet",
+    run_in_background=True  # MANDATORY
+)
+TaskOutput(task_id=writer_result.task_id, block=False, timeout=1000)
 ```
 
 ### Phase 6: Verification
@@ -240,15 +299,19 @@ Voice: "Swarm complete. {N} files created."
 When user asks "status?" during execution:
 
 ```python
-# Check monitor status
-result = TaskOutput(monitor_id, block=False, timeout=1000)
-if error:  # Still running
-    # Count completed signals
+# Non-blocking check on monitor
+result = TaskOutput(task_id=monitor_id, block=False, timeout=1000)
+
+if result.is_error or result.is_timeout:
+    # Monitor still running - check signals for progress
     Bash("ls tmp/swarm/$SESSION_ID/.signals/*.done 2>/dev/null | wc -l")
-    voice("{completed}/{total} agents complete")
+    voice("{completed}/{total} agents complete, still working...")
 else:
-    voice("Phase complete, proceeding...")
+    # Monitor returned "done"
+    voice("Phase complete, proceeding to next phase")
 ```
+
+**Key**: `block=False` returns immediately with current state, never waits.
 
 ## SIZE RULES
 
@@ -297,9 +360,11 @@ status: success
 - NEVER accept inline content from agents (only "done")
 - NEVER pass file content in prompts (pass paths)
 
-**Blocking violations:**
-- NEVER block orchestrator waiting for workers (use monitor pattern)
-- NEVER skip monitor agent (direct TaskOutput on workers pollutes your context)
+**Blocking violations (CRITICAL):**
+- NEVER use `run_in_background=False` (or omit it) - ALWAYS `True`
+- NEVER use `block=True` - ALWAYS `block=False`
+- NEVER wait synchronously for any agent
+- NEVER skip monitor agent (direct TaskOutput on workers pollutes context)
 
 ## ERROR RECOVERY
 
