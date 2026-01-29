@@ -758,6 +758,15 @@ HOOK_CONFIG="{
             \"command\": \"bash -c 'AGENTIC_ROOT=\\\"\$PWD\\\"; while [ ! -f \\\"\$AGENTIC_ROOT/.agentic-config.json\\\" ] && [ \\\"\$AGENTIC_ROOT\\\" != \\\"/\\\" ]; do AGENTIC_ROOT=\$(dirname \\\"\$AGENTIC_ROOT\\\"); done; cd \\\"\$AGENTIC_ROOT\\\" && uv run --no-project --script .claude/hooks/pretooluse/dry-run-guard.py \\\"\$AGENTIC_ROOT\\\"'\"
           }
         ]
+      },
+      {
+        \"matcher\": \"Bash\",
+        \"hooks\": [
+          {
+            \"type\": \"command\",
+            \"command\": \"bash -c 'AGENTIC_ROOT=\\\"\$PWD\\\"; while [ ! -f \\\"\$AGENTIC_ROOT/.agentic-config.json\\\" ] && [ \\\"\$AGENTIC_ROOT\\\" != \\\"/\\\" ]; do AGENTIC_ROOT=\$(dirname \\\"\$AGENTIC_ROOT\\\"); done; cd \\\"\$AGENTIC_ROOT\\\" && uv run --no-project --script .claude/hooks/pretooluse/git-commit-guard.py \\\"\$AGENTIC_ROOT\\\"'\"
+          }
+        ]
       }
     ]
   }
@@ -799,15 +808,49 @@ elif command -v jq &>/dev/null; then
     echo "  ✓ Updated dry-run-guard hook command in settings.json"
     HOOK_REGISTERED=true
   else
-    echo "  (hook already up-to-date)"
+    echo "  (dry-run-guard hook up-to-date)"
+  fi
+
+  # Check for git-commit-guard hook
+  GIT_GUARD_COMMAND=$(jq -r '.hooks.PreToolUse[]?.hooks[]? | select(.command | contains("git-commit-guard")) | .command' "$SETTINGS_FILE" 2>/dev/null | head -1)
+  EXPECTED_GIT_GUARD=$(echo "$HOOK_CONFIG" | jq -r '.hooks.PreToolUse[1].hooks[0].command' 2>/dev/null)
+
+  if [[ -z "$GIT_GUARD_COMMAND" ]]; then
+    # No git-commit-guard hook found - add it
+    GIT_GUARD_ENTRY=$(echo "$HOOK_CONFIG" | jq '.hooks.PreToolUse[1]')
+    jq --argjson entry "$GIT_GUARD_ENTRY" '
+      .hooks.PreToolUse = (.hooks.PreToolUse // []) + [$entry]
+    ' "$SETTINGS_FILE" > "$SETTINGS_FILE.tmp" && mv "$SETTINGS_FILE.tmp" "$SETTINGS_FILE"
+    echo "  ✓ Added git-commit-guard hook to settings.json"
+    HOOK_REGISTERED=true
+  elif [[ "$GIT_GUARD_COMMAND" != "$EXPECTED_GIT_GUARD" ]]; then
+    # Hook exists but command differs - replace it
+    jq --arg expected "$EXPECTED_GIT_GUARD" '
+      .hooks.PreToolUse = [.hooks.PreToolUse[] |
+        if (.hooks | any(.command | contains("git-commit-guard"))) then
+          .hooks = [.hooks[] |
+            if (.command | contains("git-commit-guard")) then
+              .command = $expected
+            else . end
+          ]
+        else . end
+      ]
+    ' "$SETTINGS_FILE" > "$SETTINGS_FILE.tmp" && mv "$SETTINGS_FILE.tmp" "$SETTINGS_FILE"
+    echo "  ✓ Updated git-commit-guard hook command in settings.json"
+    HOOK_REGISTERED=true
+  else
+    echo "  (git-commit-guard hook up-to-date)"
   fi
 else
-  # No jq - check if we can detect the hook in the file
+  # No jq - check if we can detect the hooks in the file
   if ! grep -q "dry-run-guard" "$SETTINGS_FILE" 2>/dev/null; then
-    echo "  WARNING: Cannot verify hook registration (jq not available)"
-    echo "  Ensure dry-run-guard hook is registered in $SETTINGS_FILE"
-  else
-    echo "  (hook appears to be registered - cannot verify version without jq)"
+    echo "  WARNING: Cannot verify dry-run-guard hook registration (jq not available)"
+  fi
+  if ! grep -q "git-commit-guard" "$SETTINGS_FILE" 2>/dev/null; then
+    echo "  WARNING: Cannot verify git-commit-guard hook registration (jq not available)"
+  fi
+  if grep -q "dry-run-guard" "$SETTINGS_FILE" 2>/dev/null && grep -q "git-commit-guard" "$SETTINGS_FILE" 2>/dev/null; then
+    echo "  (hooks appear to be registered - cannot verify version without jq)"
   fi
 fi
 

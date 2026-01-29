@@ -156,3 +156,14 @@ if __name__ == "__main__":
 2. **Test**: `uv run script.py` (UV auto-installs deps)
 3. **Iterate**: `uv add --script script.py 'new-pkg'` to add deps
 4. **Deploy**: Script is self-contained, copy anywhere with UV installed
+
+## Type Checking
+
+Standard `pyright` fails on PEP 723 scripts because inline deps aren't in pyproject.toml.
+
+**Run pyright with script's dependencies:**
+```bash
+uvx --from pyright --with typer --with rich pyright script.py
+```
+
+Replace `--with` args with the script's actual dependencies.

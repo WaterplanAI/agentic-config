@@ -1,0 +1,1 @@
+../../../core/hooks/pretooluse/git-commit-guard.py

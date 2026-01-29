@@ -1,0 +1,157 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.11"
+# dependencies = []
+# ///
+"""
+Git pre-commit hook for PII compliance verification.
+
+Audits staged files via Claude haiku and blocks commit if PII is detected.
+Fail-open principle: allows commit if claude CLI unavailable or times out.
+
+Usage:
+    Symlink from .git/hooks/pre-commit to core/hooks/git/pre-commit
+"""
+
+import shutil
+import subprocess
+import sys
+from typing import TypedDict
+
+TIMEOUT_SECONDS = 30
+
+
+class AuditResult(TypedDict):
+    """PII audit result structure."""
+    passed: bool
+    message: str
+    details: str | None
+
+AUDIT_PROMPT = """Audit the following git diff for PII (personally identifiable information).
+
+BLOCK (real PII):
+- Real email addresses (not @example.com, @example.org)
+- Real phone numbers
+- Real names tied to real data
+- API keys, tokens, credentials
+- Physical addresses
+- Real company names (not Example Corp, Acme Inc)
+- Monetary values with specific amounts (salaries, prices, budgets)
+
+ALLOW (anonymized):
+- @example.com, @example.org domains
+- Generic names: John Smith, Jane Doe
+- Generic companies: Example Corp, Acme Inc, Test Company
+- Placeholder IDs: <id>, abc123, <email>
+- System emails: noreply@, no-reply@
+- Placeholder monetary: $X, <amount>, $100 (obvious examples)
+
+Respond with EXACTLY one line:
+PII_AUDIT: PASS
+or
+PII_AUDIT: FAIL - [specific issue]
+
+DIFF:
+{diff_content}"""
+
+
+def get_staged_files() -> list[str]:
+    """Get list of staged files."""
+    result = subprocess.run(
+        ["git", "diff", "--cached", "--name-only"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        return []
+    return [f for f in result.stdout.strip().split("\n") if f]
+
+
+def get_staged_diff() -> str:
+    """Get unified diff of staged changes."""
+    result = subprocess.run(
+        ["git", "diff", "--cached"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        return ""
+    return result.stdout
+
+
+def audit_with_haiku(diff_content: str) -> tuple[bool, str]:
+    """
+    Audit diff content using Claude haiku.
+
+    Returns:
+        (passed, message): Tuple of pass/fail decision and response message
+    """
+    # Check if claude CLI is available
+    if not shutil.which("claude"):
+        return True, "claude CLI not found, skipping PII audit (fail-open)"
+
+    prompt = AUDIT_PROMPT.format(diff_content=diff_content)
+
+    try:
+        result = subprocess.run(
+            ["claude", "-p", "--model", "haiku"],
+            input=prompt,
+            capture_output=True,
+            text=True,
+            timeout=TIMEOUT_SECONDS,
+            check=False,
+        )
+
+        if result.returncode != 0:
+            return True, f"claude returned non-zero exit code, skipping (fail-open): {result.stderr}"
+
+        response = result.stdout.strip()
+
+        # Parse response for PII_AUDIT verdict
+        for line in response.split("\n"):
+            line = line.strip()
+            if line.startswith("PII_AUDIT: PASS"):
+                return True, "PII_AUDIT: PASS"
+            if line.startswith("PII_AUDIT: FAIL"):
+                return False, line
+
+        # No clear verdict found, fail-open
+        return True, f"No clear PII_AUDIT verdict in response, skipping (fail-open)"
+
+    except subprocess.TimeoutExpired:
+        return True, f"Audit timed out after {TIMEOUT_SECONDS}s (fail-open)"
+    except Exception as e:
+        return True, f"Audit error: {e} (fail-open)"
+
+
+def main() -> int:
+    """Main hook execution."""
+    # Get staged files
+    staged_files = get_staged_files()
+    if not staged_files:
+        print("No staged files, skipping PII audit")
+        return 0
+
+    # Get staged diff
+    diff_content = get_staged_diff()
+    if not diff_content:
+        print("No diff content, skipping PII audit")
+        return 0
+
+    # Audit with haiku
+    passed, message = audit_with_haiku(diff_content)
+
+    print(message)
+
+    if passed:
+        return 0
+    else:
+        print("\nCommit BLOCKED due to PII detection.")
+        print("Fix the PII issue and re-commit.")
+        return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

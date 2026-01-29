@@ -5,17 +5,20 @@
 # NOTE: Uses pure bash (no external commands like dirname) for compatibility
 # with restricted shell environments (e.g., Claude Code)
 
-# Bootstrap: find agentic root via PWD traversal (pure bash - no dirname)
-_AGENTIC_ROOT="$PWD"
-while [[ ! -f "$_AGENTIC_ROOT/VERSION" || ! -d "$_AGENTIC_ROOT/core" ]] && [[ "$_AGENTIC_ROOT" != "/" ]]; do
-  # Pure bash dirname equivalent
-  _AGENTIC_ROOT="${_AGENTIC_ROOT%/*}"
-  [[ -z "$_AGENTIC_ROOT" ]] && _AGENTIC_ROOT="/"
-done
-[[ -f "$_AGENTIC_ROOT/VERSION" ]] || {
-  echo "ERROR: Cannot locate agentic-config installation" >&2
-  return 1 2>/dev/null || exit 1
-}
+# Bootstrap: find agentic root (skip if already set by parent script)
+if [[ -z "${_AGENTIC_ROOT:-}" ]]; then
+  # PWD traversal (pure bash - no dirname)
+  _AGENTIC_ROOT="$PWD"
+  while [[ ! -f "$_AGENTIC_ROOT/VERSION" || ! -d "$_AGENTIC_ROOT/core" ]] && [[ "$_AGENTIC_ROOT" != "/" ]]; do
+    # Pure bash dirname equivalent
+    _AGENTIC_ROOT="${_AGENTIC_ROOT%/*}"
+    [[ -z "$_AGENTIC_ROOT" ]] && _AGENTIC_ROOT="/"
+  done
+  [[ -f "$_AGENTIC_ROOT/VERSION" ]] || {
+    echo "ERROR: Cannot locate agentic-config installation" >&2
+    return 1 2>/dev/null || exit 1
+  }
+fi
 source "$_AGENTIC_ROOT/core/lib/agentic-root.sh"
 
 # Source shared config loader

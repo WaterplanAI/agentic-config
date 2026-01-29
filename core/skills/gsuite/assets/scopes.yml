@@ -1,0 +1,75 @@
+# Google API Scopes Reference
+# Reference: https://developers.google.com/identity/protocols/oauth2/scopes
+
+# Required scopes for gsuite skill (full read/write)
+required:
+  - scope: https://www.googleapis.com/auth/spreadsheets
+    description: Full read/write access to Google Sheets
+    apis:
+      - Google Sheets API v4
+
+  - scope: https://www.googleapis.com/auth/documents
+    description: Full read/write access to Google Docs
+    apis:
+      - Google Docs API v1
+
+  - scope: https://www.googleapis.com/auth/drive
+    description: Full access to Google Drive (includes Slides)
+    apis:
+      - Google Drive API v3
+      - Google Slides API v1
+
+  - scope: https://www.googleapis.com/auth/presentations
+    description: Full read/write access to Google Slides
+    apis:
+      - Google Slides API v1
+
+  - scope: https://www.googleapis.com/auth/gmail.modify
+    description: Read, compose, send, and permanently delete emails
+    apis:
+      - Gmail API v1
+
+  - scope: https://www.googleapis.com/auth/calendar
+    description: Full read/write access to Google Calendar
+    apis:
+      - Google Calendar API v3
+
+  - scope: https://www.googleapis.com/auth/tasks
+    description: Full read/write access to Google Tasks
+    apis:
+      - Google Tasks API v1
+
+  - scope: https://www.googleapis.com/auth/contacts.other.readonly
+    api: People API
+    description: Read other contacts (auto-saved from interactions)
+
+# Alternative scopes (more restrictive)
+alternatives:
+  readonly:
+    - scope: https://www.googleapis.com/auth/spreadsheets.readonly
+      description: Read-only access to Sheets
+
+    - scope: https://www.googleapis.com/auth/documents.readonly
+      description: Read-only access to Docs
+
+    - scope: https://www.googleapis.com/auth/drive.readonly
+      description: Read-only access to Drive
+
+    - scope: https://www.googleapis.com/auth/presentations.readonly
+      description: Read-only access to Slides
+
+  file_scope:
+    - scope: https://www.googleapis.com/auth/drive.file
+      description: Access only to files created/opened by the app
+      note: Most restrictive Drive scope
+
+# Scope combinations for common use cases
+presets:
+  full_access:
+    - https://www.googleapis.com/auth/spreadsheets
+    - https://www.googleapis.com/auth/documents
+    - https://www.googleapis.com/auth/drive
+    - https://www.googleapis.com/auth/presentations
+    - https://www.googleapis.com/auth/gmail.modify
+    - https://www.googleapis.com/auth/calendar
+    - https://www.googleapis.com/auth/tasks

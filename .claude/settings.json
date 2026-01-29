@@ -9,6 +9,24 @@
             "command": "bash -c 'AGENTIC_ROOT=\"$PWD\"; while [ ! -f \"$AGENTIC_ROOT/.agentic-config.json\" ] && [ \"$AGENTIC_ROOT\" != \"/\" ]; do AGENTIC_ROOT=$(dirname \"$AGENTIC_ROOT\"); done; cd \"$AGENTIC_ROOT\" && uv run --no-project --script .claude/hooks/pretooluse/dry-run-guard.py \"$AGENTIC_ROOT\"'"
           }
         ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'AGENTIC_ROOT=\"$PWD\"; while [ ! -f \"$AGENTIC_ROOT/.agentic-config.json\" ] && [ \"$AGENTIC_ROOT\" != \"/\" ]; do AGENTIC_ROOT=$(dirname \"$AGENTIC_ROOT\"); done; cd \"$AGENTIC_ROOT\" && uv run --no-project --script .claude/hooks/pretooluse/git-commit-guard.py \"$AGENTIC_ROOT\"'"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'AGENTIC_ROOT=\"$PWD\"; while [ ! -f \"$AGENTIC_ROOT/.agentic-config.json\" ] && [ \"$AGENTIC_ROOT\" != \"/\" ]; do AGENTIC_ROOT=$(dirname \"$AGENTIC_ROOT\"); done; cd \"$AGENTIC_ROOT\" && uv run --no-project --script .claude/hooks/pretooluse/gsuite-public-asset-guard.py \"$AGENTIC_ROOT\"'"
+          }
+        ]
       }
     ]
   }

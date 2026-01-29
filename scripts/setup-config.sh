@@ -364,11 +364,16 @@ fi
 echo "Installing hooks..."
 if [[ "$DRY_RUN" != true ]]; then
   mkdir -p "$TARGET_PATH/.claude/hooks/pretooluse"
-  if [[ "$COPY_MODE" == true ]]; then
-    cp "$REPO_ROOT/core/hooks/pretooluse/dry-run-guard.py" "$TARGET_PATH/.claude/hooks/pretooluse/dry-run-guard.py"
-  else
-    ln -sf "$REPO_ROOT/core/hooks/pretooluse/dry-run-guard.py" "$TARGET_PATH/.claude/hooks/pretooluse/dry-run-guard.py"
-  fi
+  for hook_file in "$REPO_ROOT/core/hooks/pretooluse/"*.py; do
+    [[ ! -f "$hook_file" ]] && continue
+    hook=$(basename "$hook_file")
+    if [[ "$COPY_MODE" == true ]]; then
+      cp "$hook_file" "$TARGET_PATH/.claude/hooks/pretooluse/$hook"
+    else
+      ln -sf "$hook_file" "$TARGET_PATH/.claude/hooks/pretooluse/$hook"
+    fi
+    echo "  ✓ $hook"
+  done
 fi
 
 # Register hooks in .claude/settings.json
@@ -384,6 +389,15 @@ if [[ "$DRY_RUN" != true ]]; then
             {
               \"type\": \"command\",
               \"command\": \"bash -c 'AGENTIC_ROOT=\\\"\$PWD\\\"; while [ ! -f \\\"\$AGENTIC_ROOT/.agentic-config.json\\\" ] && [ \\\"\$AGENTIC_ROOT\\\" != \\\"/\\\" ]; do AGENTIC_ROOT=\$(dirname \\\"\$AGENTIC_ROOT\\\"); done; cd \\\"\$AGENTIC_ROOT\\\" && uv run --no-project --script .claude/hooks/pretooluse/dry-run-guard.py \\\"\$AGENTIC_ROOT\\\"'\"
+            }
+          ]
+        },
+        {
+          \"matcher\": \"Bash\",
+          \"hooks\": [
+            {
+              \"type\": \"command\",
+              \"command\": \"bash -c 'AGENTIC_ROOT=\\\"\$PWD\\\"; while [ ! -f \\\"\$AGENTIC_ROOT/.agentic-config.json\\\" ] && [ \\\"\$AGENTIC_ROOT\\\" != \\\"/\\\" ]; do AGENTIC_ROOT=\$(dirname \\\"\$AGENTIC_ROOT\\\"); done; cd \\\"\$AGENTIC_ROOT\\\" && uv run --no-project --script .claude/hooks/pretooluse/git-commit-guard.py \\\"\$AGENTIC_ROOT\\\"'\"
             }
           ]
         }
