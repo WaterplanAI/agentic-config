@@ -335,22 +335,13 @@ Voice: "Swarm complete. {N} files created."
 
 ## INTERACTIVE STATUS CHECK
 
-When user asks "status?" during execution:
+When user asks "status?" during execution, check signal files:
 
-```python
-# Non-blocking check on monitor
-result = TaskOutput(task_id=monitor_id, block=False, timeout=1000)
-
-if result.is_error or result.is_timeout:
-    # Monitor still running - check signals for progress
-    Bash("uv run tools/verify.py '$SESSION_DIR' --action count")
-    voice("{completed}/{total} agents complete, still working...")
-else:
-    # Monitor returned "done"
-    voice("Phase complete, proceeding to next phase")
+```bash
+uv run tools/verify.py "$SESSION_DIR" --action summary
 ```
 
-**Key**: `block=False` returns immediately with current state, never waits.
+**Note**: Background agents send completion notifications automatically. Do NOT poll with repeated `TaskOutput` calls - wait for the notification.
 
 ## SIZE RULES
 
@@ -404,6 +395,10 @@ status: success
 - NEVER use `block=True` - ALWAYS `block=False`
 - NEVER wait synchronously for any agent
 - NEVER skip monitor agent (direct TaskOutput on workers pollutes context)
+
+**Session management violations:**
+- NEVER delete session directories (keep for debugging/audit)
+- NEVER run `rm -rf tmp/swarm/*` or similar cleanup commands
 
 ## ERROR RECOVERY
 
