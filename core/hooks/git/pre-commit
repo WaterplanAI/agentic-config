@@ -6,13 +6,15 @@
 """
 Git pre-commit hook for PII compliance verification.
 
-Audits staged files via Claude haiku and blocks commit if PII is detected.
-Fail-open principle: allows commit if claude CLI unavailable or times out.
+Two-tier approach:
+1. Fast regex checks for obvious violations (fail-closed)
+2. Claude haiku audit for nuanced cases (fail-open)
 
 Usage:
     Symlink from .git/hooks/pre-commit to core/hooks/git/pre-commit
 """
 
+import re
 import shutil
 import subprocess
 import sys
@@ -20,52 +22,35 @@ from typing import TypedDict
 
 TIMEOUT_SECONDS = 30
 
+# Allowed placeholder domains (case-insensitive)
+ALLOWED_EMAIL_DOMAINS = {
+    "example.com",
+    "example.org",
+    "corp.com",
+    "corporate.com",
+    "external.com",
+    "external.org",
+    "google.com",      # Google API notifications
+    "gmail.com",       # Gmail references in docs
+    "anthropic.com",   # Co-Authored-By
+    "yourdomain.com",  # Placeholder for user's domain
+}
+
+# Patterns that indicate system/placeholder emails (not PII)
+SAFE_EMAIL_PATTERNS = [
+    r"noreply@",
+    r"no-reply@",
+    r"@app\.command",  # Python decorator false positive
+    r"<email>",
+    r"@placeholder",
+]
+
 
 class AuditResult(TypedDict):
     """PII audit result structure."""
     passed: bool
     message: str
     details: str | None
-
-AUDIT_PROMPT = """Audit the following git diff for PII (personally identifiable information).
-
-BLOCK (real PII):
-- Real email addresses (not @example.com, @example.org)
-- Real phone numbers
-- Real names tied to real data
-- API keys, tokens, credentials
-- Physical addresses
-- Real company names (not Example Corp, Acme Inc)
-- Monetary values with specific amounts (salaries, prices, budgets)
-
-ALLOW (anonymized):
-- @example.com, @example.org domains
-- Generic names: John Smith, Jane Doe
-- Generic companies: Example Corp, Acme Inc, Test Company
-- Placeholder IDs: <id>, abc123, <email>
-- System emails: noreply@, no-reply@
-- Placeholder monetary: $X, <amount>, $100 (obvious examples)
-
-Respond with EXACTLY one line:
-PII_AUDIT: PASS
-or
-PII_AUDIT: FAIL - [specific issue]
-
-DIFF:
-{diff_content}"""
-
-
-def get_staged_files() -> list[str]:
-    """Get list of staged files."""
-    result = subprocess.run(
-        ["git", "diff", "--cached", "--name-only"],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    if result.returncode != 0:
-        return []
-    return [f for f in result.stdout.strip().split("\n") if f]
 
 
 def get_staged_diff() -> str:
@@ -81,6 +66,175 @@ def get_staged_diff() -> str:
     return result.stdout
 
 
+def check_emails(diff: str) -> list[str]:
+    """Check for non-placeholder email addresses."""
+    violations = []
+    email_pattern = re.compile(r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}')
+
+    for line_num, line in enumerate(diff.split('\n'), 1):
+        # Only check added lines
+        if not line.startswith('+'):
+            continue
+
+        for match in email_pattern.finditer(line):
+            email = match.group().lower()
+            domain = email.split('@')[1] if '@' in email else ''
+
+            # Skip allowed domains
+            if domain in ALLOWED_EMAIL_DOMAINS:
+                continue
+
+            # Skip safe patterns
+            if any(re.search(p, email, re.IGNORECASE) for p in SAFE_EMAIL_PATTERNS):
+                continue
+
+            # Skip if line contains safe pattern context
+            if any(re.search(p, line, re.IGNORECASE) for p in SAFE_EMAIL_PATTERNS):
+                continue
+
+            violations.append(f"Line {line_num}: Non-placeholder email '{email}'")
+
+    return violations
+
+
+def check_api_keys(diff: str) -> list[str]:
+    """Check for API keys and tokens."""
+    violations = []
+    patterns = [
+        (r'AIza[A-Za-z0-9_-]{35}', "Google API key"),
+        (r'sk-[A-Za-z0-9]{48,}', "OpenAI API key"),
+        (r'ghp_[A-Za-z0-9]{36,}', "GitHub personal access token"),
+        (r'gho_[A-Za-z0-9]{36,}', "GitHub OAuth token"),
+        (r'github_pat_[A-Za-z0-9_]{22,}', "GitHub fine-grained PAT"),
+        (r'xox[baprs]-[A-Za-z0-9-]+', "Slack token"),
+        (r'sk-ant-[A-Za-z0-9_-]{90,}', "Anthropic API key"),
+    ]
+
+    for line_num, line in enumerate(diff.split('\n'), 1):
+        if not line.startswith('+'):
+            continue
+
+        for pattern, name in patterns:
+            if re.search(pattern, line):
+                violations.append(f"Line {line_num}: Potential {name} detected")
+
+    return violations
+
+
+def check_phone_numbers(diff: str) -> list[str]:
+    """Check for phone numbers."""
+    violations = []
+    # US phone patterns
+    patterns = [
+        r'\b\d{3}[-.\s]?\d{3}[-.\s]?\d{4}\b',
+        r'\(\d{3}\)\s*\d{3}[-.\s]?\d{4}',
+        r'\+1[-.\s]?\d{3}[-.\s]?\d{3}[-.\s]?\d{4}',
+    ]
+
+    for line_num, line in enumerate(diff.split('\n'), 1):
+        if not line.startswith('+'):
+            continue
+
+        # Skip lines that look like regex pattern definitions or code comments
+        if re.search(r'\\[bdswD]|\\[(\[]|\[\^', line):
+            continue
+
+        # Skip lines with 555 prefix (reserved fake numbers)
+        if '555-555' in line or '(555)' in line:
+            continue
+
+        for pattern in patterns:
+            matches = re.findall(pattern, line)
+            for match in matches:
+                # Skip if looks like a version number or timestamp
+                if re.match(r'^\d{1,2}\.\d{1,2}\.\d{1,4}$', match):
+                    continue
+                violations.append(f"Line {line_num}: Potential phone number '{match}'")
+
+    return violations
+
+
+def check_sensitive_terms(diff: str) -> list[str]:
+    """Check for sensitive financial/identity terms with values."""
+    violations = []
+    # Terms that indicate PII when followed by actual values
+    patterns = [
+        (r'\b(ssn|social.?security)\s*[:=]?\s*\d', "SSN reference"),
+        (r'\bcredit.?card\s*[:=]?\s*\d', "Credit card reference"),
+        (r'\b(salary|income|wage)\s*[:=]?\s*\$?\d', "Salary/income value"),
+    ]
+
+    for line_num, line in enumerate(diff.split('\n'), 1):
+        if not line.startswith('+'):
+            continue
+
+        for pattern, name in patterns:
+            if re.search(pattern, line, re.IGNORECASE):
+                violations.append(f"Line {line_num}: {name} detected")
+
+    return violations
+
+
+def check_physical_addresses(diff: str) -> list[str]:
+    """Check for physical addresses."""
+    violations = []
+    # Street address patterns
+    pattern = re.compile(
+        r'\b\d+\s+[A-Za-z]+\s+(street|st|avenue|ave|boulevard|blvd|road|rd|drive|dr|lane|ln|court|ct|way|place|pl)\b',
+        re.IGNORECASE
+    )
+
+    for line_num, line in enumerate(diff.split('\n'), 1):
+        if not line.startswith('+'):
+            continue
+
+        if pattern.search(line):
+            violations.append(f"Line {line_num}: Potential physical address")
+
+    return violations
+
+
+def run_regex_checks(diff: str) -> list[str]:
+    """Run all regex-based PII checks."""
+    violations = []
+    violations.extend(check_emails(diff))
+    violations.extend(check_api_keys(diff))
+    violations.extend(check_phone_numbers(diff))
+    violations.extend(check_sensitive_terms(diff))
+    violations.extend(check_physical_addresses(diff))
+    return violations
+
+
+AUDIT_PROMPT = """Audit the following git diff for PII (personally identifiable information).
+
+BLOCK (real PII):
+- Real email addresses (not @example.com, @example.org, @corp.com, @corporate.com, @external.com)
+- Real phone numbers
+- Real names tied to real identifiable data
+- API keys, tokens, credentials
+- Physical addresses
+- Real company names (not Example Corp, Acme Inc, Test Company)
+- Monetary values with specific real amounts (salaries, prices, budgets)
+
+ALLOW (anonymized):
+- @example.com, @example.org, @corp.com, @corporate.com, @external.com domains
+- @google.com, @gmail.com (API references), @anthropic.com (Co-Authored-By)
+- Generic names: John Smith, Jane Doe
+- Generic companies: Example Corp, Acme Inc, Test Company
+- Placeholder IDs: <id>, abc123, <email>, <file_id>
+- System emails: noreply@, no-reply@
+- Placeholder monetary: $X, <amount>
+- Code patterns: @app.command (Python decorators)
+
+Respond with EXACTLY one line:
+PII_AUDIT: PASS
+or
+PII_AUDIT: FAIL - [specific issue]
+
+DIFF:
+{diff_content}"""
+
+
 def audit_with_haiku(diff_content: str) -> tuple[bool, str]:
     """
     Audit diff content using Claude haiku.
@@ -90,7 +244,7 @@ def audit_with_haiku(diff_content: str) -> tuple[bool, str]:
     """
     # Check if claude CLI is available
     if not shutil.which("claude"):
-        return True, "claude CLI not found, skipping PII audit (fail-open)"
+        return True, "claude CLI not found, skipping LLM audit (fail-open)"
 
     prompt = AUDIT_PROMPT.format(diff_content=diff_content)
 
@@ -105,7 +259,7 @@ def audit_with_haiku(diff_content: str) -> tuple[bool, str]:
         )
 
         if result.returncode != 0:
-            return True, f"claude returned non-zero exit code, skipping (fail-open): {result.stderr}"
+            return True, f"claude error, skipping (fail-open): {result.stderr}"
 
         response = result.stdout.strip()
 
@@ -117,8 +271,8 @@ def audit_with_haiku(diff_content: str) -> tuple[bool, str]:
             if line.startswith("PII_AUDIT: FAIL"):
                 return False, line
 
-        # No clear verdict found, fail-open
-        return True, f"No clear PII_AUDIT verdict in response, skipping (fail-open)"
+        # No clear verdict found
+        return True, "No clear PII_AUDIT verdict in response (fail-open)"
 
     except subprocess.TimeoutExpired:
         return True, f"Audit timed out after {TIMEOUT_SECONDS}s (fail-open)"
@@ -128,19 +282,25 @@ def audit_with_haiku(diff_content: str) -> tuple[bool, str]:
 
 def main() -> int:
     """Main hook execution."""
-    # Get staged files
-    staged_files = get_staged_files()
-    if not staged_files:
-        print("No staged files, skipping PII audit")
-        return 0
-
     # Get staged diff
     diff_content = get_staged_diff()
     if not diff_content:
         print("No diff content, skipping PII audit")
         return 0
 
-    # Audit with haiku
+    # Tier 1: Fast regex checks (fail-closed)
+    regex_violations = run_regex_checks(diff_content)
+    if regex_violations:
+        print("PII_AUDIT: FAIL - Regex checks detected violations:")
+        for v in regex_violations[:10]:  # Limit output
+            print(f"  - {v}")
+        if len(regex_violations) > 10:
+            print(f"  ... and {len(regex_violations) - 10} more")
+        print("\nCommit BLOCKED due to PII detection.")
+        print("Fix the PII issues and re-commit.")
+        return 1
+
+    # Tier 2: LLM audit for nuanced cases (fail-open)
     passed, message = audit_with_haiku(diff_content)
 
     print(message)

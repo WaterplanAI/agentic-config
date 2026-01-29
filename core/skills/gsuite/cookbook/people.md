@@ -63,7 +63,7 @@ User: "Send email to Jane Doe"
 
 1. Check people.md -> Not found
 2. People API: uv run people.py search "Jane Doe"
-3. Results: jane.doe@example.com, jane.d@other.org
+3. Results: jane.doe@example.com, jane.d@external.org
 4. AskUserQuestion: "Which Jane Doe?"
 5. On selection, proceed with gmail.py send
 ```
@@ -76,7 +76,7 @@ User: "Find meeting with John"
 uv run gcalendar.py list-events --days 30 | grep -i john
 
 # WRONG: Assuming email format
-uv run gmail.py send "john@company.com" "Subject" "Body"
+uv run gmail.py send "john@corp.com" "Subject" "Body"
 ```
 
 ## Commands Reference
