@@ -7,7 +7,7 @@
 Pretooluse hook for Claude Code that blocks git commit --no-verify.
 
 Prevents bypassing pre-commit hooks (PII compliance, etc.) via --no-verify or -n flags.
-Fail-open principle: allow operations if hook encounters errors.
+Fail-closed principle: block operations if hook encounters errors.
 """
 
 import json
@@ -110,15 +110,15 @@ def main() -> None:
         print(json.dumps(output))
 
     except Exception as e:
-        # Fail-open: if hook crashes, allow the operation
+        # Fail-closed: if hook crashes, block the operation
         output: HookOutput = {
             "hookSpecificOutput": {
                 "hookEventName": "PreToolUse",
-                "permissionDecision": "allow",
+                "permissionDecision": "deny",
+                "permissionDecisionReason": f"Hook error (fail-closed): {e}",
             }
         }
         print(json.dumps(output))
-        print(f"Hook error: {e}", file=sys.stderr)
         sys.exit(0)
 
 
