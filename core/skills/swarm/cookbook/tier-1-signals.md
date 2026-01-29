@@ -75,20 +75,23 @@ uv run tools/signal.py "$SESSION_DIR/.signals/001-name.done" \
 
 See `cookbook/signal-tool.md` for full documentation.
 
-## Verification Commands (Metadata Only)
+## Verification Commands (via verify.py)
 
 ```bash
 # Count completions
-ls "$SESSION_DIR/.signals/"*.done 2>/dev/null | wc -l
+uv run tools/verify.py "$SESSION_DIR" --action count
 
 # Check for failures
-ls "$SESSION_DIR/.signals/"*.fail 2>/dev/null
+uv run tools/verify.py "$SESSION_DIR" --action failures
 
 # Get all output paths
-grep "^path:" "$SESSION_DIR/.signals/"*.done | cut -d' ' -f2
+uv run tools/verify.py "$SESSION_DIR" --action paths
 
 # Get total output size
-grep "^size:" "$SESSION_DIR/.signals/"*.done | awk -F': ' '{sum+=$2} END {print sum}'
+uv run tools/verify.py "$SESSION_DIR" --action total-size
+
+# Full summary (combines all above)
+uv run tools/verify.py "$SESSION_DIR" --action summary
 ```
 
 ## When to Use

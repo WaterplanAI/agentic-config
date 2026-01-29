@@ -76,15 +76,19 @@ Writers create both the output file AND the signal:
 
 ## Verification
 
-Orchestrator verifies via signal directory without reading files:
+Orchestrator verifies via `tools/verify.py` without reading files:
 
 ```bash
 # Count completions
-ls "$SESSION_DIR/.signals/"*.done 2>/dev/null | wc -l
+uv run tools/verify.py "$SESSION_DIR" --action count
 
 # Check for failures
-ls "$SESSION_DIR/.signals/"*.fail 2>/dev/null
+uv run tools/verify.py "$SESSION_DIR" --action failures
 
 # Get all paths and sizes
-grep -h "^path:\|^size:" "$SESSION_DIR/.signals/"*.done
+uv run tools/verify.py "$SESSION_DIR" --action paths
+uv run tools/verify.py "$SESSION_DIR" --action sizes
+
+# Full summary
+uv run tools/verify.py "$SESSION_DIR" --action summary
 ```

@@ -111,11 +111,45 @@ Orchestrator can continue work; user hears progress.
 $ARGUMENTS
 ```
 
+## TOOLS
+
+All Python tools use PEP 723 inline dependencies and run via `uv run`.
+
+| Tool | Purpose | Usage |
+|------|---------|-------|
+| `tools/session.py` | Create session directory | `uv run tools/session.py <topic>` |
+| `tools/signal.py` | Create completion signal | `uv run tools/signal.py <path> --path <output> --status success` |
+| `tools/verify.py` | Verify signals | `uv run tools/verify.py <session_dir> --action <action>` |
+| `tools/extract-summary.py` | Extract bounded summary | `uv run tools/extract-summary.py <file> --max-bytes 1024` |
+
+### Tool Details
+
+**session.py** - Creates standard session directory structure:
+```bash
+uv run tools/session.py "auth-research"
+# Output: SESSION_DIR=tmp/swarm/20260129-1500-auth-research
+```
+
+**verify.py** - Signal verification actions:
+- `--action count`: Number of .done files
+- `--action failures`: List .fail files with errors
+- `--action paths`: Output paths from signals
+- `--action sizes`: Size per signal
+- `--action total-size`: Sum of all output sizes
+- `--action summary`: Combined summary
+
+**extract-summary.py** - Bounded context extraction (Tier 2):
+```bash
+uv run tools/extract-summary.py research/001-topic.md --max-bytes 1024
+# Returns: Title + TOC + Executive Summary (hard capped)
+```
+
 ## SESSION SETUP
 
 ```bash
-SESSION_ID="{YYYYMMDD}-{HHMM}-{topic_slug}"
-mkdir -p "tmp/swarm/$SESSION_ID"/{research,audits,consolidated,.signals}
+# Use session.py to create directory structure
+eval "$(uv run tools/session.py "$TOPIC_SLUG")"
+# SESSION_DIR is now set
 ```
 
 ## LEAN MODE
@@ -239,9 +273,10 @@ Orchestrator is NEVER blocked.
 
 ### Phase 4: Consolidation (if total > 80KB)
 
-Check sizes from signal files:
+Check sizes using verify tool:
 ```bash
-grep "^size:" tmp/swarm/$SESSION_ID/.signals/*.done | awk -F': ' '{sum+=$2} END {print sum}'
+uv run tools/verify.py "$SESSION_DIR" --action total-size
+# Returns total bytes as integer
 ```
 
 If > 80KB:
@@ -285,11 +320,15 @@ TaskOutput(task_id=writer_result.task_id, block=False, timeout=1000)
 
 ### Phase 6: Verification
 
-After coordinator completes:
+After coordinator completes, use verify tool:
 ```bash
-ls -la tmp/swarm/$SESSION_ID/.signals/
-grep -h "^path:\|^size:" tmp/swarm/$SESSION_ID/.signals/*.done
-ls tmp/swarm/$SESSION_ID/.signals/*.fail 2>/dev/null
+# Full summary
+uv run tools/verify.py "$SESSION_DIR" --action summary
+
+# Or individual checks:
+uv run tools/verify.py "$SESSION_DIR" --action count      # completed count
+uv run tools/verify.py "$SESSION_DIR" --action failures   # list failures
+uv run tools/verify.py "$SESSION_DIR" --action paths      # output paths
 ```
 
 Voice: "Swarm complete. {N} files created."
@@ -304,7 +343,7 @@ result = TaskOutput(task_id=monitor_id, block=False, timeout=1000)
 
 if result.is_error or result.is_timeout:
     # Monitor still running - check signals for progress
-    Bash("ls tmp/swarm/$SESSION_ID/.signals/*.done 2>/dev/null | wc -l")
+    Bash("uv run tools/verify.py '$SESSION_DIR' --action count")
     voice("{completed}/{total} agents complete, still working...")
 else:
     # Monitor returned "done"

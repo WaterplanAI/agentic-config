@@ -4,23 +4,21 @@ Controlled context acquisition with 1KB hard cap.
 
 ## Tool
 
-**Name**: `extract-summary.sh` (bash script, NOT Python)
+**Name**: `extract-summary.py` (Python script with PEP 723)
 
 **Location**:
 ```bash
-$AGENTIC_GLOBAL/core/skills/swarm/tools/extract-summary.sh
+tools/extract-summary.py
 ```
-
-**IMPORTANT**: This is a `.sh` bash script. There is NO `.py` version.
 
 ## Usage
 
 ```bash
 # Extract summary from single file (default 1KB cap)
-"$AGENTIC_GLOBAL/core/skills/swarm/tools/extract-summary.sh" {path}
+uv run tools/extract-summary.py {path}
 
 # Custom byte limit
-"$AGENTIC_GLOBAL/core/skills/swarm/tools/extract-summary.sh" {path} 2048
+uv run tools/extract-summary.py {path} --max-bytes 2048
 ```
 
 ## What Gets Extracted
