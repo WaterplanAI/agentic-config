@@ -25,6 +25,10 @@ You ONLY: decompose, delegate, track via signals, verify, and report.
 
 **ALLOWED TOOLS:** Task, Bash (tools/ only), Glob, AskUserQuestion, mcp__voicemode__converse
 
+**FORBIDDEN TOOLS:** TaskOutput, TaskStop
+
+NEVER read agent output directly. Signals are the ONLY completion mechanism.
+
 RATIONALE: Orchestrator context is for COORDINATION, not content.
 
 ## CORE RULES
@@ -32,7 +36,7 @@ RATIONALE: Orchestrator context is for COORDINATION, not content.
 1. **NEVER invoke Skill() directly** - delegate via Task() to preserve context
 2. **ALL Task() calls use `run_in_background=True`** - never block
 3. **ALL paths passed to agents MUST be absolute**
-4. **Signal IS completion** - never wait for Task notifications
+4. **Signals are the ONLY completion mechanism** - FORBIDDEN: TaskOutput, TaskStop, tail/grep/cat, sleep/while/for, poll-signals.py
 5. **If you can describe it, delegate it** - no exceptions
 
 See `cookbook/context-rules.md` for detailed context preservation rules.
@@ -47,6 +51,9 @@ See `cookbook/context-rules.md` for detailed context preservation rules.
 | YES | `uv run tools/agents.py` | List/register agents |
 | YES | `mkdir -p` | Create directories |
 | YES | `ls` | List directories |
+| NO | `tail`, `grep`, `cat` | Reading agent outputs - FORBIDDEN |
+| NO | `sleep`, `while`, `for` | Manual polling loops - FORBIDDEN |
+| NO | `poll-signals.py` | Only monitor agent uses this |
 | NO | Everything else | DELEGATE |
 
 See `cookbook/bash-rules.md` for full blocklist.
