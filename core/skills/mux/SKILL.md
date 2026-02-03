@@ -41,6 +41,52 @@ RATIONALE: Orchestrator context is for COORDINATION, not content.
 
 See `cookbook/context-rules.md` for detailed context preservation rules.
 
+## MANDATORY POST-LAUNCH CHECKLIST
+
+After launching ANY workers, execute this checklist BEFORE continuing:
+
+### Required Steps
+
+1. **Worker Verification**
+   - Confirm: All N workers launched with `run_in_background=True`
+   - Confirm: All workers received absolute paths
+   - Confirm: All workers have signal paths defined
+
+2. **Monitor Verification**
+   - Confirm: Monitor agent launched in SAME message as workers
+   - Confirm: Monitor received `--expected N` parameter
+   - Confirm: Monitor using `poll-signals.py` (NOT manual polling)
+
+3. **Continuation Check**
+   - Confirm: Orchestrator continuing immediately (NOT waiting)
+   - Confirm: NO Bash polling loops in orchestrator
+   - Confirm: NO TaskOutput/TaskStop calls
+
+### Violation Response
+
+If ANY item unchecked:
+1. STOP execution
+2. Output: "PROTOCOL VIOLATION: {specific item}"
+3. Ask user to confirm before proceeding
+
+### Example
+
+```python
+# Phase 2: Launch 3 researchers + monitor
+# Workers
+for subject in subjects:
+    Task(prompt=f"Read agents/researcher.md...", run_in_background=True)
+
+# Monitor (SAME MESSAGE)
+Task(prompt=f"Read agents/monitor.md. EXPECTED: 3...", model="haiku", run_in_background=True)
+
+# Checkpoint (BEFORE continuing to Phase 3)
+# ✓ 3 workers launched
+# ✓ Monitor launched in same message
+# ✓ Monitor has --expected 3
+# ✓ Continuing immediately
+```
+
 ## BASH WHITELIST
 
 | Allowed | Command | Purpose |
@@ -251,22 +297,199 @@ Task(
 
 If FAIL: Ask user whether to proceed or address gaps.
 
-## COMPLETION PATTERN
+## REQUIRED COMPLETION PATTERN
+
+This pattern is MANDATORY for all worker launches. NO EXCEPTIONS.
+
+### Structure (STRICT)
 
 ```python
-# 1. Launch workers
+# 1. Launch workers (ALL in ONE message)
 for task in tasks:
     Task(prompt="...", run_in_background=True)
 
-# 2. Launch monitor
-Task(prompt="Read agents/monitor.md. Poll signals...", model="haiku", run_in_background=True)
+# 2. Launch monitor (SAME MESSAGE as workers)
+Task(
+    prompt=f"Read agents/monitor.md. SESSION: {dir}. EXPECTED: {N}. Use poll-signals.py.",
+    model="haiku",
+    run_in_background=True
+)
 
-# 3. Continue immediately (NO waiting, NO manual polling - monitor handles it)
-voice("Workers launched.")
+# 3. Execute MANDATORY POST-LAUNCH CHECKLIST
+# ✓ N workers launched
+# ✓ Monitor launched in same message
+# ✓ Monitor has --expected N
+# ✓ Continuing immediately
 
-# 4. Verify when needed
+# 4. Continue immediately (NO waiting, NO manual polling)
+voice(f"{N} workers launched with monitor")
+
+# 5. Verify when needed (later phase)
 Bash("uv run tools/verify.py $SESSION --action summary")
 ```
+
+### Rationale
+
+- Workers in ONE message = true parallelism
+- Monitor in SAME message = no gap window for race conditions
+- Immediate continuation = orchestrator never blocks
+- Checklist = explicit verification before proceeding
+
+### Violation Consequences
+
+Missing ANY component:
+1. STOP execution
+2. Output: "REQUIRED PATTERN VIOLATION: {component}"
+3. Ask user to confirm before proceeding
+
+## WORKER + MONITOR PATTERN (REQUIRED)
+
+### Template
+
+EVERY worker launch MUST follow this exact structural pattern:
+
+```python
+# Phase N: Fan-Out {Work Type}
+
+# Workers (ALL launched here)
+for item in items:
+    Task(
+        prompt=f"""Read agents/{agent_type}.md for protocol.
+
+TASK: {task_description}
+OUTPUT: {abs_output_path}
+SIGNAL: {abs_signal_path}
+
+FINAL: Return EXACTLY: done""",
+        model="{model}",
+        run_in_background=True
+    )
+
+# Monitor (launched in SAME message)
+Task(
+    prompt=f"""Read agents/monitor.md for protocol.
+
+SESSION: {session_dir}
+EXPECTED: {len(items)}
+
+Use poll-signals.py to track completion.
+
+FINAL: Return EXACTLY: done""",
+    model="haiku",
+    run_in_background=True
+)
+
+# Checkpoint (MANDATORY before next phase)
+# ✓ {len(items)} workers launched
+# ✓ Monitor launched in same message
+# ✓ Monitor has --expected {len(items)}
+# ✓ Continuing immediately
+
+# Voice update (optional but recommended)
+voice(f"{len(items)} {work_type} workers launched with monitor")
+```
+
+### Critical Requirements
+
+1. **Worker Launch**
+   - ALL workers in single message (enables parallelism)
+   - `run_in_background=True` on every Task()
+   - Absolute paths only (OUTPUT, SIGNAL)
+
+2. **Monitor Launch**
+   - SAME message as workers (no separate message)
+   - `model="haiku"` (fast, low-cost tracking)
+   - `--expected N` parameter matches worker count
+
+3. **Checkpoint**
+   - MANDATORY verification before continuing
+   - Explicit confirmation of all 4 items
+   - NO proceeding without checklist completion
+
+4. **Voice Update**
+   - Optional but recommended for user visibility
+   - Confirms work delegation, not execution
+
+### Example: Phase 2 Research
+
+```python
+# Phase 2: Fan-Out Research
+
+subjects = ["Product A", "Product B", "Product C"]
+
+# Workers
+for subject in subjects:
+    Task(
+        prompt=f"""Read agents/researcher.md for protocol.
+
+TASK: Research {subject}
+OUTPUT: {session_dir}/research/{subject.lower().replace(' ', '-')}.md
+SIGNAL: {session_dir}/.signals/research-{subject.lower().replace(' ', '-')}.done
+
+FINAL: Return EXACTLY: done""",
+        model="sonnet",
+        run_in_background=True
+    )
+
+# Monitor
+Task(
+    prompt=f"""Read agents/monitor.md for protocol.
+
+SESSION: {session_dir}
+EXPECTED: 3
+
+Use poll-signals.py to track completion.
+
+FINAL: Return EXACTLY: done""",
+    model="haiku",
+    run_in_background=True
+)
+
+# Checkpoint
+# ✓ 3 workers launched
+# ✓ Monitor launched in same message
+# ✓ Monitor has --expected 3
+# ✓ Continuing immediately
+
+voice("3 research workers launched with monitor")
+```
+
+### Violation Examples
+
+**WRONG - Workers without monitor:**
+```python
+# Phase 2
+for subject in subjects:
+    Task(prompt="...", run_in_background=True)
+# NO MONITOR - PROTOCOL VIOLATION
+```
+
+**WRONG - Monitor in different message:**
+```python
+# Phase 2
+for subject in subjects:
+    Task(prompt="...", run_in_background=True)
+
+# Later...
+Task(prompt="Monitor...", model="haiku", run_in_background=True)
+# SEPARATE MESSAGE - PROTOCOL VIOLATION
+```
+
+**WRONG - Missing checkpoint:**
+```python
+for subject in subjects:
+    Task(prompt="...", run_in_background=True)
+Task(prompt="Monitor...", model="haiku", run_in_background=True)
+# Continue immediately without verification
+# MISSING CHECKPOINT - PROTOCOL VIOLATION
+```
+
+### Enforcement
+
+If pattern not followed:
+1. STOP execution
+2. Output: "WORKER + MONITOR PATTERN VIOLATION: {specific violation}"
+3. Ask user to confirm before proceeding
 
 ## VOICE PROTOCOL
 
@@ -313,16 +536,31 @@ See `cookbook/skill-delegation.md` for full routing table.
 
 ## ANTI-PATTERNS
 
+### Fatal Protocol Violations
+
 - Calling Skill() directly - FATAL
 - Running npx/npm/cdk/git commands - FATAL
 - Using Read/Write/Edit - BLOCKED
+- Launching workers WITHOUT monitor agent - PROTOCOL VIOLATION
+- Launching monitor in DIFFERENT message than workers - PROTOCOL VIOLATION
+
+### Forbidden Operations
+
 - Blocking on agents - FORBIDDEN
 - Self-executing "trivial" tasks - FORBIDDEN
 - Running `sleep N && verify.py` loops - FORBIDDEN (delegate to monitor)
 - Running `poll-signals.py` directly - FORBIDDEN (delegate to monitor)
 - Checking signals repeatedly in orchestrator - FORBIDDEN (delegate to monitor)
+- Using TaskOutput to read agent results - FORBIDDEN (signals only)
+- Using TaskStop to halt agents - FORBIDDEN (signals only)
 
-See `cookbook/anti-patterns.md` for full list.
+### Context Violations
+
+- Reading agent output files directly - FATAL
+- Accumulating agent responses in orchestrator - FATAL
+- Storing work results in orchestrator memory - FATAL
+
+See `cookbook/anti-patterns.md` for full list with examples.
 
 ## ERROR RECOVERY
 
