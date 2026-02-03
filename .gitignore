@@ -25,6 +25,8 @@ __pycache__/
 
 # Testing
 /test-projects/
+.coverage
+htmlcov/
 # Installation tracking
 .installations.json
 
