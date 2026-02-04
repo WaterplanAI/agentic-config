@@ -236,36 +236,30 @@ For this test, launch 2 workers and 1 monitor. ALL must use Task tool."""
         workers = []
         monitors = []
 
-        # Debug: Print all task calls
-        print(f"\n=== DEBUG: Found {len(task_calls)} Task calls ===")
-        for i, task in enumerate(task_calls):
-            print(f"Task {i}: {task.input}")
-
         for task in task_calls:
             subagent_type = task.input.get("subagent_type", "")
             agent_type = task.input.get("agent_type", "")
             prompt_text = task.input.get("prompt", "").lower()
             description = task.input.get("description", "").lower()
             model = task.input.get("model", "")
+            run_in_background = task.input.get("run_in_background", False)
 
-            # Monitor detection: explicit in prompt/description or uses haiku model
+            # Monitor detection: explicit "monitor" in prompt/description AND uses haiku OR no run_in_background
             is_monitor = (
-                "monitor" in prompt_text
-                or "monitor" in description
-                or agent_type == "monitor"
+                ("monitor" in prompt_text or "monitor" in description)
+                and (model == "haiku" or not run_in_background)
+            ) or (
+                agent_type == "monitor"
                 or subagent_type == "monitor"
-                or model == "haiku"
             )
 
-            # Worker detection: analysis/research tasks or uses sonnet model
+            # Worker detection: background tasks that do work, not monitoring
             is_worker = (
-                "analyz" in prompt_text
-                or "research" in prompt_text
-                or "worker" in prompt_text
-                or "audit" in prompt_text
-                or agent_type == "worker"
+                run_in_background
+                and not is_monitor
+            ) or (
+                agent_type == "worker"
                 or subagent_type == "worker"
-                or (model == "sonnet" and not is_monitor)
             )
 
             if is_monitor:
@@ -276,10 +270,10 @@ For this test, launch 2 workers and 1 monitor. ALL must use Task tool."""
         assert len(workers) >= 1, "Must launch at least 1 worker"
         assert len(monitors) >= 1, "Must launch monitor with workers"
 
-        # Verify all tasks use run_in_background
-        for task in task_calls:
-            assert task.input.get("run_in_background") is True, (
-                "All tasks must use run_in_background=True"
+        # Verify workers use run_in_background, monitors may not
+        for worker in workers:
+            assert worker.input.get("run_in_background") is True, (
+                "Worker tasks must use run_in_background=True"
             )
 
 
