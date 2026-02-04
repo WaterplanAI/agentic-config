@@ -121,6 +121,7 @@ If ANY missing:
    Launch in parallel batches of 3-4.
 
 5. MONITOR COMPLETION
+   # Calculate N from number of workers launched above
    Task(
        description="Monitor workers",
        prompt="SESSION: {session_dir}. EXPECTED: {N}.",

@@ -183,7 +183,7 @@ for subject in subjects:
     Task(prompt=f"Read agents/researcher.md...", run_in_background=True)
 
 # Monitor (SAME MESSAGE)
-Task(prompt=f"Read agents/monitor.md. EXPECTED: 3...", model="haiku", run_in_background=True)
+Task(prompt=f"Read agents/monitor.md. EXPECTED: {len(subjects)}...", model="haiku", run_in_background=True)
 
 # Checkpoint (BEFORE continuing to Phase 3)
 # ✓ 3 workers launched
@@ -314,6 +314,7 @@ OUTPUT:
 QUESTION: {question if provided else "General behavior analysis"}
 
 FINAL: Return EXACTLY: done""",
+    subagent_type="general-purpose",
     model=model,  # default: haiku
     run_in_background=True
 )
@@ -375,6 +376,7 @@ OUTPUT: {session_dir}/audit/task-context.md
 SIGNAL: {session_dir}/.signals/000-context.done
 
 FINAL: Return EXACTLY: done""",
+    subagent_type="general-purpose",
     model="sonnet",
     run_in_background=True
 )
@@ -390,6 +392,7 @@ mcp__voicemode__converse(message=f"Starting mux for {topic}", voice="af_heart", 
 ```python
 Task(
     prompt=f"Read agents/researcher.md. Research {subject}. OUTPUT: {abs_path}. SIGNAL: {signal_path}",
+    subagent_type="general-purpose",
     model="sonnet",
     run_in_background=True
 )
@@ -406,6 +409,7 @@ Same pattern as Phase 2, using `agents/auditor.md`.
 ```python
 Task(
     prompt=f"Read agents/monitor.md. SESSION: {dir}. EXPECTED: {N}. Use poll-signals.py.",
+    subagent_type="general-purpose",
     model="haiku",
     run_in_background=True
 )
@@ -438,6 +442,7 @@ uv run tools/verify.py "$SESSION_DIR" --action summary
 ```python
 Task(
     prompt=f"Read agents/sentinel.md. Review session. SESSION: {dir}. PILLARS: {pillars}",
+    subagent_type="general-purpose",
     model="sonnet",
     run_in_background=True
 )
@@ -454,11 +459,12 @@ This pattern is MANDATORY for all worker launches. NO EXCEPTIONS.
 ```python
 # 1. Launch workers (ALL in ONE message)
 for task in tasks:
-    Task(prompt="...", run_in_background=True)
+    Task(prompt="...", subagent_type="general-purpose", run_in_background=True)
 
 # 2. Launch monitor (SAME MESSAGE as workers)
 Task(
     prompt=f"Read agents/monitor.md. SESSION: {dir}. EXPECTED: {N}. Use poll-signals.py.",
+    subagent_type="general-purpose",
     model="haiku",
     run_in_background=True
 )
@@ -509,6 +515,7 @@ OUTPUT: {abs_output_path}
 SIGNAL: {abs_signal_path}
 
 FINAL: Return EXACTLY: done""",
+        subagent_type="general-purpose",
         model="{model}",
         run_in_background=True
     )
@@ -523,6 +530,7 @@ EXPECTED: {len(items)}
 Use poll-signals.py to track completion.
 
 FINAL: Return EXACTLY: done""",
+    subagent_type="general-purpose",
     model="haiku",
     run_in_background=True
 )
@@ -575,6 +583,7 @@ OUTPUT: {session_dir}/research/{subject.lower().replace(' ', '-')}.md
 SIGNAL: {session_dir}/.signals/research-{subject.lower().replace(' ', '-')}.done
 
 FINAL: Return EXACTLY: done""",
+        subagent_type="general-purpose",
         model="sonnet",
         run_in_background=True
     )
@@ -584,22 +593,23 @@ Task(
     prompt=f"""Read agents/monitor.md for protocol.
 
 SESSION: {session_dir}
-EXPECTED: 3
+EXPECTED: {len(subjects)}
 
 Use poll-signals.py to track completion.
 
 FINAL: Return EXACTLY: done""",
+    subagent_type="general-purpose",
     model="haiku",
     run_in_background=True
 )
 
 # Checkpoint
-# ✓ 3 workers launched
+# ✓ {len(subjects)} workers launched
 # ✓ Monitor launched in same message
-# ✓ Monitor has --expected 3
+# ✓ Monitor has --expected {len(subjects)}
 # ✓ Continuing immediately
 
-voice("3 research workers launched with monitor")
+voice(f"{len(subjects)} research workers launched with monitor")
 ```
 
 ### Violation Examples
@@ -608,7 +618,7 @@ voice("3 research workers launched with monitor")
 ```python
 # Phase 2
 for subject in subjects:
-    Task(prompt="...", run_in_background=True)
+    Task(prompt="...", subagent_type="general-purpose", run_in_background=True)
 # NO MONITOR - PROTOCOL VIOLATION
 ```
 
@@ -616,18 +626,18 @@ for subject in subjects:
 ```python
 # Phase 2
 for subject in subjects:
-    Task(prompt="...", run_in_background=True)
+    Task(prompt="...", subagent_type="general-purpose", run_in_background=True)
 
 # Later...
-Task(prompt="Monitor...", model="haiku", run_in_background=True)
+Task(prompt="Monitor...", subagent_type="general-purpose", model="haiku", run_in_background=True)
 # SEPARATE MESSAGE - PROTOCOL VIOLATION
 ```
 
 **WRONG - Missing checkpoint:**
 ```python
 for subject in subjects:
-    Task(prompt="...", run_in_background=True)
-Task(prompt="Monitor...", model="haiku", run_in_background=True)
+    Task(prompt="...", subagent_type="general-purpose", run_in_background=True)
+Task(prompt="Monitor...", subagent_type="general-purpose", model="haiku", run_in_background=True)
 # Continue immediately without verification
 # MISSING CHECKPOINT - PROTOCOL VIOLATION
 ```
@@ -675,7 +685,7 @@ Skill(skill="spec", args="PLAN ...")  # FATAL
 
 **RIGHT (context preserved):**
 ```python
-Task(prompt="Invoke Skill(skill='spec', args='PLAN ...')", run_in_background=True)
+Task(prompt="Invoke Skill(skill='spec', args='PLAN ...')", subagent_type="general-purpose", run_in_background=True)
 ```
 
 CRITICAL: the ONLY skill you are allowed to invoke is the one you are currently executing (e.g.: `Skill(skill="mux", args="...")`)
@@ -735,6 +745,7 @@ OUTPUT: {session_dir}/audit/context-analysis.md
 SIGNAL: {session_dir}/.signals/001-context.done
 
 FINAL: Return EXACTLY: done""",
+    subagent_type="general-purpose",
     model="sonnet",
     run_in_background=True
 )

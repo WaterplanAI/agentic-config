@@ -95,6 +95,17 @@ def main() -> int:
             print(json.dumps(result))
             return 0
 
+        # Progress logging after threshold (helps debug mismatches)
+        if elapsed > 60 and int(elapsed) % 30 == 0:
+            progress = {
+                "type": "progress",
+                "complete": complete,
+                "failed": failed,
+                "expected": args.expected,
+                "elapsed": round(elapsed, 2),
+            }
+            print(json.dumps(progress), file=sys.stderr, flush=True)
+
         # Wait before next check
         time.sleep(args.interval)
         elapsed = time.time() - start_time
