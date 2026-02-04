@@ -68,6 +68,7 @@ eval "uvx --from pyright $deps pyright $script"
 - `/<command-or-skill-name>` is an explicit enforcement to INVOKE a skill or command, EVEN if you don't see it in your context.
   - You MUST check if a command or skill with that name exists looking in .claude/skills/ and .claude/commands/ directories.
   - If it exists, you MUST EXPLICITLY INVOKE it using the SKILL tool (e.g.: `Skill(skill="mux", args="...")`)
+- Glob excludes hidden directories (`.claude/`). Use: `Glob(pattern="*.md", path=".claude/skills/x")` NOT `Glob(pattern=".claude/skills/x/*.md")`
 
 ## /spec Workflow
 Reference agents/spec/{STAGE}.md for detailed instructions.

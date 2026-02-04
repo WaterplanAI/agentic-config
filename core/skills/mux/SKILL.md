@@ -92,3 +92,5 @@ For edge cases, refer to cookbook:
 - `cookbook/anti-patterns.md` - Violation examples
 - `cookbook/bash-rules.md` - Bash command whitelist
 - `cookbook/skill-delegation.md` - Skill routing
+
+**Path resolution:** Skill lives in `.claude/skills/mux/`. Use `path` param for Glob (hidden dirs excluded from patterns).
