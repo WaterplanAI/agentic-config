@@ -183,7 +183,7 @@ Complete guide to monitoring 2 background workers analyzing a directory with agg
 
 ### Basic Run
 ```bash
-cd /Users/matias/projects/agentic-config
+cd $PROJECT_ROOT
 ./core/skills/mux/examples/run_monitor_example.sh
 ```
 
@@ -203,7 +203,7 @@ python3 core/skills/mux/examples/monitor_workers.py \
 ## File Locations
 
 ```
-/Users/matias/projects/agentic-config/
+$PROJECT_ROOT/
 ├── core/skills/mux/examples/
 │   ├── INDEX.md (this file)
 │   ├── README.md (quick start)

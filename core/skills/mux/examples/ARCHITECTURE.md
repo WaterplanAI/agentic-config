@@ -6,7 +6,7 @@
 ┌─────────────────────────────────────────────────────────────────────┐
 │                          DIRECTOR AGENT                             │
 │                                                                      │
-│  "Monitor 2 workers analyzing /Users/matias/projects/agentic-config"│
+│  "Monitor 2 workers analyzing $PROJECT_ROOT"│
 │                                                                      │
 │  ┌────────────────────────────────────────────────────────────────┐ │
 │  │ MESSAGE BATCH 1: Launch Workers & Monitor                     │ │

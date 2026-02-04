@@ -235,25 +235,25 @@ Example chain of proactive suggestions:
 ### PASS_ITERATE (minor improvements)
 
 ```
-/swarm lean - Enhance section 3.2 of /Users/matias/projects/agentic-config/.claude/skills/swarm/tmp/swarm/20260130-0953-auth/deliverable/roadmap.md with specific migration timeline estimates based on team velocity
+/swarm lean - Enhance section 3.2 of $PROJECT_ROOT/.claude/skills/swarm/tmp/swarm/20260130-0953-auth/deliverable/roadmap.md with specific migration timeline estimates based on team velocity
 ```
 
 ### FAIL_GAPS (missing coverage)
 
 ```
-/swarm Research competitor authentication patterns (Auth0, Okta, Cognito) focusing on enterprise SSO integration. Session: /Users/matias/projects/agentic-config/.claude/skills/swarm/tmp/swarm/20260130-0953-auth. Fill gaps in sections 2.1 and 4.3.
+/swarm Research competitor authentication patterns (Auth0, Okta, Cognito) focusing on enterprise SSO integration. Session: $PROJECT_ROOT/.claude/skills/swarm/tmp/swarm/20260130-0953-auth. Fill gaps in sections 2.1 and 4.3.
 ```
 
 ### FAIL_QUALITY (quality issues)
 
 ```
-/swarm lean - Rewrite /Users/matias/projects/agentic-config/.claude/skills/swarm/tmp/swarm/20260130-0953-auth/deliverable/roadmap.md section 5 to include concrete acceptance criteria and remove vague language ("might", "could", "possibly")
+/swarm lean - Rewrite $PROJECT_ROOT/.claude/skills/swarm/tmp/swarm/20260130-0953-auth/deliverable/roadmap.md section 5 to include concrete acceptance criteria and remove vague language ("might", "could", "possibly")
 ```
 
 ### PARTIAL (agent failures)
 
 ```
-/swarm Retry failed research agents: 003-security-patterns, 005-compliance-requirements. Session: /Users/matias/projects/agentic-config/.claude/skills/swarm/tmp/swarm/20260130-0953-auth. Previous errors: context timeout.
+/swarm Retry failed research agents: 003-security-patterns, 005-compliance-requirements. Session: $PROJECT_ROOT/.claude/skills/swarm/tmp/swarm/20260130-0953-auth. Previous errors: context timeout.
 ```
 
 ## Critical Constraints
@@ -295,9 +295,9 @@ Every prompt MUST be self-contained:
 ```
 TASK: Generate next action prompt
 
-SESSION DIR: /Users/matias/projects/agentic-config/.claude/skills/swarm/tmp/swarm/20260130-0953-auth
+SESSION DIR: $PROJECT_ROOT/.claude/skills/swarm/tmp/swarm/20260130-0953-auth
 ORIGINAL TASK: Research OAuth2 implementation best practices
-SIGNAL: /Users/matias/projects/agentic-config/.claude/skills/swarm/tmp/swarm/20260130-0953-auth/.signals/proposer.done
+SIGNAL: $PROJECT_ROOT/.claude/skills/swarm/tmp/swarm/20260130-0953-auth/.signals/proposer.done
 
 PROTOCOL:
 1. Read {session_dir}/.signals/sentinel.done for grade + gaps

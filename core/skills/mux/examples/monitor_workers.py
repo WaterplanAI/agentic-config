@@ -260,7 +260,7 @@ class WorkerMonitorCoordinator:
             "polling_iterations": poll_iterations,
         }
 
-        print(f"\n[MONITOR] Polling timeout reached after {polling_iterations} iterations")
+        print(f"\n[MONITOR] Polling timeout reached after {poll_iterations} iterations")
         print(f"  Status: {result['status']}")
         print(f"  Workers completed: {result['complete']}/{result['expected']}")
 
@@ -408,8 +408,9 @@ def main() -> int:
     parser = argparse.ArgumentParser(
         description="Monitor 2 background workers analyzing a directory"
     )
+    # Default uses current directory; $PROJECT_ROOT in docs refers to repo root
     parser.add_argument(
-        "directory", nargs="?", default="/Users/matias/projects/agentic-config"
+        "directory", nargs="?", default="."
     )
     parser.add_argument(
         "--expected", type=int, default=2, help="Expected number of workers (default: 2)"

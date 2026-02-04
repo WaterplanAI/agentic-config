@@ -64,7 +64,7 @@ Task(
     instructions="""Monitor 2 workers:
         - worker-dir-001
         - worker-file-002
-        analyzing /Users/matias/projects/agentic-config""",
+        analyzing $PROJECT_ROOT""",
     subagent_type="director",                        # REQUIRED: How to run
 )
 ```
@@ -232,14 +232,14 @@ def test_monitor_references_worker_tasks(inspector):
 
 ## Example: 2 Workers Analyzing Directory
 
-See `/Users/matias/projects/agentic-config/core/skills/mux/examples/monitor_workers.py` for complete implementation.
+See `$PROJECT_ROOT/core/skills/mux/examples/monitor_workers.py` for complete implementation.
 
 ### Output
 
 ```
 WORKER-MONITOR ORCHESTRATION EXAMPLE
 ================================================================================
-Target Directory: /Users/matias/projects/agentic-config
+Target Directory: $PROJECT_ROOT
 Expected Workers: 2
 
 === LAUNCHING WORKERS ===
@@ -380,7 +380,7 @@ Monitor combines all worker findings into a unified summary:
 ```python
 def generate_summary(monitor_status, workers_completed, worker_findings):
     return {
-        "analysis_target": "/Users/matias/projects/agentic-config",
+        "analysis_target": "$PROJECT_ROOT",
         "monitor_status": "success",
         "workers_completed": 2,
         "workers_expected": 2,
@@ -416,7 +416,7 @@ def generate_summary(monitor_status, workers_completed, worker_findings):
 
 ## Related Files
 
-- **Pattern Implementation:** `/Users/matias/projects/agentic-config/core/skills/mux/examples/monitor_workers.py`
-- **Compliance Tests:** `/Users/matias/projects/agentic-config/core/skills/mux/tests/compliance/test_worker_monitor.py`
-- **Polling Tool:** `/Users/matias/projects/agentic-config/core/skills/mux/tools/poll-signals.py`
-- **Task Manager:** `/Users/matias/projects/agentic-config/core/skills/mux/a2a/task-manager.py`
+- **Pattern Implementation:** `$PROJECT_ROOT/core/skills/mux/examples/monitor_workers.py`
+- **Compliance Tests:** `$PROJECT_ROOT/core/skills/mux/tests/compliance/test_worker_monitor.py`
+- **Polling Tool:** `$PROJECT_ROOT/core/skills/mux/tools/poll-signals.py`
+- **Task Manager:** `$PROJECT_ROOT/core/skills/mux/a2a/task-manager.py`

@@ -70,7 +70,7 @@ When both workers complete, the monitor generates a summary:
 
 ```json
 {
-  "analysis_target": "/Users/matias/projects/agentic-config",
+  "analysis_target": "$PROJECT_ROOT",
   "monitor_status": "success",
   "workers_completed": 2,
   "workers_expected": 2,
