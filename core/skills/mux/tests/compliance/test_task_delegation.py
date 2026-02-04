@@ -12,7 +12,6 @@ Validates that mux always delegates work via Task tool with run_in_background=Tr
 from __future__ import annotations
 
 import re
-from pathlib import Path
 
 import pytest
 
@@ -126,3 +125,30 @@ def test_worker_tasks_have_agent_type(inspector):
             "worker",
             "monitor",
         ], "agent_type must be worker or monitor"
+
+
+def test_no_task_output_usage(inspector):
+    """Verify mux NEVER uses TaskOutput to block on agent completion.
+
+    TaskOutput defeats the signal-based architecture:
+    - Blocks orchestrator context
+    - Wastes tokens waiting
+    - Causes "I'll wait for the monitor to complete" bug
+    """
+    # Simulate violation: using TaskOutput
+    inspector.record(
+        "TaskOutput",
+        {
+            "task_id": "monitor-001",
+            "block": True,
+        },
+    )
+
+    task_output_calls = inspector.get_calls("TaskOutput")
+
+    # This SHOULD fail - TaskOutput is forbidden
+    with pytest.raises(AssertionError, match="TaskOutput is FORBIDDEN"):
+        assert len(task_output_calls) == 0, (
+            f"TaskOutput is FORBIDDEN - found {len(task_output_calls)} calls. "
+            "Signals are the ONLY completion mechanism."
+        )

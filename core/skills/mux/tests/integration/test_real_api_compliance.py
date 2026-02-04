@@ -474,6 +474,41 @@ class TestRealNoPollingSelfExecution:
                 )
 
 
+class TestRealNoTaskOutputBlocking:
+    """Test that MUX orchestrator never uses TaskOutput to block on agents."""
+
+    @pytest.mark.asyncio
+    async def test_real_no_task_output_blocking(
+        self, session_dir: Path
+    ) -> None:
+        """Invoke MUX and verify it never uses TaskOutput.
+
+        TaskOutput blocks until agent completion, which:
+        - Wastes orchestrator context
+        - Defeats the signal-based architecture
+        - Causes the exact bug shown in: "I'll wait for the monitor to complete"
+        """
+        skip_if_not_available()
+
+        tool_calls = await invoke_mux_skill(
+            "Research async patterns and audit codebase",
+            session_dir,
+            max_turns=7,
+        )
+
+        # Get tool calls after skill read
+        post_read_calls = filter_post_skill_read_tools(tool_calls)
+
+        # TaskOutput is FORBIDDEN - signals are the only completion mechanism
+        task_output_calls = [t for t in post_read_calls if t.name == "TaskOutput"]
+
+        assert len(task_output_calls) == 0, (
+            f"MUX must NEVER use TaskOutput - found {len(task_output_calls)} calls. "
+            "Signals are the ONLY completion mechanism. "
+            "TaskOutput blocks context and defeats the architecture."
+        )
+
+
 # Run tests directly if executed as script
 if __name__ == "__main__":
     print("Require 3 consecutive runs to pass...")

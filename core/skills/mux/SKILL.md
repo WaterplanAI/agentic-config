@@ -34,6 +34,12 @@ Before ANY action: "Am I delegating or executing?"
 
 Everything else = DELEGATE via Task()
 
+## FORBIDDEN (ZERO TOLERANCE)
+
+- **TaskOutput()** - NEVER block on agent completion
+- **run_in_background=False** - ALWAYS use True
+- **Waiting for monitor** - Continue immediately after launch
+
 ## WORKER + MONITOR (MANDATORY)
 
 Every worker launch requires monitor in SAME message:

@@ -40,10 +40,27 @@
 
 ## Blocking Violations (CRITICAL)
 
+- NEVER use `TaskOutput()` - signals are the ONLY completion mechanism
 - NEVER use `run_in_background=False` - ALWAYS `True`
-- NEVER block on ANY agent
-- NEVER wait for workers before proceeding
+- NEVER block on ANY agent (including monitor)
+- NEVER wait for workers or monitor before proceeding
 - NEVER use bash loops to wait
+
+### TaskOutput is FORBIDDEN
+
+`TaskOutput()` blocks until the agent completes. This defeats the entire architecture:
+
+```python
+# FATAL VIOLATION - blocks context, wastes tokens
+monitor_result = TaskOutput(task_id=monitor_id, block=True)  # NEVER DO THIS
+
+# CORRECT - continue immediately, verify via signals later
+Task(..., run_in_background=True)  # Launch
+# Continue to next phase immediately
+uv run tools/verify.py "$SESSION_DIR" --action summary  # Check later
+```
+
+The monitor uses `poll-signals.py` internally. Orchestrator should NEVER block on monitor completion.
 
 ## Delegation Violations
 
