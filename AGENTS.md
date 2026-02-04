@@ -48,6 +48,9 @@ eval "uvx --from pyright $deps pyright $script"
 
 **MANDATORY** - No exceptions, no rationalization:
 
+- `\<command-or-skill-name>` is an explicit enforcement to INVOKE a skill or command, EVEN if you don't see it in your context.
+  - You MUST check if a command or skill with that name exists looking in .claude/skills/ and .claude/commands/ directories.
+  - If it exists, you MUST EXPLICITLY INVOKE it using the SKILL tool (e.g.: `Skill(skill="mux", args="...")`)
 - If even 1% chance a skill applies to the current task, you MUST invoke it
 - You do not have a choice. You cannot rationalize your way out.
 - When user explicitly requests a skill (e.g., "/mux", "/spec"), invoke it IMMEDIATELY
@@ -65,9 +68,6 @@ eval "uvx --from pyright $deps pyright $script"
 - Minimal changes; avoid ambiguity; no placeholders
 - Keep prompts concise; log costs
 - EFFICIENCY in application performance and user experience - REFLECT this in EVERY implementation
-- `/<command-or-skill-name>` is an explicit enforcement to INVOKE a skill or command, EVEN if you don't see it in your context.
-  - You MUST check if a command or skill with that name exists looking in .claude/skills/ and .claude/commands/ directories.
-  - If it exists, you MUST EXPLICITLY INVOKE it using the SKILL tool (e.g.: `Skill(skill="mux", args="...")`)
 - Glob excludes hidden directories (`.claude/`). Use: `Glob(pattern="*.md", path=".claude/skills/x")` NOT `Glob(pattern=".claude/skills/x/*.md")`
 
 ## /spec Workflow
