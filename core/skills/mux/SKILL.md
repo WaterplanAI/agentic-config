@@ -14,6 +14,41 @@ allowed-tools:
 
 # MUX - Delegation Protocol
 
+## ⛔ MANDATORY FIRST ACTION (NO EXCEPTIONS)
+
+**BEFORE ANY OTHER TOOL CALL**, you MUST run:
+
+```bash
+uv run .claude/skills/mux/tools/session.py "<topic-slug>"
+```
+
+This creates the session AND activates MUX enforcement hooks.
+**If you skip this, hooks will block all subsequent tool calls.**
+
+---
+
+## 🔒 PREAMBLE RITUAL (BEFORE EVERY TOOL CALL)
+
+**BEFORE EVERY TOOL CALL**, output this EXACTLY:
+
+```
+🔒 MUX MODE | Action: [Task|mkdir|uv run tools] | Target: ___ | Rationale: ___
+```
+
+If you cannot complete this sentence with an allowed action, **STOP AND DELEGATE**.
+
+Example:
+```
+🔒 MUX MODE | Action: Task | Target: auditor-agent | Rationale: analyze git history
+```
+
+**VIOLATIONS:**
+- Using Glob/Grep/Read/Edit/Write = BLOCKED BY HOOK
+- Skipping preamble = PROTOCOL VIOLATION
+- Any action not in ALLOWED ACTIONS table = DELEGATE
+
+---
+
 ## THE ONE RULE
 
 You are a DELEGATOR. Your ONLY job: decompose tasks and delegate via Task().
@@ -111,3 +146,28 @@ For edge cases, refer to cookbook:
 - `cookbook/skill-delegation.md` - Skill routing
 
 **Path resolution:** Skill lives in `.claude/skills/mux/`. Use `path` param for Glob (hidden dirs excluded from patterns).
+
+## SESSION CLEANUP
+
+When MUX work is complete, deactivate enforcement:
+
+```bash
+uv run .claude/skills/mux/tools/deactivate.py
+```
+
+This removes the mux-active marker and restores normal operation.
+
+---
+
+## ⚠️ ENFORCEMENT SUMMARY
+
+| Layer | What Happens |
+|-------|--------------|
+| **Session Init** | MUST run session.py FIRST - creates enforcement marker |
+| **Forbidden Tools** | Read/Write/Edit/Grep/Glob/WebSearch → **BLOCKED** |
+| **Bash Whitelist** | Only `mkdir -p`, `uv run tools/*` allowed |
+| **User Approval** | ALL tool calls require confirmation (askFirst) |
+| **Fail-Closed** | Hook errors → BLOCK (not allow) |
+
+**IF YOU SKIP session.py**: Hooks won't activate, but you are VIOLATING THE PROTOCOL.
+The user WILL notice when you use forbidden tools without the preamble ritual.
