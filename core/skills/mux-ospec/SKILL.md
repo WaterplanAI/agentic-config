@@ -1,6 +1,6 @@
 ---
 name: mux-ospec
-description: Orchestrate o_spec workflow via MUX delegation. Combines parallel research-to-deliverable orchestration with spec stage-based workflow execution.
+description: "Orchestrate o_spec workflow via MUX delegation. Combines parallel research-to-deliverable orchestration with spec stage-based workflow execution. Triggers on: mux-ospec"
 project-agnostic: true
 allowed-tools: [Skill, Task, Bash, AskUserQuestion, mcp__voicemode__converse]
 ---
