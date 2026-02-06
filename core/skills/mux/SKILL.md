@@ -1,6 +1,6 @@
 ---
 name: mux
-description: Parallel research-to-deliverable orchestration via multi-agent multiplexer. Single orchestrator fans out to agents, all context funnels back. Triggers on keywords: mux, orchestrate, multi-agent, parallel research, fan-out, multiplex
+description: "Parallel research-to-deliverable orchestration via multi-agent multiplexer. Single orchestrator fans out to agents, all context funnels back. Triggers on keywords: mux, orchestrate, multi-agent, parallel research, fan-out, multiplex"
 project-agnostic: true
 allowed-tools:
   - Task

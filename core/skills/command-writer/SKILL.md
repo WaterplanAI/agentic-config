@@ -1,6 +1,6 @@
 ---
 name: command-writer
-description: Expert assistant for creating Claude Code custom slash commands. Guides command file structure, YAML frontmatter configuration, variable syntax, and best practices. Triggers on keywords: writing commands, creating commands, slash command, custom command, new command, command template, make command, /command, create command, update command
+description: "Expert assistant for creating Claude Code custom slash commands. Guides command file structure, YAML frontmatter configuration, variable syntax, and best practices. Triggers on keywords: writing commands, creating commands, slash command, custom command, new command, command template, make command, /command, create command, update command"
 project-agnostic: true
 allowed-tools:
   - Read
