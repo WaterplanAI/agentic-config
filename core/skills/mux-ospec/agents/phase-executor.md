@@ -203,12 +203,12 @@ PROHIBITED:
 
 | Stage | Signal Path |
 |-------|-------------|
-| GATHER | `{session}/.signals/phase-{N}-gather.json` |
-| CONSOLIDATE | `{session}/.signals/phase-{N}-consolidate.json` |
-| PLAN | `{session}/.signals/phase-{N}-plan.json` |
-| IMPLEMENT | `{session}/.signals/phase-{N}-implement-{worker}.json` |
-| REVIEW | `{session}/.signals/phase-{N}-review-{cycle}.json` |
-| FIX | `{session}/.signals/phase-{N}-fix-{cycle}.json` |
+| GATHER | `{session}/.signals/phase-{N}-gather.done` |
+| CONSOLIDATE | `{session}/.signals/phase-{N}-consolidate.done` |
+| PLAN | `{session}/.signals/phase-{N}-plan.done` |
+| IMPLEMENT | `{session}/.signals/phase-{N}-implement-{worker}.done` |
+| REVIEW | `{session}/.signals/phase-{N}-review-{cycle}.done` |
+| FIX | `{session}/.signals/phase-{N}-fix-{cycle}.done` |
 
 ## Review Cycle Logic
 
@@ -218,7 +218,7 @@ cycle = 1
 
 while cycle <= MAX_CYCLES:
     # Launch reviewer
-    review_signal = poll_for("phase-{N}-review-{cycle}.json")
+    review_signal = poll_for("phase-{N}-review-{cycle}.done")
 
     if review_signal.grade == "PASS":
         # Early exit - proceed to next stage
@@ -230,7 +230,7 @@ while cycle <= MAX_CYCLES:
     else:
         # Launch fixer
         launch_fixer(review_signal.issues)
-        wait_for("phase-{N}-fix-{cycle}.json")
+        wait_for("phase-{N}-fix-{cycle}.done")
         cycle += 1
 ```
 

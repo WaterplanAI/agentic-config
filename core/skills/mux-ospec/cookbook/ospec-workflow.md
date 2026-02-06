@@ -1,5 +1,7 @@
 # O-Spec Workflow
 
+Source of truth: SKILL.md defines the canonical workflow. This cookbook expands on execution details but does NOT override stage sequences or signal formats.
+
 Stage sequences, model assignments, and execution patterns for o_spec modifiers.
 
 ## Stage Sequences by Modifier
@@ -9,7 +11,7 @@ Stage sequences, model assignments, and execution patterns for o_spec modifiers.
 Complete workflow with research and validation.
 
 ```
-GATHER -> CONSOLIDATE -> [CONFIRM SC] -> [PHASE_LOOP] -> TEST -> DOCUMENT -> SENTINEL -> SELF-VALIDATION
+GATHER -> CONSOLIDATE -> [CONFIRM SC] -> [PHASE_LOOP] -> TEST -> DOCUMENT -> SENTINEL
 ```
 
 | Stage | Tier | Purpose |
@@ -21,7 +23,6 @@ GATHER -> CONSOLIDATE -> [CONFIRM SC] -> [PHASE_LOOP] -> TEST -> DOCUMENT -> SEN
 | TEST | medium | Adaptive test execution |
 | DOCUMENT | medium | Documentation artifacts |
 | SENTINEL | high | Cross-cutting final review |
-| SELF-VALIDATION | medium | Orchestrator self-check |
 
 ### Lean Mode
 
@@ -57,7 +58,7 @@ Minimal workflow for well-defined specs.
 Per-phase cycle with TDD enforcement.
 
 ```
-PLAN (with TDD Contribution) -> IMPLEMENT -> REVIEW -> SENTINEL
+PLAN -> IMPLEMENT -> REVIEW -> FIX (if WARN/FAIL)
 ```
 
 ### Per-Phase Execution
@@ -262,7 +263,7 @@ if voice_available:
 | MUX Phase | O-Spec Stages | Integration |
 |-----------|---------------|-------------|
 | Research | GATHER, CONSOLIDATE | Parallel researcher delegation |
-| Planning | PLAN, CONFIRM_SC | Strategic preparation |
+| Planning | PLAN, CONFIRM SC | Strategic preparation |
 | Execution | IMPLEMENT (phased) | Per-phase Task() delegation |
 | Validation | REVIEW, FIX, TEST | N-cycle quality loops |
 | Finalization | DOCUMENT, SENTINEL | Completion verification |

@@ -1,5 +1,7 @@
 # O-Spec Phases via MUX
 
+Source of truth: SKILL.md defines the canonical workflow. This cookbook details phase execution without overriding stage sequences or signal formats.
+
 Execution guide for o_spec workflow stages through MUX orchestration.
 
 ## Phase Overview
@@ -9,7 +11,7 @@ MUX-OSPEC combines MUX parallel orchestration with o_spec stage-based workflow.
 | MUX Phase | O-Spec Stages | Purpose |
 |-----------|---------------|---------|
 | Research | GATHER, CONSOLIDATE | Context collection |
-| Planning | PLAN, CONFIRM_SC | Strategy definition |
+| Planning | PLAN, CONFIRM SC | Strategy definition |
 | Implementation | IMPLEMENT (per-phase) | Code generation |
 | Validation | REVIEW, FIX, TEST | Quality assurance |
 | Finalization | DOCUMENT, SENTINEL | Completion verification |
@@ -21,7 +23,7 @@ MUX-OSPEC combines MUX parallel orchestration with o_spec stage-based workflow.
 All phases execute with high-tier models for quality stages.
 
 ```
-GATHER -> CONSOLIDATE -> CONFIRM_SC -> [PHASE_LOOP] -> TEST -> DOCUMENT -> SENTINEL
+GATHER -> CONSOLIDATE -> CONFIRM SC -> [PHASE_LOOP] -> TEST -> DOCUMENT -> SENTINEL
 ```
 
 ### Lean Mode
@@ -113,7 +115,7 @@ Return EXACTLY: done""",
 )
 ```
 
-### CONFIRM_SC Stage (Full Mode)
+### CONFIRM SC Stage (Full Mode)
 
 Validate success criteria before implementation.
 
@@ -263,7 +265,7 @@ Return EXACTLY: done""",
 | GATHER | high | opus | Research requires deep understanding |
 | CONSOLIDATE | high | opus | Synthesis requires judgment |
 | PLAN | high | opus | Strategic decisions, TDD strategy |
-| CONFIRM_SC | high | opus | Validation requires experience |
+| CONFIRM SC | high | opus | Validation requires experience |
 | IMPLEMENT | medium | sonnet | Well-defined scope |
 | REVIEW | high | opus | Quality assessment |
 | FIX | medium | sonnet | Targeted changes |
@@ -274,7 +276,7 @@ Return EXACTLY: done""",
 
 ## Signal Protocol
 
-All phases signal completion via JSON files.
+All phases signal completion via `.done` signal files (JSON content).
 
 ```json
 {
@@ -291,5 +293,5 @@ All phases signal completion via JSON files.
 
 Signal creation:
 ```bash
-uv run tools/signal.py "$SIGNAL_PATH" --path "$OUTPUT_PATH" --status success
+uv run $MUX_TOOLS/signal.py "$SIGNAL_PATH" --path "$OUTPUT_PATH" --status success
 ```
