@@ -40,8 +40,13 @@ def run_signal_tool(signal_path: Path, output_path: Path, status: str, **kwargs)
     ]
 
     for key, value in kwargs.items():
-        if value is not None:
-            cmd.extend([f"--{key.replace('_', '-')}", str(value)])
+        if value is None:
+            continue
+        if isinstance(value, bool):
+            if value:
+                cmd.append(f"--{key.replace('_', '-')}")
+            continue
+        cmd.extend([f"--{key.replace('_', '-')}", str(value)])
 
     return subprocess.run(cmd, capture_output=True, text=True)
 
@@ -189,6 +194,47 @@ def test_signal_version_tracking(result: TestResult):
         result.add_fail(test_name, str(e))
 
 
+def test_signal_require_bus_fails_when_missing(result: TestResult):
+    """Test --require-bus fails when no hub metadata is available."""
+    test_name = "test_signal_require_bus_fails_when_missing"
+    try:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmpdir = Path(tmpdir)
+            signals_dir = tmpdir / ".signals"
+            output_file = tmpdir / "output.md"
+            signal_file = signals_dir / "006-test.done"
+
+            output_file.write_text("test content\n")
+            proc = run_signal_tool(signal_file, output_file, "success", require_bus=True)
+
+            assert proc.returncode != 0, "Signal tool should fail when --require-bus is set and no bus exists"
+            assert signal_file.exists(), "Signal file should still be created even when publish fails"
+            assert "require-bus" in proc.stderr, "stderr should mention require-bus publish failure"
+            result.add_pass(test_name)
+    except Exception as e:
+        result.add_fail(test_name, str(e))
+
+
+def test_signal_soft_publish_fallback(result: TestResult):
+    """Test publish fallback keeps success when bus metadata is missing."""
+    test_name = "test_signal_soft_publish_fallback"
+    try:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmpdir = Path(tmpdir)
+            signals_dir = tmpdir / ".signals"
+            output_file = tmpdir / "output.md"
+            signal_file = signals_dir / "007-test.done"
+
+            output_file.write_text("test content\n")
+            proc = run_signal_tool(signal_file, output_file, "success")
+
+            assert proc.returncode == 0, f"Signal tool should succeed without bus metadata: {proc.stderr}"
+            assert signal_file.exists(), "Signal file should exist"
+            result.add_pass(test_name)
+    except Exception as e:
+        result.add_fail(test_name, str(e))
+
+
 if __name__ == "__main__":
     import sys
 
@@ -199,6 +245,8 @@ if __name__ == "__main__":
     test_signal_auto_size(result)
     test_signal_trace_id_auto(result)
     test_signal_version_tracking(result)
+    test_signal_require_bus_fails_when_missing(result)
+    test_signal_soft_publish_fallback(result)
 
     success = result.summary()
     sys.exit(0 if success else 1)

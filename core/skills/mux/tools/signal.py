@@ -21,7 +21,9 @@ Examples:
 """
 
 import argparse
+import json
 import os
+import socket
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -46,6 +48,67 @@ def atomic_write(path: Path, content: str):
 
     # Atomic rename (replaces existing file atomically)
     os.replace(str(tmp_path), str(path))
+
+
+def publish_event(
+    signal_path: Path,
+    output_path: Path,
+    status: str,
+    size: int,
+    trace_id: str | None,
+    error: str | None,
+    version: int | None,
+    previous: str | None,
+) -> bool:
+    """Publish event to push signal hub if session metadata exists."""
+    if signal_path.parent.name != ".signals":
+        return False
+
+    session_dir = signal_path.parent.parent
+    meta_path = session_dir / ".signal-bus.json"
+    if not meta_path.exists():
+        return False
+
+    try:
+        meta = json.loads(meta_path.read_text(encoding="utf-8"))
+        token = meta["token"]
+        socket_path = meta.get("socket_path")
+        host = meta.get("host")
+        port = meta.get("port")
+
+        event = {
+            "type": "signal",
+            "session_dir": str(session_dir),
+            "signal_path": str(signal_path),
+            "output_path": str(output_path),
+            "status": status,
+            "size": size,
+            "trace_id": trace_id,
+            "error": error,
+            "version": version,
+            "previous": previous,
+            "phase": signal_path.stem,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        }
+
+        payload = {"op": "publish", "token": token, "event": event}
+        if socket_path:
+            conn = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+            conn.settimeout(2.0)
+            conn.connect(socket_path)
+        elif host and port:
+            conn = socket.create_connection((host, int(port)), timeout=2.0)
+        else:
+            return False
+        with conn:
+            conn.sendall((json.dumps(payload) + "\n").encode())
+            ack = conn.recv(8192).decode().strip()
+            if not ack:
+                return False
+            response = json.loads(ack.splitlines()[0])
+            return bool(response.get("ok"))
+    except Exception:
+        return False
 
 
 def main() -> int:
@@ -90,6 +153,24 @@ def main() -> int:
         "--previous",
         default=None,
         help="Path to previous version (only for version > 1)",
+    )
+    parser.add_argument(
+        "--emit",
+        dest="emit",
+        action="store_true",
+        default=True,
+        help="Publish event to session push hub if available (default: true)",
+    )
+    parser.add_argument(
+        "--no-emit",
+        dest="emit",
+        action="store_false",
+        help="Disable push hub publish",
+    )
+    parser.add_argument(
+        "--require-bus",
+        action="store_true",
+        help="Fail if event cannot be published to push hub",
     )
 
     args = parser.parse_args()
@@ -158,7 +239,25 @@ def main() -> int:
     # This eliminates the race condition where partial signals could be visible
     atomic_write(final_signal_path, signal_content)
 
+    published = False
+    if args.emit:
+        published = publish_event(
+            signal_path=final_signal_path,
+            output_path=output_path,
+            status=args.status,
+            size=size,
+            trace_id=trace_id,
+            error=args.error,
+            version=args.version,
+            previous=args.previous,
+        )
+        if args.require_bus and not published:
+            print("error: push signal publish failed (--require-bus set)", file=sys.stderr)
+            return 1
+
     print(f"Signal created: {final_signal_path}")
+    if published:
+        print("Signal published: true")
     return 0
 
 

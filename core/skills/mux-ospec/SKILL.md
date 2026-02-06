@@ -134,7 +134,7 @@ FINAL: Return EXACTLY: done""", model="opus", run_in_background=True)
 ```bash
 uv run $MUX_TOOLS/session.py "mux-ospec-{topic}"
 uv run $MUX_TOOLS/signal.py $PATH --status success
-uv run $MUX_TOOLS/poll-signals.py $DIR --expected N
+uv run $MUX_TOOLS/subscribe.py $DIR --expected N
 ```
 
 ## COOKBOOK

@@ -10,7 +10,7 @@ Signals are the ONLY completion mechanism. All other methods are FORBIDDEN:
 - tail/grep/cat
 - sleep/while/for loops
 - Manual ls polling
-- poll-signals.py (orchestrator only)
+- poll-signals.py direct loops (orchestrator only)
 
 ## Signal File Schema
 
@@ -65,7 +65,7 @@ Missing: none
 
 ## Monitor Agent Pattern
 
-Monitor agents use poll-signals.py to track worker completion.
+Monitor agents use subscribe.py to track worker completion (push via socket with fallback to file polling).
 
 ```python
 Task(
@@ -74,7 +74,7 @@ Task(
 SESSION: {session_dir}
 EXPECTED: {worker_count}
 
-Use poll-signals.py to track completion.
+Use subscribe.py to track completion.
 
 FINAL: Return EXACTLY: done""",
     subagent_type="general-purpose",

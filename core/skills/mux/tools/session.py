@@ -22,9 +22,11 @@ Output (stdout):
 """
 
 import argparse
+import json
 import os
 import subprocess
 import sys
+import time
 import uuid
 from datetime import datetime
 from pathlib import Path
@@ -87,6 +89,55 @@ def activate_mux_enforcement(session_dir: Path) -> Path | None:
     return marker_file
 
 
+def start_signal_hub(session_dir: Path) -> tuple[Path | None, dict | None]:
+    """Start session-scoped push signal hub in background.
+
+    Returns tuple of (meta_file_path, parsed_meta_json) or (None, None) on failure.
+    """
+    hub_script = Path(__file__).with_name("signal-hub.py")
+    if not hub_script.exists():
+        return (None, None)
+
+    token = uuid.uuid4().hex
+    meta_file = session_dir / ".signal-bus.json"
+    log_file = session_dir / ".agents" / "signal-hub.log"
+    log_file.parent.mkdir(parents=True, exist_ok=True)
+
+    with log_file.open("a", encoding="utf-8") as log:
+        proc = subprocess.Popen(
+            [
+                sys.executable,
+                str(hub_script),
+                "--session-dir",
+                str(session_dir),
+                "--token",
+                token,
+                "--meta-file",
+                str(meta_file),
+            ],
+            stdout=log,
+            stderr=log,
+            start_new_session=True,
+        )
+
+    # Wait briefly for metadata file to appear.
+    deadline = time.time() + 5.0
+    while time.time() < deadline:
+        if meta_file.exists():
+            try:
+                meta = json.loads(meta_file.read_text(encoding="utf-8"))
+                has_endpoint = bool(meta.get("socket_path")) or bool(meta.get("port"))
+                if isinstance(meta, dict) and has_endpoint:
+                    return (meta_file, meta)
+            except json.JSONDecodeError:
+                pass
+        if proc.poll() is not None:
+            break
+        time.sleep(0.1)
+
+    return (None, None)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="Create mux session directory structure"
@@ -104,6 +155,18 @@ def main() -> int:
         "--parent-trace",
         dest="parent_trace",
         help="Parent trace ID for child sessions (propagation)",
+    )
+    parser.add_argument(
+        "--signal-bus",
+        action="store_true",
+        default=True,
+        help="Start push signal hub for websocket-like notifications (default: enabled)",
+    )
+    parser.add_argument(
+        "--no-signal-bus",
+        dest="signal_bus",
+        action="store_false",
+        help="Disable push signal hub startup",
     )
 
     args = parser.parse_args()
@@ -132,6 +195,10 @@ def main() -> int:
 
     # CRITICAL: Activate MUX enforcement hooks
     marker_file = activate_mux_enforcement(session_dir)
+    bus_meta_file: Path | None = None
+    bus_meta: dict | None = None
+    if args.signal_bus:
+        bus_meta_file, bus_meta = start_signal_hub(session_dir)
 
     # Output for shell consumption
     print(f"SESSION_DIR={session_dir}")
@@ -141,6 +208,15 @@ def main() -> int:
         print("✓ MUX enforcement hooks ACTIVATED - forbidden tools will be BLOCKED")
     else:
         print("⚠ MUX_ACTIVE=none (Claude PID not found, hooks may not enforce)")
+    if bus_meta_file and bus_meta:
+        print(f"SIGNAL_BUS={bus_meta_file}")
+        if bus_meta.get("socket_path"):
+            print(f"SIGNAL_HUB=unix://{bus_meta['socket_path']}")
+        else:
+            print(f"SIGNAL_HUB=tcp://{bus_meta['host']}:{bus_meta['port']}")
+        print("✓ Push signal hub ACTIVATED - subscribers can wait without polling")
+    else:
+        print("⚠ SIGNAL_BUS=none (push hub unavailable, use poll-signals.py)")
 
     return 0
 

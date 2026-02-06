@@ -39,13 +39,13 @@ Signal file format and usage for mux-ospec orchestration.
 uv run $MUX_TOOLS/signal.py $PATH --status success --output '{"key": "value"}'
 ```
 
-## Signal Polling
+## Signal Waiting (Preferred)
 
 ```bash
-uv run $MUX_TOOLS/poll-signals.py $DIR --expected N
+uv run $MUX_TOOLS/subscribe.py $DIR --expected N
 ```
 
-Returns when N signals detected or timeout.
+Returns when N signal events are received (push socket), with automatic fallback to file polling when push bus is unavailable.
 
 ## Signal Verification
 

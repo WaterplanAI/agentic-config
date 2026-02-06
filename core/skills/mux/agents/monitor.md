@@ -1,6 +1,6 @@
 ---
 name: monitor
-role: Track worker completion via poll-signals.py
+role: Track worker completion via subscribe.py (push) with polling fallback
 tier: low
 model: haiku
 triggers:
@@ -85,10 +85,10 @@ Parse expected_workers from prompt:
 ## Execution Protocol
 
 ```
-1. POLL SIGNALS
-   Single blocking call that polls until completion or timeout:
+1. WAIT FOR SIGNALS
+   Single blocking call using push events (auto-fallback to file polling):
 
-   result=$(uv run tools/poll-signals.py "$session_dir" --expected $expected --timeout 300)
+   result=$(uv run tools/subscribe.py "$session_dir" --expected $expected --timeout 300)
 
 2. PARSE RESULT
    Parse JSON output:
@@ -124,15 +124,15 @@ Voice update happens BEFORE return value, NOT in return value.
 
 ## Polling Implementation
 
-Use single blocking call with poll-signals.py:
+Use single blocking call with subscribe.py (push + fallback):
 
 ```bash
 session_dir="{session_dir}"
 expected={expected_workers}
 timeout={timeout}
 
-# Single blocking poll until completion or timeout
-result=$(uv run tools/poll-signals.py "$session_dir" --expected $expected --timeout $timeout)
+# Single blocking wait until completion or timeout
+result=$(uv run tools/subscribe.py "$session_dir" --expected $expected --timeout $timeout)
 
 # Parse JSON output
 status=$(echo "$result" | python3 -c "import sys, json; print(json.load(sys.stdin)['status'])")
@@ -194,7 +194,7 @@ mcp__voicemode__converse(
 
 ## Error Handling
 
-poll-signals.py returns status in JSON output:
+subscribe.py returns status in JSON output:
 
 - `status: "success"` - All workers completed successfully (failed=0)
 - `status: "partial"` - All expected signals present but some failed
@@ -211,7 +211,7 @@ Monitor completes BEFORE Task notification reaches orchestrator.
 
 **Timeline**:
 1. Worker writes signal file
-2. poll-signals.py detects signal, returns JSON
+2. subscribe.py receives signal event (or fallback detects file), returns JSON
 3. Monitor processes result, sends voice update
 4. Monitor returns "done"
 5. Task runtime sends TaskUpdate to orchestrator (DELAYED)
@@ -230,8 +230,8 @@ Expected workers: {N}
 Timeout: 300 seconds
 
 PROTOCOL:
-1. Poll signals (single blocking call):
-   result=$(uv run tools/poll-signals.py "{session_dir}" --expected {N} --timeout 300)
+1. Wait for signals (single blocking call):
+   result=$(uv run tools/subscribe.py "{session_dir}" --expected {N} --timeout 300)
 
 2. Parse JSON result:
    status=$(echo "$result" | python3 -c "import sys, json; print(json.load(sys.stdin)['status'])")

@@ -85,7 +85,7 @@ for item in items:
     Task(prompt="...", subagent_type="general-purpose", run_in_background=True)
 
 # Monitor (SAME message as workers)
-Task(prompt=f"Read agents/monitor.md. EXPECTED: {N}. Use poll-signals.py.",
+Task(prompt=f"Read agents/monitor.md. EXPECTED: {N}. Use subscribe.py (push; fallback to polling).",
      subagent_type="general-purpose", model="haiku", run_in_background=True)
 
 # Checkpoint (before next phase)
@@ -111,7 +111,7 @@ Missing monitor = PROTOCOL VIOLATION
 
 | Agent | Model | Purpose |
 |-------|-------|---------|
-| Monitor | haiku | Track completion via poll-signals.py |
+| Monitor | haiku | Track completion via subscribe.py (push + fallback) |
 | Researcher | sonnet | Web research |
 | Auditor | sonnet | Codebase analysis |
 | Consolidator | sonnet | Aggregate findings |
@@ -125,6 +125,7 @@ Missing monitor = PROTOCOL VIOLATION
 uv run tools/session.py "topic"           # Create session
 uv run tools/verify.py $DIR --action summary  # Check signals
 uv run tools/signal.py $PATH --status success # Create signal
+uv run tools/subscribe.py $DIR --expected N    # Wait for signals (push + fallback)
 ```
 
 For edge cases, refer to cookbook:

@@ -16,8 +16,10 @@ Output (stdout):
 """
 
 import os
+import json
 import subprocess
 import sys
+import signal
 from pathlib import Path
 
 
@@ -65,17 +67,39 @@ def main() -> int:
 
     agentic_root = find_agentic_root()
     marker_file = agentic_root / f"outputs/session/{claude_pid}/mux-active"
+    session_info = None
 
     if marker_file.exists():
         # Read session info before deleting
         session_info = marker_file.read_text().strip().split("\n")[0]
         marker_file.unlink()
-        print(f"MUX_DEACTIVATED=true")
+        print("MUX_DEACTIVATED=true")
         print(f"SESSION_WAS={session_info}")
         print("✓ MUX enforcement hooks DEACTIVATED - normal operation restored")
     else:
         print("MUX_DEACTIVATED=false")
         print("⚠ No active MUX session found")
+
+    # Stop push signal hub if session metadata exists.
+    if session_info:
+        session_dir = Path(session_info)
+        bus_meta_file = session_dir / ".signal-bus.json"
+        if bus_meta_file.exists():
+            try:
+                meta = json.loads(bus_meta_file.read_text(encoding="utf-8"))
+                hub_pid = int(meta.get("pid", 0))
+                socket_path = meta.get("socket_path")
+                if hub_pid > 0:
+                    os.kill(hub_pid, signal.SIGTERM)
+                    print("SIGNAL_HUB_STOPPED=true")
+                else:
+                    print("SIGNAL_HUB_STOPPED=false")
+                if socket_path:
+                    Path(socket_path).unlink(missing_ok=True)
+                bus_meta_file.unlink(missing_ok=True)
+            except Exception as exc:
+                print("SIGNAL_HUB_STOPPED=false")
+                print(f"SIGNAL_HUB_ERROR={exc}")
 
     return 0
 
