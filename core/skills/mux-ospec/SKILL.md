@@ -45,6 +45,12 @@ Before ANY action: "Am I delegating or executing?"
 - Delegating (Task()) = PROCEED
 - Executing (anything else) = STOP, DELEGATE
 
+**You NEVER interpret stage results.** When a stage agent completes:
+- Delegate reading signal/output to Task(haiku/explore)
+- Receive ONLY routing data: status, grade, commit hash
+- Route to next stage based on returned routing data
+- NEVER read signal files, review reports, or stage outputs yourself
+
 ## CRITICAL: NO DESCRIPTION WITHOUT ACTION
 
 VIOLATION: Responding with "I will delegate via Task()" without actual Task() call
@@ -73,6 +79,7 @@ Everything else = DELEGATE via Task()
 - **run_in_background=False** - ALWAYS use True
 - **Blocking on agents** - Continue immediately after launch, use signals for completion
 - **Polling agent output** - NEVER use Read/Bash/tail to check agent progress files
+- **Interpreting stage results** - NEVER read signal files, review reports, test outputs, or stage artifacts yourself. Delegate reading to Task(haiku/explore) and receive ONLY routing data
 
 ## WORKER + MONITOR (MANDATORY)
 
@@ -121,139 +128,198 @@ SPEC_PATH=$(resolve_spec_path "$SPEC_PATH")
 
 ## PHASE EXECUTION
 
+Each stage = one Task() subagent whose FIRST and MANDATORY action is `/spec <STAGE>`.
+mux-ospec knows NOTHING about how stages work internally. It only knows the ORDER.
+
 ### GATHER (full only)
 
-Delegate MUX research for spec context:
+MUX parallel research - NOT a /spec stage. Uses MUX fan-out pattern.
 
 ```python
-# LAUNCH AGENT: GATHER research
-Task(prompt="""You are a MUX research orchestrator.
-TASK: Research for {spec_context}.
-SUBJECTS: [Web research, Codebase audit, Pattern analysis]
-CONSOLIDATE TO: {session}/research/consolidated.md
+Task(prompt="""You are a MUX research orchestrator for: {spec_context}
 
-CONSTRAINTS:
-- Your ONLY action is orchestrating research via Task() delegation.
-- Do NOT read source files yourself.
-- Do NOT write the consolidated output yourself - delegate to agents.
-- If research fails, return "STAGE_FAILED" - do NOT fabricate results.
+YOUR FIRST AND ONLY ACTION: Orchestrate research via parallel Task() delegation.
+Subjects: [Web research, Codebase audit, Pattern analysis]
+Consolidate to: {session}/research/consolidated.md
 
-Signal: {session}/.signals/gather.done
-FINAL: Return EXACTLY: done""", model="opus", run_in_background=True)
+DO NOT read source files yourself. DO NOT write consolidated output yourself.
+If research fails, RETURN "STAGE_FAILED".
+
+Signal: uv run {MUX_TOOLS}/signal.py {session}/.signals/gather.done --status success
+RETURN: "STAGE_GATHER_COMPLETE"
+""", subagent_type="general-purpose", model="opus", run_in_background=True)
 ```
 
 ### CONFIRM SC (full only)
 
+Refinement loop - present SC to user, iterate if needed:
+
 ```python
-AskUserQuestion(question="Review SUCCESS_CRITERIA at {session}/research/consolidated.md. Approve?")
+# 1. Delegate reading SC summary
+Task(prompt="Read {session}/research/consolidated.md. Return ONLY the SUCCESS_CRITERIA section.",
+     subagent_type="Explore", model="haiku", run_in_background=True)
+
+# 2. Present to user
+AskUserQuestion(question="Review SUCCESS_CRITERIA. Approve or refine?",
+    options=[
+        {"label": "Approve", "description": "SC accepted, proceed to PLAN"},
+        {"label": "Refine", "description": "Adjust SC before proceeding"}
+    ])
+
+# 3. If REFINE: delegate SC update, re-present
+# Loop until approved or max 3 iterations
 ```
 
 ### PHASE_LOOP (PLAN -> IMPLEMENT -> REVIEW -> FIX)
 
-For each phase N, delegate these stages:
+For each phase N, delegate ONE stage at a time. Each stage agent's FIRST action = `/spec <STAGE>`.
+
+#### PLAN
 
 ```python
-# PLAN
-# Execute ONLY as first stage of phase N
-Task(prompt="""Invoke Skill(skill="spec", args="PLAN {spec_path} ultrathink").
+Task(prompt="""THINK VERY HARD; TAKE YOUR TIME.
 
-CONSTRAINTS:
-- Your ONLY action is invoking Skill(spec). Do NOT plan yourself.
-- Do NOT read source files before invoking the skill.
-- Do NOT write to the spec file directly.
-- If Skill(spec) fails, return "STAGE_FAILED" - do NOT implement as fallback.
+Your FIRST and MANDATORY action:
+Skill(skill="spec", args="PLAN {spec_path}")
 
-Signal: {session}/.signals/phase-{N}-plan.done
-FINAL: Return EXACTLY: done""", model="opus", run_in_background=True)
+DO NOT read files, write code, or do anything before invoking this Skill.
+DO NOT plan as a fallback if the Skill fails.
+If Skill fails: RETURN "STAGE_FAILED"
 
-# IMPLEMENT
-# Execute ONLY when phase-{N}-plan.done signal exists
-Task(prompt="""Invoke Skill(skill="spec", args="IMPLEMENT {spec_path} ultrathink").
+After Skill completes, verify:
+1. git log --oneline -5 | grep -i "spec.*PLAN" (commit must exist)
+2. Spec file has >50 lines in AI Section
 
-CONSTRAINTS:
-- Your ONLY action is invoking Skill(spec). Do NOT implement yourself.
-- Do NOT read the spec to "understand" it before invoking the skill.
-- Do NOT edit source files directly.
-- If Skill(spec) fails, return "STAGE_FAILED" - do NOT code as fallback.
+Signal: uv run {MUX_TOOLS}/signal.py {session}/.signals/phase-{N}-plan.done --status success --meta commit="$(git rev-parse --short HEAD)"
+RETURN: "STAGE_PLAN_COMPLETE"
+""", subagent_type="general-purpose", model="opus", run_in_background=True)
+```
 
-Signal: {session}/.signals/phase-{N}-implement.done
-FINAL: Return EXACTLY: done""", model="sonnet", run_in_background=True)
+#### IMPLEMENT
 
-# REVIEW (per cycle)
-# Execute ONLY when phase-{N}-implement.done signal exists
-Task(prompt="""Read agents/spec-reviewer.md. SPEC: {spec_path}, PHASE: {N}, CYCLE: {cycle}
-Grade: PASS|WARN|FAIL.
+```python
+Task(prompt="""THINK VERY HARD; TAKE YOUR TIME.
 
-CONSTRAINTS:
-- Your ONLY action is following agents/spec-reviewer.md instructions.
-- Do NOT invent your own review criteria.
-- Do NOT fix issues yourself - only report them.
-- If review cannot proceed, return "STAGE_FAILED" - do NOT skip review.
+Your FIRST and MANDATORY action:
+Skill(skill="spec", args="IMPLEMENT {spec_path}")
 
-Signal: {session}/.signals/phase-{N}-review-{cycle}.done
-FINAL: Return EXACTLY: done""", model="opus", run_in_background=True)
+DO NOT read the spec to "understand" it first. DO NOT write code yourself.
+If Skill fails: RETURN "STAGE_FAILED"
 
-# FIX (if WARN/FAIL)
-# Execute ONLY when review grade is WARN or FAIL
-Task(prompt="""Read agents/spec-fixer.md. REVIEW: {session}/reviews/phase-{N}-review-{cycle}.md
+After Skill completes, verify:
+1. git log --oneline -10 | grep -E "(feat|fix|refactor)\\(" (commit must exist)
+2. Type check passes: {type_check_cmd}
+3. No test regressions: {test_cmd}
 
-CONSTRAINTS:
-- Your ONLY action is following agents/spec-fixer.md instructions.
-- Do NOT invent fixes outside the review findings.
-- Do NOT skip the spec-fixer agent and fix directly.
-- If fix fails, return "STAGE_FAILED" - do NOT ignore the review.
+Signal: uv run {MUX_TOOLS}/signal.py {session}/.signals/phase-{N}-implement.done --status success --meta commit="$(git rev-parse --short HEAD)"
+RETURN: "STAGE_IMPLEMENT_COMPLETE"
+""", subagent_type="general-purpose", model="sonnet", run_in_background=True)
+```
 
-Signal: {session}/.signals/phase-{N}-fix-{cycle}.done
-FINAL: Return EXACTLY: done""", model="sonnet", run_in_background=True)
+#### REVIEW
+
+```python
+Task(prompt="""THINK VERY HARD; TAKE YOUR TIME.
+
+Your FIRST and MANDATORY action:
+Skill(skill="spec", args="REVIEW {spec_path}")
+
+ENHANCEMENT: Also read agents/spec-reviewer.md at {AGENTIC_GLOBAL}/core/skills/mux-ospec/agents/spec-reviewer.md for additional review criteria beyond /spec defaults.
+
+DO NOT invent your own review criteria. DO NOT fix issues (only report them).
+If Skill fails: RETURN "STAGE_FAILED"
+
+After Skill completes, verify:
+1. Review report exists with explicit grade: PASS, WARN, or FAIL
+
+Signal: uv run {MUX_TOOLS}/signal.py {session}/.signals/phase-{N}-review-{cycle}.done --status success --meta grade="{PASS|WARN|FAIL}"
+RETURN: "STAGE_REVIEW_COMPLETE grade={PASS|WARN|FAIL}"
+""", subagent_type="general-purpose", model="opus", run_in_background=True)
+```
+
+#### FIX
+
+```python
+Task(prompt="""THINK VERY HARD; TAKE YOUR TIME.
+
+Your FIRST and MANDATORY action:
+Skill(skill="spec", args="FIX {spec_path}")
+
+ENHANCEMENT: Also read agents/spec-fixer.md at {AGENTIC_GLOBAL}/core/skills/mux-ospec/agents/spec-fixer.md for context-preserving fix protocol.
+REVIEW REPORT: {session}/reviews/phase-{N}-review-{cycle}.md
+
+DO NOT invent fixes outside the review findings. DO NOT delete working code.
+If Skill fails: RETURN "STAGE_FAILED"
+
+After Skill completes, verify:
+1. git log --oneline -5 | grep -i "fix" (commit must exist)
+2. Type check passes: {type_check_cmd}
+
+Signal: uv run {MUX_TOOLS}/signal.py {session}/.signals/phase-{N}-fix-{cycle}.done --status success --meta commit="$(git rev-parse --short HEAD)"
+RETURN: "STAGE_FIX_COMPLETE"
+""", subagent_type="general-purpose", model="sonnet", run_in_background=True)
 ```
 
 ### TEST
 
 ```python
-# Execute ONLY when PHASE_LOOP is complete
-Task(prompt="""Read agents/spec-tester.md. SPEC: {spec_path}, SESSION: {session}
-Detect framework via detect-repo-type.py.
+Task(prompt="""THINK VERY HARD; TAKE YOUR TIME.
 
-CONSTRAINTS:
-- Your ONLY action is following agents/spec-tester.md instructions.
-- Do NOT write tests yourself outside the agent protocol.
-- Do NOT skip test execution.
-- If testing fails, return "STAGE_FAILED" - do NOT mark as passed.
+Your FIRST and MANDATORY action:
+Skill(skill="spec", args="TEST {spec_path}")
 
-Signal: {session}/.signals/test.done
-FINAL: Return EXACTLY: done""", model="sonnet", run_in_background=True)
+ENHANCEMENT: Also read agents/spec-tester.md at {AGENTIC_GLOBAL}/core/skills/mux-ospec/agents/spec-tester.md for adaptive test execution and framework detection.
+
+DO NOT write tests yourself. DO NOT skip execution. DO NOT fabricate results.
+If Skill fails: RETURN "STAGE_FAILED"
+
+After Skill completes, verify:
+1. Tests actually ran (check output for pass/fail counts)
+
+Signal: uv run {MUX_TOOLS}/signal.py {session}/.signals/test.done --status success --meta grade="{PASS|FAIL}",tests_run={N},tests_passed={N}
+RETURN: "STAGE_TEST_COMPLETE grade={PASS|FAIL}"
+""", subagent_type="general-purpose", model="sonnet", run_in_background=True)
 ```
 
 ### DOCUMENT (full/lean)
 
 ```python
-# Execute ONLY when test.done signal exists
-Task(prompt="""Invoke Skill(skill="spec", args="DOCUMENT {spec_path}").
+Task(prompt="""THINK VERY HARD; TAKE YOUR TIME.
 
-CONSTRAINTS:
-- Your ONLY action is invoking Skill(spec). Do NOT write docs yourself.
-- Do NOT read source files to "summarize" them.
-- Do NOT create documentation outside the skill.
-- If Skill(spec) fails, return "STAGE_FAILED" - do NOT write docs as fallback.
+Your FIRST and MANDATORY action:
+Skill(skill="spec", args="DOCUMENT {spec_path}")
 
-Signal: {session}/.signals/document.done
-FINAL: Return EXACTLY: done""", model="sonnet", run_in_background=True)
+DO NOT read source files to summarize them. DO NOT write docs yourself.
+If Skill fails: RETURN "STAGE_FAILED"
+
+After Skill completes, verify:
+1. git log --oneline -5 | grep -i "spec.*DOCUMENT" (commit must exist)
+
+Signal: uv run {MUX_TOOLS}/signal.py {session}/.signals/document.done --status success --meta commit="$(git rev-parse --short HEAD)"
+RETURN: "STAGE_DOCUMENT_COMPLETE"
+""", subagent_type="general-purpose", model="sonnet", run_in_background=True)
 ```
 
 ### SENTINEL (full) / SELF-VALIDATION (lean/leanest)
 
 ```python
-# Execute ONLY as final stage
-Task(prompt="""Read agents/sentinel.md. SESSION: {session}. Verify all SC items PASS.
+Task(prompt="""THINK VERY HARD; TAKE YOUR TIME.
 
-CONSTRAINTS:
-- Your ONLY action is following agents/sentinel.md instructions.
-- Do NOT validate by reading files yourself.
-- Do NOT approve incomplete work.
-- If validation fails, return "STAGE_FAILED" - do NOT override the sentinel.
+Your FIRST and MANDATORY action:
+Skill(skill="spec", args="SENTINEL {spec_path}")
 
-Signal: {session}/.signals/sentinel.done
-FINAL: Return EXACTLY: done""", model="opus", run_in_background=True)
+ENHANCEMENT: Also read agents/sentinel.md at {AGENTIC_GLOBAL}/core/skills/mux-ospec/agents/sentinel.md for cross-phase coordination review criteria.
+
+DO NOT approve incomplete work. DO NOT override the grade.
+If Skill fails: RETURN "STAGE_FAILED"
+
+After Skill completes, verify:
+1. All SC items explicitly graded
+2. Overall grade is explicit: PASS, WARN, or FAIL
+
+Signal: uv run {MUX_TOOLS}/signal.py {session}/.signals/sentinel.done --status success --meta grade="{PASS|WARN|FAIL}"
+RETURN: "STAGE_SENTINEL_COMPLETE grade={PASS|WARN|FAIL}"
+""", subagent_type="general-purpose", model="opus", run_in_background=True)
 ```
 
 ## TOOLS
@@ -272,17 +338,17 @@ uv run $MUX_TOOLS/poll-signals.py $DIR --expected N
 
 **Rule:** RUN session.py FIRST. Session init activates hooks that BLOCK Read/Grep/Glob. Delegate ALL spec reading to stage agents. Orchestrator receives ONLY signal notifications and stage completion status. If you find yourself reading ANY file, you are VIOLATING this rule.
 
-### 2. Stage Agents Must Actually Invoke Skill(spec)
+### 2. Stage Agents Must Invoke /spec as FIRST Action
 
-**What failed:** PLAN agent received spec path and wrote its own plan without invoking Skill(skill="spec"). Spec file empty. No commit.
+**What failed:** PLAN agent received spec path and wrote its own plan without invoking `/spec PLAN`. Spec file empty. No commit. Agent "helped" by doing the work itself.
 
-**Rule:** Stage prompts include anti-bypass CONSTRAINTS. Verify artifacts after stage return.
+**Rule:** Every stage agent's FIRST and MANDATORY action = `Skill(skill="spec", args="<STAGE> <spec_path>")`. No reading, no writing, no thinking before invoking /spec. The Skill IS the work.
 
-### 3. "done" Return Without Artifacts
+### 3. Stage Agent Returns Without Artifacts
 
-**What failed:** Agent returned "done" without producing commits, signals, or output files. Git log unchanged.
+**What failed:** Agent returned "STAGE_PLAN_COMPLETE" without producing commits, signals, or output files. Git log unchanged. Agent claimed success falsely.
 
-**Rule:** Verify artifacts exist after every stage return. Missing signal = STAGE_FAILED.
+**Rule:** Orchestrator delegates signal reading after every return. Signal must contain status + metadata (commit hash, grade). Missing signal or missing metadata = STAGE_FAILED. Delegate verification to signal reader, never trust agent return value alone.
 
 ### 4. Direct Skill() Invocation Killed Orchestrator
 
@@ -307,6 +373,12 @@ uv run $MUX_TOOLS/poll-signals.py $DIR --expected N
 **What happened:** After relaunching monitors, old monitors eventually completed with stale signals. These notifications arrived after the stage was already processed by the new monitor.
 
 **Rule:** When a monitor notification arrives, verify it matches the CURRENT stage. If stale (stage already completed or moved to next), ignore and continue. Do NOT re-process completed stages.
+
+### 8. Orchestrator Must Not Interpret Stage Results
+
+**What failed:** Orchestrator read signal files and review reports directly to determine routing (PASS/WARN/FAIL). This consumed context with review details the orchestrator doesn't need, and violated the delegation principle.
+
+**Rule:** After EVERY stage notification, delegate reading the signal file to Task(haiku/explore). Receive ONLY structured routing data: status, grade, commit, error. Route based on routing data. NEVER read signal files, review reports, test outputs, or any stage artifacts yourself.
 
 ## ERROR RECOVERY
 
@@ -364,6 +436,29 @@ This removes the mux-active marker and restores normal operation.
 
 ---
 
+## SIGNAL READER PROMPT TEMPLATE
+
+After EVERY stage notification, delegate reading the signal to get routing data.
+**The orchestrator NEVER reads signal files directly.**
+
+```python
+Task(
+    prompt=f"""Read the signal file at {signal_path}.
+Return ONLY this structured routing data, nothing else:
+
+status: <success|failed>
+grade: <PASS|WARN|FAIL|N/A>
+commit: <hash|N/A>
+error: <description|none>
+metadata: <key=value pairs from signal>
+
+Do NOT summarize, interpret, or add commentary. Raw routing data only.""",
+    subagent_type="Explore",
+    model="haiku",
+    run_in_background=True
+)
+```
+
 ## EXECUTION LOOP
 
 ```
@@ -377,7 +472,10 @@ IF modifier == "full":
     Launch gather agent (opus, bg) + monitor (haiku, bg) in SAME message
     Print checkpoint
     Continue immediately
-    When gather.done signal arrives -> proceed
+    When notification arrives:
+      Delegate signal reading to Task(haiku/explore): read gather.done
+      IF status=success -> proceed to CONFIRM SC
+      IF status=failed -> STAGE_FAILED, escalate to user
 
   CONFIRM SC:
     MUX MODE | Action: AskUserQuestion | Target: SC approval | Rationale: gate before implementation
@@ -389,47 +487,66 @@ PHASE_LOOP (for each phase N):
     Launch PLAN agent (opus, bg) + monitor (haiku, bg) in SAME message
     Print checkpoint
     Continue immediately
-    When phase-{N}-plan.done arrives:
-      IF signal missing -> STAGE_FAILED, launch NEW agent
-      IF present -> proceed to IMPLEMENT
+    When notification arrives:
+      Delegate signal reading to Task(haiku/explore): read phase-{N}-plan.done
+      IF status=success -> proceed to IMPLEMENT
+      IF status=failed -> launch NEW PLAN agent (fresh context)
 
   IMPLEMENT:
     MUX MODE | Action: Task (IMPLEMENT + monitor) | Target: Phase {N} IMPLEMENT | Rationale: plan done
     Launch IMPLEMENT agent (sonnet, bg) + monitor (haiku, bg) in SAME message
     Print checkpoint
     Continue immediately
-    When phase-{N}-implement.done arrives -> proceed to REVIEW
+    When notification arrives:
+      Delegate signal reading to Task(haiku/explore): read phase-{N}-implement.done
+      IF status=success -> proceed to REVIEW
+      IF status=failed -> launch NEW IMPLEMENT agent (fresh context)
 
   REVIEW (cycle loop):
     MUX MODE | Action: Task (REVIEW + monitor) | Target: Phase {N} REVIEW cycle {C} | Rationale: impl done
     Launch REVIEW agent (opus, bg) + monitor (haiku, bg) in SAME message
     Print checkpoint
     Continue immediately
-    When phase-{N}-review-{C}.done arrives:
-      IF PASS -> proceed to TEST (or next phase)
-      IF WARN/FAIL + cycle < max:
+    When notification arrives:
+      Delegate signal reading to Task(haiku/explore): read phase-{N}-review-{C}.done
+      Parse grade from returned routing data
+      IF grade=PASS -> proceed to TEST (or next phase)
+      IF grade=WARN/FAIL + cycle < max:
         Launch FIX agent (sonnet, bg) + monitor in SAME message
-        When fix done -> launch NEW REVIEW agent (fresh context)
-      IF WARN/FAIL + cycle >= max -> proceed with warning
+        When fix notification arrives:
+          Delegate signal reading to Task(haiku/explore): read phase-{N}-fix-{C}.done
+          Launch NEW REVIEW agent (fresh context, cycle C+1)
+      IF grade=WARN/FAIL + cycle >= max -> proceed with warning
 
 TEST:
   MUX MODE | Action: Task (TEST + monitor) | Target: test execution | Rationale: review passed
   Launch TEST agent (sonnet, bg) + monitor (haiku, bg) in SAME message
   Print checkpoint
   Continue immediately
-  When test.done arrives:
-    IF PASS -> proceed
-    IF FAIL -> STAGE_FAILED, escalate
+  When notification arrives:
+    Delegate signal reading to Task(haiku/explore): read test.done
+    IF grade=PASS -> proceed
+    IF grade=FAIL -> STAGE_FAILED, escalate to user
 
 IF modifier != "leanest":
   DOCUMENT:
     MUX MODE | Action: Task (DOCUMENT + monitor) | Target: documentation | Rationale: tests passed
     Launch DOCUMENT agent (sonnet, bg) + monitor (haiku, bg) in SAME message
+    Print checkpoint
+    Continue immediately
+    When notification arrives:
+      Delegate signal reading to Task(haiku/explore): read document.done
+      IF status=success -> proceed
+      IF status=failed -> escalate
 
 SENTINEL (full) / SELF-VALIDATION (lean/leanest):
   MUX MODE | Action: Task (SENTINEL + monitor) | Target: final validation | Rationale: all stages done
   Launch SENTINEL agent (opus, bg) + monitor (haiku, bg) in SAME message
-  When sentinel.done arrives -> WORKFLOW COMPLETE
+  When notification arrives:
+    Delegate signal reading to Task(haiku/explore): read sentinel.done
+    IF grade=PASS -> WORKFLOW COMPLETE
+    IF grade=WARN -> WORKFLOW COMPLETE with warnings
+    IF grade=FAIL -> escalate to user
 
 CLEANUP:
   uv run deactivate.py
@@ -595,19 +712,29 @@ Waiting for notifications.
 > Bash("git branch --show-current")                   <-- VIOLATION: no session init
 > Grep("function.*handler", path="src/")              <-- VIOLATION: searching codebase yourself
 > Read(src/handler.ts)                                <-- VIOLATION: reading source files
-> Skill(skill="spec", args="PLAN ...")                <-- VIOLATION: direct Skill() invocation
+> Skill(skill="spec", args="PLAN ...")                <-- VIOLATION: direct Skill() (must delegate via Task)
 55s of churning, massive context consumed, no delegation, no signals, context died before IMPLEMENT.
 ```
 
-## Example 2: PLAN Stage Launch
+**ALSO WRONG (bloated stage prompt):**
+```
+> Task(prompt="You are executing PLAN... ABSOLUTE CONSTRAINTS... 40 lines of instructions...")
+                                                       <-- VIOLATION: stage prompt contains implementation knowledge
+                                                       <-- Stage agent should ONLY invoke /spec PLAN, nothing else
+```
+
+## Example 2: PLAN Stage Launch (thin wrapper)
 
 ```
-(GATHER complete, SC confirmed)
+(GATHER complete, SC approved)
 
-MUX MODE | Action: Task (PLAN + monitor) | Target: Phase 1 PLAN | Rationale: GATHER done, SC approved
+MUX MODE | Action: Task (PLAN + monitor) | Target: Phase 1 PLAN | Rationale: SC approved
 
-> Task(opus, bg) - PLAN agent with Skill(spec) delegation
-> Task(haiku, bg) - Monitor for phase-1-plan.done
+> Task(opus, bg) - prompt: "THINK VERY HARD; TAKE YOUR TIME.
+>   Your FIRST and MANDATORY action: Skill(skill='spec', args='PLAN specs/.../001-feature.md')
+>   DO NOT read files first. If Skill fails: RETURN STAGE_FAILED.
+>   After Skill: verify commit + spec content. Signal + RETURN STAGE_PLAN_COMPLETE"
+> Task(haiku, bg) - Monitor
 
 Checkpoint:
 - Worker launched (opus, background)
@@ -629,20 +756,23 @@ Waiting for notifications.
 ## Example 3: Stage Completion + Next Stage
 
 ```
-(agent notification: PLAN complete)
+(agent notification: PLAN complete - returned "STAGE_PLAN_COMPLETE")
 
-STAGE_PLAN_COMPLETE - Spec file populated with implementation plan.
+MUX MODE | Action: Task (signal reader) | Target: read PLAN signal | Rationale: get routing data
 
-Stage Results:
-- Signal: {session}/.signals/phase-1-plan.done
-- Commits: a1b2c3d
-- Duration: ~4min
-- Key output: 3 HLOs, 8 MLOs, TDD approach
+> Task(haiku/explore) - "Read {session}/.signals/phase-1-plan.done. Return routing data only."
 
-MUX MODE | Action: Task (IMPLEMENT + monitor) | Target: Phase 1 IMPLEMENT | Rationale: PLAN done
+(haiku returns: status=success, commit=a1b2c3d)
 
-> Task(sonnet, bg) - IMPLEMENT agent with Skill(spec) delegation
-> Task(haiku, bg) - Monitor for phase-1-implement.done
+STAGE_PLAN_COMPLETE confirmed. Launching IMPLEMENT.
+
+MUX MODE | Action: Task (IMPLEMENT + monitor) | Target: Phase 1 IMPLEMENT | Rationale: PLAN confirmed
+
+> Task(sonnet, bg) - prompt: "THINK VERY HARD; TAKE YOUR TIME.
+>   Your FIRST and MANDATORY action: Skill(skill='spec', args='IMPLEMENT specs/.../001-feature.md')
+>   DO NOT read spec first. If Skill fails: RETURN STAGE_FAILED.
+>   After Skill: verify commit + type check + tests. Signal + RETURN STAGE_IMPLEMENT_COMPLETE"
+> Task(haiku, bg) - Monitor
 
 Checkpoint:
 - Worker launched (sonnet, background)
@@ -651,7 +781,7 @@ Checkpoint:
 
 Workflow Progress:
 - GATHER: COMPLETE
-- PLAN: COMPLETE
+- PLAN: COMPLETE (commit: a1b2c3d)
 - IMPLEMENT: IN_PROGRESS
 - REVIEW: PENDING
 - TEST: PENDING
@@ -661,36 +791,42 @@ Workflow Progress:
 Waiting for notifications.
 ```
 
-## Example 4: Review Cycle with Fix
+## Example 4: Review Cycle with Fix (refinement loop)
 
 ```
-(REVIEW cycle 1 returns WARN)
+(REVIEW cycle 1 - agent returned "STAGE_REVIEW_COMPLETE grade=WARN")
 
-REVIEW cycle 1 grade: WARN
+MUX MODE | Action: Task (signal reader) | Target: read REVIEW signal | Rationale: get routing data
 
-Review Results:
-- Compliance: WARN (2 minor gaps - edge case handling, error messages)
-- Quality: PASS (0 issues)
-- Action: FIX + re-review (cycle 1/3)
+> Task(haiku/explore) returns: status=success, grade=WARN
 
-MUX MODE | Action: Task (FIX + monitor) | Target: Phase 1 FIX cycle 1 | Rationale: review WARN
+REVIEW grade=WARN. Cycle 1/3. Launching FIX.
 
-> Task(sonnet, bg) - FIX agent with spec-fixer.md
-> Task(haiku, bg) - Monitor for phase-1-fix-1.done
+MUX MODE | Action: Task (FIX + monitor) | Target: Phase 1 FIX cycle 1 | Rationale: grade=WARN
 
-Checkpoint:
-- Worker launched (sonnet, background)
-- Monitor in same message (haiku, 10min timeout)
-- Continuing immediately
-
-(fix completes)
-
-MUX MODE | Action: Task (REVIEW + monitor) | Target: Phase 1 REVIEW cycle 2 | Rationale: fix applied
-
-> NEW Task(opus, bg) - FRESH review agent (never resume old one)
+> Task(sonnet, bg) - prompt: "THINK VERY HARD; TAKE YOUR TIME.
+>   Your FIRST and MANDATORY action: Skill(skill='spec', args='FIX specs/.../001-feature.md')
+>   ENHANCEMENT: Also read agents/spec-fixer.md for fix protocol.
+>   REVIEW REPORT: {session}/reviews/phase-1-review-1.md
+>   If Skill fails: RETURN STAGE_FAILED. Signal + RETURN STAGE_FIX_COMPLETE"
 > Task(haiku, bg) - Monitor
 
-(REVIEW cycle 2 returns PASS -> proceed to TEST)
+(FIX returns "STAGE_FIX_COMPLETE")
+
+MUX MODE | Action: Task (signal reader) | Target: read FIX signal | Rationale: confirm fix
+
+> Task(haiku/explore) returns: status=success, commit=b2c3d4e
+
+MUX MODE | Action: Task (REVIEW + monitor) | Target: Phase 1 REVIEW cycle 2 | Rationale: fix confirmed
+
+> NEW Task(opus, bg) - FRESH review agent (Skill(spec, REVIEW))
+> Task(haiku, bg) - Monitor
+
+(REVIEW cycle 2 returns "STAGE_REVIEW_COMPLETE grade=PASS")
+
+> Task(haiku/explore) returns: status=success, grade=PASS
+
+Grade=PASS -> proceed to TEST
 ```
 
 ## Example 5: Monitor Timeout + Relaunch
