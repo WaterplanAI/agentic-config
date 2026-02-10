@@ -174,10 +174,10 @@ playwright-cli --headed open https://example.com  # Visible browser window
 
 ## Reference Documentation
 
-- [Session Management](session-management.md)
-- [Video Recording](video-recording.md)
-- [Test Generation](test-generation.md)
-- [Request Mocking](request-mocking.md)
-- [Storage State](storage-state.md)
-- [Tracing](tracing.md)
-- [Running Code](running-code.md)
+- [Session Management](resources/session-management.md)
+- [Video Recording](resources/video-recording.md)
+- [Test Generation](resources/test-generation.md)
+- [Request Mocking](resources/request-mocking.md)
+- [Storage State](resources/storage-state.md)
+- [Tracing](resources/tracing.md)
+- [Running Code](resources/running-code.md)
