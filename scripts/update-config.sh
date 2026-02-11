@@ -187,6 +187,7 @@ AVAILABLE_SKILLS=($(discover_available_skills))
 FORCE=false
 NIGHTLY=false
 MCP_SERVERS=""
+BROWSER_TOOL=""
 TOOLS="all"
 
 usage() {
@@ -199,6 +200,8 @@ Options:
   --force                Force update of copied files without prompting
   --nightly              Force symlink rebuild and config reconciliation (ignores version match)
   --mcp <servers>        MCP servers to install (comma-separated, e.g., playwright)
+  --browser-tool <cli|mcp>
+                         Browser automation tool (cli=playwright-cli, mcp=playwright MCP)
   --tools <claude,gemini,codex,all>
                          Which AI tool configs to use for MCP (default: all)
   -h, --help             Show this help message
@@ -225,6 +228,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --mcp)
       MCP_SERVERS="$2"
+      shift 2
+      ;;
+    --browser-tool)
+      BROWSER_TOOL="$2"
       shift 2
       ;;
     --tools)
@@ -904,6 +911,19 @@ if [[ -n "$MCP_SERVERS" ]]; then
   echo ""
   echo "Installing MCP servers..."
   install_mcp_for_tools "$MCP_SERVERS" "$TOOLS" "$TARGET_PATH" false
+fi
+
+# Install browser tool (if requested)
+if [[ "$BROWSER_TOOL" == "cli" ]]; then
+  echo ""
+  echo "Installing playwright-cli..."
+  npm install -g @playwright/cli@latest
+  playwright-cli install-browser
+  mkdir -p "$TARGET_PATH/outputs/e2e"
+  # Add gitignore entries
+  if [[ -f "$TARGET_PATH/.gitignore" ]]; then
+    grep -q "outputs/" "$TARGET_PATH/.gitignore" || echo "outputs/" >> "$TARGET_PATH/.gitignore"
+  fi
 fi
 
 echo ""

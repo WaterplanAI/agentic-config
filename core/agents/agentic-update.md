@@ -45,7 +45,7 @@ If `nightly` explicitly provided in `$ARGUMENTS`:
 - If no: exit with "Already up to date!"
 - If yes:
   1. Run `update-config.sh --nightly` (handles config reconciliation and symlink rebuild)
-  2. **CRITICAL: IMMEDIATELY proceed to Section 3b (MCP) and Section 3c (External Specs) - feature prompts are MANDATORY for ALL update modes including nightly. DO NOT SKIP.**
+  2. **CRITICAL: IMMEDIATELY proceed to Section 3b (Browser Tool) and Section 3c (External Specs) - feature prompts are MANDATORY for ALL update modes including nightly. DO NOT SKIP.**
   3. Then proceed to Section 7 (Report Completion)
 
 ### 2. Impact Assessment
@@ -164,24 +164,39 @@ Based on analysis, show appropriate options:
 - **Full Update** → Backup + refresh templates + add symlinks (customizations preserved in PROJECT_AGENTS.md)
 - **Skip** → Stay on current version
 
-#### 3b. MCP Server Configuration (MANDATORY PROMPT)
+#### 3b. Browser Tool Configuration (MANDATORY PROMPT)
 
-**CRITICAL: This section is MANDATORY for ALL update modes (normal, full, nightly). You MUST execute this section. Failure to prompt for unconfigured features is a workflow violation.**
+**CRITICAL: This section is MANDATORY for ALL update modes (normal, full, nightly). Failure to prompt for unconfigured features is a workflow violation.**
 
-**Check and prompt for MCP:**
+**Check browser tool status:**
 
 ```bash
-MCP_CONFIGURED=false
-[[ -f ".mcp.json" ]] && MCP_CONFIGURED=true
+BROWSER_TOOL="none"
+command -v playwright-cli >/dev/null 2>&1 && BROWSER_TOOL="cli"
+[[ -f ".mcp.json" ]] && jq -e '.mcpServers.playwright' .mcp.json >/dev/null 2>&1 && {
+  [[ "$BROWSER_TOOL" == "none" ]] && BROWSER_TOOL="mcp"
+}
 ```
 
-**If `MCP_CONFIGURED=false`:** Use AskUserQuestion:
-- **Question**: "Would you like to install MCP servers for browser automation and E2E testing?"
+**If `BROWSER_TOOL=none`:** Use AskUserQuestion:
+- **Question**: "Would you like to install browser automation for E2E testing?"
 - **Options**:
-  - "Yes, install playwright" (Recommended)
+  - "Yes, install playwright-cli" (Recommended) - Token-efficient CLI
+  - "Yes, install playwright MCP (legacy)" - MCP-based (higher token usage)
   - "No, skip"
 
-**If `MCP_CONFIGURED=true`:** Skip prompt, note "MCP: Already configured"
+**If `BROWSER_TOOL=mcp`:** Use AskUserQuestion:
+- **Question**: "You have Playwright MCP configured. playwright-cli is a more token-efficient alternative. Would you like to migrate?"
+- **Options**:
+  - "Yes, migrate to playwright-cli" (Recommended)
+  - "No, keep MCP" - Keep current MCP setup
+
+**If user selects "Yes, migrate to playwright-cli":**
+1. Run `npm install -g @playwright/cli@latest && playwright-cli install-browser`
+2. Pass `--browser-tool cli` to update-config.sh
+3. Note: Existing `.mcp.json` playwright config is NOT removed automatically. User can remove it manually after verifying CLI works.
+
+**If `BROWSER_TOOL=cli`:** Skip prompt, note "Browser Tool: playwright-cli (already installed)"
 
 #### 3c. External Specs Configuration (MANDATORY PROMPT)
 
@@ -211,7 +226,7 @@ Show summary of all selections before execution:
 ```
 Proceeding with:
 - Core: [Update/Full Update/Nightly]
-- MCP: [Install playwright/Skip/Already configured]
+- Browser Tool: [Install playwright-cli/Install MCP (legacy)/Migrate to CLI/Skip/Already configured]
 - External Specs: [Configure/Skip/Already configured]
 ```
 
@@ -244,7 +259,17 @@ unset _agp
 "$AGENTIC_GLOBAL/scripts/update-config.sh" --force <target_path>
 ```
 
-**For MCP Installation (add MCP to existing project):**
+**For Browser Tool Installation (playwright-cli):**
+```bash
+# Pure bash - no external commands
+_agp=""
+[[ -f ~/.agents/.path ]] && _agp=$(<~/.agents/.path)
+AGENTIC_GLOBAL="${AGENTIC_CONFIG_PATH:-${_agp:-$HOME/.agents/agentic-config}}"
+unset _agp
+"$AGENTIC_GLOBAL/scripts/update-config.sh" --browser-tool cli <target_path>
+```
+
+**For MCP Installation (legacy, add MCP to existing project):**
 ```bash
 # Pure bash - no external commands
 _agp=""
@@ -254,13 +279,14 @@ unset _agp
 "$AGENTIC_GLOBAL/scripts/update-config.sh" --mcp playwright <target_path>
 ```
 
-**MCP Config Locations:**
-| Tool | Config File |
-|------|-------------|
-| Claude Code | `.mcp.json` |
-| Gemini CLI | `.gemini/settings.json` |
-| Codex CLI | `~/.codex/config.toml` |
-| Antigravity | `.antigravity/mcp.json` |
+**Browser Tool Config Locations:**
+
+| Tool | CLI (playwright-cli) | MCP (legacy) |
+|------|---------------------|--------------|
+| Claude Code | Bash tool (no config) | `.mcp.json` |
+| Gemini CLI | Bash tool (no config) | `.gemini/settings.json` |
+| Codex CLI | Bash tool (no config) | `~/.codex/config.toml` |
+| Antigravity | Bash tool (no config) | `.antigravity/mcp.json` |
 
 **Refresh Persistence Locations** (v1.2.0+):
 ```bash
@@ -311,7 +337,7 @@ Update Complete
 
 Version: X.Y.Z
 - Symlinks: N commands, M skills
-- MCP: [Configured/Skipped/Already configured]
+- Browser Tool: [playwright-cli installed/MCP (legacy)/Migrated to CLI/Skipped/Already configured]
 - External Specs: [Configured/Skipped/Already configured]
 - Customizations: Preserved
 ```

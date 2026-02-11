@@ -17,9 +17,9 @@ Validate implementation against spec requirements using browser-based visual pro
    - Read spec file from `$1`
    - If not found: STOP with "Spec file not found: $1"
 
-2. **Verify MCP Server Available**
-   - Check Playwright MCP tools are accessible
-   - If not: STOP with "Playwright MCP not available"
+2. **Verify playwright-cli Installed**
+   - Run: `playwright-cli --help`
+   - If not available: STOP with "playwright-cli not installed. Run: npm install -g @playwright/cli@latest"
 
 3. **Parse Spec Requirements**
    - Extract MLOs (Mid-Level Objectives) from Human Section
@@ -33,8 +33,8 @@ Validate implementation against spec requirements using browser-based visual pro
    - Record review start timestamp
 
 2. **Open Application**
-   - Navigate to base URL using `browser_navigate`
-   - Take initial screenshot: `01_initial.png`
+   - Navigate to base URL: `playwright-cli open <base_url>`
+   - Take initial screenshot: `playwright-cli screenshot --output {PROJECT_ROOT}/outputs/review/<spec-id>/01_initial.png`
    - Verify application loads successfully
 
 3. **Validate Each MLO**
@@ -82,7 +82,7 @@ Generate markdown review summary:
 
 ## Video Recording
 
-Full session: {PROJECT_ROOT}/videos/<timestamp>-review-<spec-id>.webm
+Full session: {PROJECT_ROOT}/outputs/e2e/<timestamp>-review-<spec-id>.webm
 
 ## Summary
 

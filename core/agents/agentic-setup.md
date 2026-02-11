@@ -38,26 +38,34 @@ Use AskUserQuestion to ask:
 
 **CRITICAL: You MUST execute this section. DO NOT skip these prompts.**
 
-#### MCP Server Setup
+#### Browser Tool Setup
 
 Use AskUserQuestion:
-- **Question**: "Would you like to install MCP servers for browser automation and E2E testing?"
+- **Question**: "Would you like to install browser automation for E2E testing?"
 - **Options**:
-  - "Yes, install playwright" (Recommended) - Enables browser automation via MCP
-  - "No, skip" - Continue without MCP
+  - "Yes, install playwright-cli" (Recommended) - Token-efficient CLI-based browser automation
+  - "Yes, install playwright MCP (legacy)" - MCP-based browser automation (higher token usage)
+  - "No, skip" - Continue without browser automation
 
-**If user selects "Yes":**
-- Pass `--mcp playwright` to setup-config.sh
+**If user selects "Yes, install playwright-cli":**
+- Pass `--browser-tool cli` to setup-config.sh
+- Post-install: Runs `npm install -g @playwright/cli@latest`, `playwright-cli install-browser`
+- Installs `playwright-cli` skill into `.claude/skills/`
+- Creates `outputs/e2e/` directory, updates `.gitignore`
+- Verify: `playwright-cli --help` runs successfully
+
+**If user selects "Yes, install playwright MCP (legacy)":**
+- Pass `--mcp playwright` to setup-config.sh (backward compatible)
 - Post-install: Creates `videos/`, `outputs/e2e/`, updates `.gitignore`, runs `npx playwright install chromium`
 
-**MCP Config Locations (for reference):**
+**Browser Tool Config Locations (for reference):**
 
-| Tool | Config File |
-|------|-------------|
-| Claude Code | `.mcp.json` |
-| Gemini CLI | `.gemini/settings.json` |
-| Codex CLI | `~/.codex/config.toml` |
-| Antigravity | `.antigravity/mcp.json` |
+| Tool | CLI (playwright-cli) | MCP (legacy) |
+|------|---------------------|--------------|
+| Claude Code | Bash tool (no config) | `.mcp.json` |
+| Gemini CLI | Bash tool (no config) | `.gemini/settings.json` |
+| Codex CLI | Bash tool (no config) | `~/.codex/config.toml` |
+| Antigravity | Bash tool (no config) | `.antigravity/mcp.json` |
 
 #### External Specs Setup
 
@@ -109,13 +117,18 @@ unset _agp
   [--type <type>] \
   [--copy] \
   [--tools <tools>] \
+  [--browser-tool <cli|mcp>] \
   [--mcp <servers>] \
   [--force] \
   [--dry-run] \
   <target_path>
 ```
 
-**MCP flag examples:**
+**Browser tool flag:**
+- `--browser-tool cli` - Install playwright-cli (recommended)
+- `--browser-tool mcp` - Install Playwright MCP (legacy)
+
+**MCP flag examples (legacy):**
 - `--mcp playwright` - Install Playwright MCP server
 - `--mcp playwright,filesystem` - Install multiple servers (when available)
 

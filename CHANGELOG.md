@@ -6,6 +6,13 @@ All notable changes to agentic-config.
 
 ### Added
 
+- `playwright-cli` skill for token-efficient browser automation (replaces Playwright MCP as default)
+  - CLI-based browser control via `playwright-cli` commands through Bash
+  - Session management, video recording, screenshots, tracing
+  - `--browser-tool cli` flag for `setup-config.sh` and `update-config.sh`
+  - Migration path: existing MCP users prompted to migrate during `/agentic update`
+  - Backward compatible: Playwright MCP still supported via `--mcp playwright` or `--browser-tool mcp`
+  - Documentation: `docs/playwright-cli-setup.md`
 - `gsuite` skill for Claude Code providing READ and WRITE access to Google Suite
   - Multi-account authentication with account switching (similar to `gh auth status`/`gh auth switch`)
   - Support for both enterprise (Workspace) and personal Google accounts

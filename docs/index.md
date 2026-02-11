@@ -218,7 +218,7 @@ Step 4: /pull_request
 
 | Command | Description |
 |---------|-------------|
-| `/browser` | Open browser at URL for E2E testing via Playwright MCP |
+| `/browser` | Open browser at URL for E2E testing via playwright-cli |
 | `/test_e2e` | Execute E2E test from definition file |
 | `/e2e_review` | Review spec implementation with E2E visual browser validation |
 | `/prepare_app` | Start development server for E2E testing |
@@ -259,6 +259,12 @@ Step 4: /pull_request
 | `git-find-fork` | Finds true merge-base/fork-point, detects history rewrites from rebases |
 | `git-rewrite-history` | Rewrites git history safely with dry-run-first workflow |
 | `gh-assets-branch-mgmt` | Manages GitHub assets branch for persistent image hosting in PRs |
+
+### Browser & E2E Testing
+
+| Skill | Description |
+|-------|-------------|
+| `playwright-cli` | Token-efficient browser automation via CLI commands (replaces Playwright MCP) |
 
 ### Testing & Safety
 
@@ -317,4 +323,4 @@ User: /full-life-cycle-pr feat/my-feature "Add new feature"
 
 - [External Specs Storage](external-specs-storage.md) - Configure external specs repository
 - [Agent Management Guide](agents/AGENTIC_AGENT.md) - Detailed agent usage
-- [Playwright MCP Setup](playwright-mcp-setup.md) - E2E browser testing configuration
+- [Playwright CLI Setup](playwright-cli-setup.md) - E2E browser testing configuration

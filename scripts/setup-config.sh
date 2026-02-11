@@ -66,6 +66,7 @@ PROJECT_TYPE=""
 TYPE_CHECKER=""
 LINTER=""
 MCP_SERVERS=""
+BROWSER_TOOL=""
 
 # Usage
 usage() {
@@ -84,6 +85,8 @@ Options:
   --tools <claude,gemini,codex,all>
                          Which AI tool configs to install (default: all)
   --mcp <servers>        MCP servers to install (comma-separated, e.g., playwright)
+  --browser-tool <cli|mcp>
+                         Browser automation tool (cli=playwright-cli, mcp=playwright MCP)
   --type-checker <pyright|mypy>
                          Python type checker (default: pyright, auto-detected)
   --linter <ruff|pylint>
@@ -132,6 +135,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --mcp)
       MCP_SERVERS="$2"
+      shift 2
+      ;;
+    --browser-tool)
+      BROWSER_TOOL="$2"
       shift 2
       ;;
     --type-checker)
@@ -602,6 +609,25 @@ if [[ -n "$MCP_SERVERS" ]]; then
     install_mcp_for_tools "$MCP_SERVERS" "$TOOLS" "$TARGET_PATH" true
   else
     install_mcp_for_tools "$MCP_SERVERS" "$TOOLS" "$TARGET_PATH" false
+  fi
+fi
+
+# Install browser tool (if requested)
+if [[ "$BROWSER_TOOL" == "cli" ]]; then
+  echo ""
+  echo "Installing playwright-cli..."
+  if [[ "$DRY_RUN" == true ]]; then
+    echo "  [DRY RUN] Would run: npm install -g @playwright/cli@latest"
+    echo "  [DRY RUN] Would run: playwright-cli install-browser"
+    echo "  [DRY RUN] Would create: outputs/e2e/"
+  else
+    npm install -g @playwright/cli@latest
+    playwright-cli install-browser
+    mkdir -p "$TARGET_PATH/outputs/e2e"
+    # Add gitignore entries
+    if [[ -f "$TARGET_PATH/.gitignore" ]]; then
+      grep -q "outputs/" "$TARGET_PATH/.gitignore" || echo "outputs/" >> "$TARGET_PATH/.gitignore"
+    fi
   fi
 fi
 

@@ -53,26 +53,40 @@ Migration will:
 
 Use AskUserQuestion to confirm: "Proceed with migration?"
 
-#### 2b. MCP Server Configuration (MANDATORY PROMPT)
+#### 2b. Browser Tool Configuration (MANDATORY PROMPT)
 
-**IMMEDIATELY after user confirms migration, check and prompt for MCP:**
+**IMMEDIATELY after user confirms migration, check and prompt for browser tool:**
 
 ```bash
-MCP_CONFIGURED=false
-[[ -f ".mcp.json" ]] && MCP_CONFIGURED=true
+BROWSER_TOOL="none"
+command -v playwright-cli >/dev/null 2>&1 && BROWSER_TOOL="cli"
+[[ -f ".mcp.json" ]] && jq -e '.mcpServers.playwright' .mcp.json >/dev/null 2>&1 && {
+  [[ "$BROWSER_TOOL" == "none" ]] && BROWSER_TOOL="mcp"
+}
 ```
 
-**If `MCP_CONFIGURED=false`:** Use AskUserQuestion:
-- **Question**: "Would you like to install MCP servers for browser automation and E2E testing?"
+**If `BROWSER_TOOL=none`:** Use AskUserQuestion:
+- **Question**: "Would you like to install browser automation for E2E testing?"
 - **Options**:
-  - "Yes, install playwright" (Recommended)
+  - "Yes, install playwright-cli" (Recommended) - Token-efficient CLI
+  - "Yes, install playwright MCP (legacy)" - MCP-based (higher token usage)
   - "No, skip"
 
-**If `MCP_CONFIGURED=true`:** Skip prompt, note "MCP: Already configured"
+**If `BROWSER_TOOL=mcp`:** Use AskUserQuestion:
+- **Question**: "You have Playwright MCP configured. playwright-cli is a more token-efficient alternative. Would you like to migrate?"
+- **Options**:
+  - "Yes, migrate to playwright-cli" (Recommended)
+  - "No, keep MCP"
+
+**If user selects "Yes, migrate to playwright-cli":**
+1. Run `npm install -g @playwright/cli@latest && playwright-cli install-browser`
+2. Note: Existing `.mcp.json` playwright config is NOT removed. User can remove manually.
+
+**If `BROWSER_TOOL=cli`:** Skip prompt, note "Browser Tool: playwright-cli (already installed)"
 
 #### 2c. External Specs Configuration (MANDATORY PROMPT)
 
-**IMMEDIATELY after MCP prompt, check and prompt for External Specs:**
+**IMMEDIATELY after Browser Tool prompt, check and prompt for External Specs:**
 
 ```bash
 EXT_SPECS_CONFIGURED=false
@@ -132,7 +146,7 @@ Migration Complete
 
 Version: X.Y.Z
 - Symlinks: Installed
-- MCP: [Configured/Skipped/Already configured]
+- Browser Tool: [playwright-cli installed/MCP (legacy)/Migrated to CLI/Skipped/Already configured]
 - External Specs: [Configured/Skipped/Already configured]
 - Customizations: Preserved in PROJECT_AGENTS.md
 - Backup: .agentic-config.backup.<timestamp>

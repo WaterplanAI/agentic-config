@@ -17,9 +17,9 @@ Execute E2E test steps from a test definition file.
    - Read test file from `$1`
    - If not found: STOP with "Test file not found: $1"
 
-2. **Verify MCP Server Available**
-   - Check Playwright MCP tools are accessible
-   - If not: STOP with "Playwright MCP not available"
+2. **Verify playwright-cli Installed**
+   - Run: `playwright-cli --help`
+   - If not available: STOP with "playwright-cli not installed. Run: npm install -g @playwright/cli@latest"
 
 3. **Parse Test Definition**
    - Extract: Test Name, User Story, Test Steps, Success Criteria
@@ -32,13 +32,14 @@ Execute E2E test steps from a test definition file.
    - Create screenshot directory: `{PROJECT_ROOT}/outputs/e2e/<test-name>/`
 
 2. **Navigate to Base URL**
-   - Use `browser_navigate` to open base URL
-   - Take screenshot: `01_initial.png`
+   - Run: `playwright-cli open <base_url>`
+   - Run: `playwright-cli screenshot --output {PROJECT_ROOT}/outputs/e2e/<test-name>/01_initial.png`
 
 3. **Execute Test Steps**
    - For each step in Test Steps section:
-     a. Parse step action (Navigate, Verify, Click, Type, Screenshot)
-     b. Execute action using appropriate MCP tool
+     a. Parse step action (Navigate, Verify, Click, Fill, Type, Screenshot)
+     b. Execute action using appropriate playwright-cli command:
+        - Navigate: `playwright-cli goto <url>`; Verify: `playwright-cli snapshot`; Click: `playwright-cli click "<selector>"`; Fill: `playwright-cli fill "<selector>" "<text>"`; Screenshot: `playwright-cli screenshot --output <path>`
      c. If step includes "screenshot": capture and save
      d. If step includes "verify": validate condition
      e. On failure: record error and continue to capture state
@@ -66,7 +67,7 @@ Return JSON result:
   "screenshots": [
     "{PROJECT_ROOT}/outputs/e2e/<test-name>/01_initial.png"
   ],
-  "video": "{PROJECT_ROOT}/videos/<timestamp>-<test-name>.webm",
+  "video": "{PROJECT_ROOT}/outputs/e2e/<timestamp>-<test-name>.webm",
   "error": null
 }
 ```
@@ -77,11 +78,11 @@ Return JSON result:
 - On critical failure (browser crash): return partial result with error
 - Always close browser session on completion
 
-## MCP Tools Used
+## CLI Commands Used
 
-- `browser_navigate` - Navigate to URLs
-- `browser_snapshot` - Get page accessibility tree
-- `browser_click` - Click elements (by text/selector)
-- `browser_type` - Type into inputs
-- `browser_screenshot` - Capture PNG screenshots
-- `browser_close` - End session (saves video)
+- `playwright-cli open <url>` / `goto <url>` - Navigate to URLs
+- `playwright-cli snapshot` - Get page accessibility tree
+- `playwright-cli click "<selector>"` - Click elements
+- `playwright-cli fill "<selector>" "<text>"` - Type into inputs
+- `playwright-cli screenshot --output <path>` - Capture PNG screenshots
+- `playwright-cli close` - End session

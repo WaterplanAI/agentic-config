@@ -1,6 +1,6 @@
 {
   "name": "playwright",
-  "description": "Browser automation and E2E testing via Playwright",
+  "description": "DEPRECATED: Use playwright-cli instead (npm install -g @playwright/cli@latest). Browser automation via Playwright MCP - kept for backward compatibility.",
   "command": "npx",
   "args": ["@playwright/mcp@latest", "--isolated", "--save-video=1920x1080", "--viewport-size=1920x1080"],
   "env": {},

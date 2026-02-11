@@ -97,7 +97,7 @@ Project type is auto-detected or specified with `--type` flag.
 - [Commands & Skills Index](docs/index.md) - Complete catalog with composition examples
 - [External Specs Storage](docs/external-specs-storage.md) - Configure external specs repository
 - [Agent Management Guide](docs/agents/AGENTIC_AGENT.md) - Detailed agent usage
-- [Playwright MCP Setup](docs/playwright-mcp-setup.md) - E2E browser testing
+- [Playwright CLI Setup](docs/playwright-cli-setup.md) - E2E browser testing
 
 ## Troubleshooting
 

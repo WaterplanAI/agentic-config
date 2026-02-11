@@ -56,6 +56,6 @@ So that <benefit>
 
 ## Notes
 
-- Video automatically recorded to `{PROJECT_ROOT}/videos/`
+- Video recording is explicit: use `playwright-cli video-start` before and `video-stop` after the test flow. Output saved to `{PROJECT_ROOT}/outputs/e2e/`
 - Screenshots saved to `{PROJECT_ROOT}/outputs/e2e/<test-name>/`
 - Use descriptive screenshot names for clarity

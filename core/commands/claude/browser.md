@@ -1,12 +1,12 @@
 ---
-description: Open browser at URL for E2E testing via Playwright MCP
+description: Open browser at URL for E2E testing via playwright-cli
 argument-hint: [url]
 project-agnostic: true
 ---
 
 # Browser Command
 
-Open browser for E2E testing using Playwright MCP server.
+Open browser for E2E testing using playwright-cli.
 
 **Target URL:** $ARGUMENTS
 
@@ -14,36 +14,43 @@ If no URL provided, default to: `http://localhost:${DEFAULT_PORT:-5173}/`
 
 ## Pre-Flight Checks
 
-1. **Verify MCP Server Available**
-   - Check that Playwright MCP tools are accessible
-   - If not available: STOP with error "Playwright MCP server not configured. Run: claude mcp add playwright"
+1. **Verify playwright-cli Installed**
+   - Run: `playwright-cli --help`
+   - If not available: STOP with error "playwright-cli not installed. Run: npm install -g @playwright/cli@latest && playwright-cli install-browser"
 
 ## Execution
 
 1. **Navigate to URL**
-   - Use `browser_navigate` tool to open the target URL
-   - If URL argument is empty, use `http://localhost:${DEFAULT_PORT:-5173}/`
+   ```bash
+   playwright-cli open "${URL:-http://localhost:${DEFAULT_PORT:-5173}/}"
+   ```
 
 2. **Verify Page Load**
-   - Use `browser_snapshot` to capture current page state
-   - Report page title and URL
+   ```bash
+   playwright-cli snapshot
+   ```
+   Report page title and URL from snapshot output.
 
 3. **Report Status**
    - Confirm browser is open and ready
    - Display current page title
    - Display current URL
 
-## Available MCP Browser Tools
+## Available CLI Commands
 
-After opening browser, these tools are available:
-- `browser_navigate` - Navigate to URL
-- `browser_snapshot` - Capture accessibility snapshot
-- `browser_click` - Click element
-- `browser_type` - Type into element
-- `browser_screenshot` - Take PNG screenshot
-- `browser_close` - Close browser session
+After opening browser, these commands are available via Bash:
+- `playwright-cli goto <url>` - Navigate to URL
+- `playwright-cli snapshot` - Capture accessibility snapshot
+- `playwright-cli click "<selector>"` - Click element
+- `playwright-cli fill "<selector>" "<text>"` - Fill input field
+- `playwright-cli type "<text>"` - Type text
+- `playwright-cli screenshot` - Take PNG screenshot
+- `playwright-cli close` - Close browser session
+- `playwright-cli video-start` / `video-stop` - Record video
 
 ## Notes
-- Video recording is automatic (configured in .mcp.json if Playwright MCP supports it)
-- Videos typically saved to `{PROJECT_ROOT}/videos/` directory
+- Video recording is explicit: use `playwright-cli video-start` before the flow and `video-stop` after
+- Configure output via `playwright-cli.json` in project root
+- Use `--headed` flag for visible browser window: `playwright-cli --headed open <url>`
 - Port can be configured via DEFAULT_PORT environment variable
+- Sessions persist across commands: use `playwright-cli -s=<name>` for named sessions
