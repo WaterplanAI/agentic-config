@@ -4,6 +4,8 @@ All notable changes to agentic-config.
 
 ## [Unreleased]
 
+## [0.1.18] - 2026-02-17
+
 ### Added
 
 - `playwright-cli` skill for token-efficient browser automation (replaces Playwright MCP as default)
