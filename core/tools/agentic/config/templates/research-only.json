@@ -1,0 +1,46 @@
+{
+  "$schema": "https://agentic-config/schemas/template-v1.json",
+  "template_name": "research-only",
+  "template_version": "1.0",
+  "description": "Deep multi-domain research, no execution or planning",
+  "layers": {
+    "L4": {
+      "research": {
+        "enabled": true,
+        "domains": ["market", "ux", "tech"],
+        "max_rounds": 3,
+        "model": "high-tier",
+        "consolidation_model": "high-tier",
+        "timeout_per_worker": 450,
+        "timeout_overall": 900
+      },
+      "planning": {
+        "enabled": false
+      },
+      "execution": {
+        "enabled": false
+      },
+      "validation": {
+        "enabled": false
+      }
+    },
+    "L3": {},
+    "L2": {
+      "oresearch": {
+        "timeout_per_worker": 450,
+        "timeout_overall": 900,
+        "max_concurrency": 3
+      }
+    },
+    "L1": {
+      "researcher": {
+        "model": "high-tier"
+      }
+    },
+    "L0": {
+      "model": "high-tier",
+      "max_depth": 4,
+      "permission_mode": "acceptEdits"
+    }
+  }
+}

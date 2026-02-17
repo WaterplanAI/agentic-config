@@ -1,0 +1,13 @@
+{
+  "name": "oresearch",
+  "description": "Fan-out research orchestrator, calls researcher.py per domain in parallel",
+  "executor": "core/tools/agentic/researcher.py",
+  "workers": [
+    {"domain": "market", "model": "medium-tier", "focus": "competitive analysis, inspiration, market gaps"},
+    {"domain": "ux", "model": "medium-tier", "focus": "user needs, personas, pain points, workflows"},
+    {"domain": "tech", "model": "medium-tier", "focus": "feasibility, architecture, constraints, risks"}
+  ],
+  "consolidation_model": "high-tier",
+  "timeout_per_worker": 300,
+  "timeout_overall": 600
+}

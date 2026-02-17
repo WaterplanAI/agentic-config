@@ -1,4 +1,5 @@
 ---
+name: spec-command
 description: Execute /spec workflow stages (RESEARCH, PLAN, IMPLEMENT)
 argument-hint: <STAGE> <SPEC_PATH>
 ---

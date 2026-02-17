@@ -68,7 +68,7 @@ See [Commands & Skills Index](docs/index.md) for the complete catalog and detail
 | `/o_spec path` | Run full 8-stage workflow |
 | `/full-life-cycle-pr branch "desc"` | Complete PR workflow |
 
-See [Commands & Skills Index](docs/index.md) for all 33 commands and 10 skills.
+See [Commands & Skills Index](docs/index.md) for all 33 commands and 19 skills.
 
 ## Customization
 

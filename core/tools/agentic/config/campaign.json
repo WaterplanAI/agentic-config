@@ -1,0 +1,27 @@
+{
+  "research": {
+    "enabled": true,
+    "domains": ["market", "ux", "tech"],
+    "max_rounds": 3,
+    "model": "medium-tier",
+    "consolidation_model": "high-tier",
+    "timeout_per_worker": 300,
+    "timeout_overall": 600
+  },
+  "planning": {
+    "enabled": true,
+    "roadmap_model": "high-tier",
+    "decompose_model": "medium-tier",
+    "ceo_review": true
+  },
+  "execution": {
+    "enabled": true,
+    "max_depth": 5,
+    "timeout": 3600
+  },
+  "validation": {
+    "enabled": true,
+    "evaluator_model": "medium-tier",
+    "max_heal_cycles": 2
+  }
+}

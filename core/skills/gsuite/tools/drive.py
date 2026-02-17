@@ -516,7 +516,7 @@ def comments(
         # Get comments
         results = service.comments().list(
             fileId=file_id,
-            fields="comments(id, content, author, createdTime, modifiedTime, resolved, deleted, replies)",
+            fields="comments(id, content, author, createdTime, modifiedTime, resolved, deleted, quotedFileContent, replies, anchor)",
             pageSize=limit,
             includeDeleted=include_deleted,
         ).execute()
@@ -757,6 +757,139 @@ def upload(
             console.print(f"[green]Uploaded:[/green] {upload_name}")
             console.print(f"ID: {file_id}")
             console.print(f"URL: {url}")
+
+    except HttpError as e:
+        console.print(f"[red]API Error:[/red] {e.reason}")
+        raise typer.Exit(1)
+
+
+@app.command()
+def reply(
+    file_id: Annotated[str, typer.Argument(help="File ID")],
+    comment_id: Annotated[str, typer.Argument(help="Comment ID")],
+    content: Annotated[str, typer.Argument(help="Reply content")],
+    resolve: Annotated[bool, typer.Option("--resolve", help="Resolve the comment after replying")] = False,
+    account: Annotated[str | None, typer.Option("--account", "-a", help="Account email (default: active)")] = None,
+    yes: Annotated[bool, typer.Option("--yes", "-y", help="Skip confirmation")] = False,
+    json_output: Annotated[bool, typer.Option("--json", help="Output as JSON")] = False,
+) -> None:
+    """Reply to a comment on a file. Use --resolve to also resolve the comment."""
+    # Auto-prefix content for traceability
+    AC_PREFIX = "@ac-reply: "
+    if not content.startswith(AC_PREFIX):
+        content = AC_PREFIX + content
+
+    try:
+        service = get_drive_service(account)
+
+        # Get file name for confirmation
+        try:
+            file_info = service.files().get(fileId=file_id, fields="name").execute()
+            file_name = file_info.get("name", file_id)
+        except Exception:
+            file_name = file_id
+
+        details = f"File: {file_name}\nComment: {comment_id}\nReply: {content}"
+        if resolve:
+            details += "\n\n[yellow]Will also RESOLVE the comment.[/yellow]"
+
+        if not confirm_action("Reply to comment", details, "drive", skip_confirmation=yes):
+            console.print("[yellow]Cancelled.[/yellow]")
+            raise typer.Exit(0)
+
+        body: dict[str, str] = {"content": content}
+        if resolve:
+            body["action"] = "resolve"
+
+        result = service.replies().create(
+            fileId=file_id,
+            commentId=comment_id,
+            body=body,
+            fields="*",
+        ).execute()
+
+        if json_output:
+            stdout_console.print_json(json.dumps({
+                "file_id": file_id,
+                "comment_id": comment_id,
+                "reply_id": result.get("id"),
+                "author": result.get("author", {}).get("displayName", ""),
+                "content": result.get("content", ""),
+                "action": result.get("action", ""),
+                "created_time": result.get("createdTime", ""),
+            }))
+        else:
+            author = result.get("author", {}).get("displayName", "Unknown")
+            created = result.get("createdTime", "")[:19]
+            console.print("[green]Reply posted[/green]")
+            console.print(f"Author: {author}")
+            console.print(f"Content: {result.get('content', '')}")
+            console.print(f"Time: {created}")
+            if resolve:
+                console.print("[green]Comment resolved.[/green]")
+
+    except HttpError as e:
+        console.print(f"[red]API Error:[/red] {e.reason}")
+        raise typer.Exit(1)
+
+
+@app.command()
+def resolve(
+    file_id: Annotated[str, typer.Argument(help="File ID")],
+    comment_id: Annotated[str, typer.Argument(help="Comment ID to resolve")],
+    content: Annotated[str | None, typer.Option("--content", "-c", help="Optional message when resolving")] = None,
+    account: Annotated[str | None, typer.Option("--account", "-a", help="Account email (default: active)")] = None,
+    json_output: Annotated[bool, typer.Option("--json", help="Output as JSON")] = False,
+    yes: Annotated[bool, typer.Option("--yes", "-y", help="Skip confirmation")] = False,
+) -> None:
+    """Resolve a comment by creating a resolve-reply via the Drive API replies endpoint."""
+    try:
+        service = get_drive_service(account)
+
+        # Get file name for confirmation
+        try:
+            file_info = service.files().get(fileId=file_id, fields="name").execute()
+            file_name = file_info.get("name", file_id)
+        except Exception:
+            file_name = file_id
+
+        details = f"File: {file_name}\nComment ID: {comment_id}"
+        if content:
+            details += f"\nMessage: {content}"
+        if not confirm_action("Resolve comment", details, "drive", skip_confirmation=yes):
+            console.print("[yellow]Cancelled.[/yellow]")
+            raise typer.Exit(0)
+
+        # Drive API v3: resolved is read-only on comments resource.
+        # Must create a reply with action "resolve" to resolve a comment.
+        body: dict[str, str] = {"action": "resolve"}
+        if content:
+            body["content"] = content
+
+        result = service.replies().create(
+            fileId=file_id,
+            commentId=comment_id,
+            body=body,
+            fields="*",
+        ).execute()
+
+        if json_output:
+            stdout_console.print_json(json.dumps({
+                "file_id": file_id,
+                "comment_id": comment_id,
+                "reply_id": result.get("id"),
+                "action": result.get("action", "resolve"),
+                "content": result.get("content", ""),
+                "author": result.get("author", {}).get("displayName", ""),
+                "created_time": result.get("createdTime", ""),
+            }))
+        else:
+            console.print(f"[green]Resolved comment {comment_id}[/green]")
+            if content:
+                console.print(f"Message: {content}")
+            author = result.get("author", {}).get("displayName", "Unknown")
+            console.print(f"By: {author}")
+            console.print(f"Time: {result.get('createdTime', '')[:19]}")
 
     except HttpError as e:
         console.print(f"[red]API Error:[/red] {e.reason}")

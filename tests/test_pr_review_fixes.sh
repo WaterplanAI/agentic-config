@@ -167,7 +167,7 @@ test_fix3_path_validation() {
   local valid_paths=(
     "/home/user/.agents"
     "/opt/agentic-config"
-    "/Users/matias/projects/agentic-config"
+    "/Users/jane/projects/agentic-config"
     "/tmp/test-123"
     "/var/lib/agentic_config"
     "relative/path/to/config"

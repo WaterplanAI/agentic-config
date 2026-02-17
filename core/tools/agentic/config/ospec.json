@@ -1,0 +1,25 @@
+{
+  "name": "ospec",
+  "description": "Sequences spec stages (RESEARCH, PLAN, IMPLEMENT) via spec.py executor",
+  "executor": "core/tools/agentic/spec.py",
+  "modifiers": {
+    "full": {
+      "stages": [
+        {"name": "RESEARCH", "model": "medium-tier", "retry": 1, "required": true},
+        {"name": "PLAN", "model": "medium-tier", "retry": 1, "required": true},
+        {"name": "IMPLEMENT", "model": "high-tier", "retry": 1, "required": true}
+      ]
+    },
+    "lean": {
+      "stages": [
+        {"name": "PLAN", "model": "medium-tier", "retry": 1, "required": true},
+        {"name": "IMPLEMENT", "model": "high-tier", "retry": 1, "required": true}
+      ]
+    },
+    "leanest": {
+      "stages": [
+        {"name": "IMPLEMENT", "model": "high-tier", "retry": 0, "required": true}
+      ]
+    }
+  }
+}

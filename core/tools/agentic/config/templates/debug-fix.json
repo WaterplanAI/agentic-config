@@ -1,0 +1,59 @@
+{
+  "$schema": "https://agentic-config/schemas/template-v1.json",
+  "template_name": "debug-fix",
+  "template_version": "1.0",
+  "description": "Root cause analysis + targeted fix + smoke test",
+  "layers": {
+    "L4": {
+      "research": {
+        "enabled": true,
+        "domains": ["tech"],
+        "max_rounds": 1,
+        "model": "medium-tier",
+        "consolidation_model": "medium-tier",
+        "timeout_per_worker": 180,
+        "timeout_overall": 240
+      },
+      "planning": {
+        "enabled": false
+      },
+      "execution": {
+        "enabled": true,
+        "max_depth": 4,
+        "timeout": 1200
+      },
+      "validation": {
+        "enabled": true,
+        "max_heal_cycles": 1
+      }
+    },
+    "L3": {
+      "checkpoint_enabled": false
+    },
+    "L2": {
+      "ospec": {
+        "modifier": "leanest"
+      },
+      "oresearch": {
+        "timeout_per_worker": 180,
+        "timeout_overall": 240,
+        "max_concurrency": 1
+      }
+    },
+    "L1": {
+      "spec": {
+        "stage_model_defaults": {
+          "IMPLEMENT": "high-tier"
+        }
+      },
+      "researcher": {
+        "model": "medium-tier"
+      }
+    },
+    "L0": {
+      "model": "medium-tier",
+      "max_depth": 4,
+      "permission_mode": "acceptEdits"
+    }
+  }
+}

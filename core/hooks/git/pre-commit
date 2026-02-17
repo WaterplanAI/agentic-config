@@ -41,6 +41,9 @@ SAFE_EMAIL_PATTERNS = [
     r"noreply@",
     r"no-reply@",
     r"@app\.command",  # Python decorator false positive
+    r"@app\.get",  # FastAPI decorator false positive
+    r"@app\.post",  # FastAPI decorator false positive
+    r"@pytest\.fixture",  # pytest decorator false positive
     r"<email>",
     r"@placeholder",
 ]

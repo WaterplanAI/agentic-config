@@ -16,6 +16,7 @@ Thumbs.db
 tmp/
 *.tmp
 *.bak
+*.done
 .agentic-config.backup.*
 .agentic-config.copy-backup.*
 
@@ -25,6 +26,8 @@ __pycache__/
 
 # Testing
 /test-projects/
+.coverage
+htmlcov/
 # Installation tracking
 .installations.json
 
@@ -47,6 +50,9 @@ customization/
 
 # External specs repository (cloned locally, tracked separately)
 .specs/
+
+# Git worktrees (local development, not tracked)
+trees/
 
 # Invalid nested symlinks (artifacts from misconfigured setups)
 core/agents/agents

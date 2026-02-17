@@ -1,0 +1,58 @@
+{
+  "$schema": "https://agentic-config/schemas/template-v1.json",
+  "template_name": "chores",
+  "template_version": "1.0",
+  "description": "Fast path for simple tasks: minimal research, lean execution, no validation",
+  "layers": {
+    "L4": {
+      "research": {
+        "enabled": true,
+        "domains": ["tech"],
+        "max_rounds": 1,
+        "model": "low-tier",
+        "consolidation_model": "low-tier",
+        "timeout_per_worker": 120,
+        "timeout_overall": 180
+      },
+      "planning": {
+        "enabled": false
+      },
+      "execution": {
+        "enabled": true,
+        "max_depth": 3,
+        "timeout": 600
+      },
+      "validation": {
+        "enabled": false
+      }
+    },
+    "L3": {
+      "checkpoint_enabled": false
+    },
+    "L2": {
+      "ospec": {
+        "modifier": "leanest"
+      },
+      "oresearch": {
+        "timeout_per_worker": 120,
+        "timeout_overall": 180,
+        "max_concurrency": 1
+      }
+    },
+    "L1": {
+      "spec": {
+        "stage_model_defaults": {
+          "IMPLEMENT": "medium-tier"
+        }
+      },
+      "researcher": {
+        "model": "low-tier"
+      }
+    },
+    "L0": {
+      "model": "medium-tier",
+      "max_depth": 3,
+      "permission_mode": "acceptEdits"
+    }
+  }
+}

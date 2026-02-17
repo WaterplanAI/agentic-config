@@ -213,11 +213,13 @@ Step 4: /pull_request
 |---------|-------------|
 | `/orc` | Orchestrate task accomplishment using multi-agent delegation |
 | `/spawn` | Spawn a subagent with specified model and task |
+| `/mux-roadmap` | Multi-track roadmap orchestration with cross-session state management |
 
 ### E2E Testing
 
 | Command | Description |
 |---------|-------------|
+| `/browser` | Open browser at URL for E2E testing via playwright-cli |
 | `/browser` | Open browser at URL for E2E testing via playwright-cli |
 | `/test_e2e` | Execute E2E test from definition file |
 | `/e2e_review` | Review spec implementation with E2E visual browser validation |
@@ -243,6 +245,9 @@ Step 4: /pull_request
 |-------|-------------|
 | `product-manager` | Decomposes large features into concrete development phases with DAG dependencies |
 | `agent-orchestrator-manager` | Orchestrates multi-agent workflows via /spawn, parallelizes independent work |
+| `mux` | Parallel research-to-deliverable orchestration via multi-agent multiplexer |
+| `mux-ospec` | Orchestrated spec workflow combining MUX delegation with stage-based execution |
+| `mux-subagent` | Protocol compliance skill for MUX subagents with file-based communication |
 
 ### Code Generation
 
@@ -250,7 +255,15 @@ Step 4: /pull_request
 |-------|-------------|
 | `command-writer` | Expert assistant for creating Claude Code custom slash commands |
 | `skill-writer` | Expert assistant for authoring Claude Code skills |
+| `hook-writer` | Expert assistant for authoring Claude Code hooks with correct JSON schemas |
 | `single-file-uv-scripter` | Creates self-contained Python scripts with inline PEP 723 metadata |
+
+### Design & Prototyping
+
+| Skill | Description |
+|-------|-------------|
+| `human-agentic-design` | Generates interactive HTML prototypes optimized for dual human+agent interaction |
+| `had` | Alias for human-agentic-design |
 
 ### Git Utilities
 
@@ -266,12 +279,30 @@ Step 4: /pull_request
 |-------|-------------|
 | `playwright-cli` | Token-efficient browser automation via CLI commands (replaces Playwright MCP) |
 
+### Browser & E2E Testing
+
+| Skill | Description |
+|-------|-------------|
+| `playwright-cli` | Token-efficient browser automation via CLI commands (replaces Playwright MCP) |
+
 ### Testing & Safety
 
 | Skill | Description |
 |-------|-------------|
 | `dry-run` | Simulates command execution without file modifications |
 | `dr` | Alias for dry-run |
+
+### Integrations
+
+| Skill | Description |
+|-------|-------------|
+| `gsuite` | Google Suite integration for Sheets, Docs, Slides, Gmail, Calendar, Tasks with multi-account support |
+
+### Utilities
+
+| Skill | Description |
+|-------|-------------|
+| `cpc` | Copy text to clipboard via pbcopy (macOS) |
 
 ---
 
@@ -324,3 +355,5 @@ User: /full-life-cycle-pr feat/my-feature "Add new feature"
 - [External Specs Storage](external-specs-storage.md) - Configure external specs repository
 - [Agent Management Guide](agents/AGENTIC_AGENT.md) - Detailed agent usage
 - [Playwright CLI Setup](playwright-cli-setup.md) - E2E browser testing configuration
+- [Composition Hierarchy](designs/composition-hierarchy.md) - Agentic composition architecture and L0-L4 layers
+- [ADR-001: SDK-UV-Script Nesting](decisions/adr-001-sdk-uv-script-nesting.md) - Architecture decision for agent composition

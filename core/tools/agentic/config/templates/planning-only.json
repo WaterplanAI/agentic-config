@@ -1,0 +1,47 @@
+{
+  "$schema": "https://agentic-config/schemas/template-v1.json",
+  "template_name": "planning-only",
+  "template_version": "1.0",
+  "description": "Full research + roadmap creation, no execution",
+  "layers": {
+    "L4": {
+      "research": {
+        "enabled": true,
+        "domains": ["market", "ux", "tech"],
+        "max_rounds": 3,
+        "model": "medium-tier",
+        "consolidation_model": "high-tier"
+      },
+      "planning": {
+        "enabled": true,
+        "roadmap_model": "high-tier",
+        "decompose_model": "medium-tier",
+        "ceo_review": true
+      },
+      "execution": {
+        "enabled": false
+      },
+      "validation": {
+        "enabled": false
+      }
+    },
+    "L3": {},
+    "L2": {
+      "oresearch": {
+        "timeout_per_worker": 300,
+        "timeout_overall": 600,
+        "max_concurrency": 3
+      }
+    },
+    "L1": {
+      "researcher": {
+        "model": "medium-tier"
+      }
+    },
+    "L0": {
+      "model": "medium-tier",
+      "max_depth": 4,
+      "permission_mode": "acceptEdits"
+    }
+  }
+}

@@ -220,5 +220,149 @@ def add_slide(
         raise typer.Exit(1)
 
 
+@app.command()
+def edit(
+    presentation_id: Annotated[str, typer.Argument(help="Presentation ID")],
+    find: Annotated[str | None, typer.Option("--find", "-f", help="Text to find (single edit mode)")] = None,
+    replace: Annotated[str | None, typer.Option("--replace", "-r", help="Replacement text (single edit mode)")] = None,
+    plan: Annotated[Path | None, typer.Option("--plan", "-p", help="JSON file with batch edits")] = None,
+    yes: Annotated[bool, typer.Option("--yes", "-y", help="Skip confirmation")] = False,
+    account: Annotated[str | None, typer.Option("--account", "-a", help="Account email (default: active)")] = None,
+    json_output: Annotated[bool, typer.Option("--json", help="Output as JSON")] = False,
+) -> None:
+    """Replace text in a Google Slides presentation.
+
+    Single edit mode:
+        uv run slides.py edit <id> --find "old text" --replace "new text"
+
+    Batch mode from JSON plan:
+        uv run slides.py edit <id> --plan /tmp/edit-plan.json
+
+    Plan JSON format:
+        {"edits": [{"find": "old", "replace": "new", "page_ids": ["optional"]}]}
+
+    Uses replaceAllText API -- matches text across all slides (or scoped by page_ids).
+    """
+    try:
+        # Validate mode: either --find/--replace or --plan, not both
+        if plan and (find or replace):
+            console.print("[red]Error:[/red] Cannot combine --plan with --find/--replace")
+            raise typer.Exit(1)
+        if not plan and not (find and replace):
+            console.print("[red]Error:[/red] Provide either --find and --replace, or --plan")
+            raise typer.Exit(1)
+
+        # Build edits list
+        edits: list[dict] = []
+        if plan:
+            if not plan.exists():
+                console.print(f"[red]Error:[/red] Plan file not found: {plan}")
+                raise typer.Exit(1)
+            plan_data = json.loads(plan.read_text())
+            if isinstance(plan_data, dict) and "edits" in plan_data:
+                edits = plan_data["edits"]
+            elif isinstance(plan_data, list):
+                edits = plan_data
+            else:
+                console.print("[red]Error:[/red] Plan must be {\"edits\": [...]} or a JSON array")
+                raise typer.Exit(1)
+            # Validate each edit
+            for i, e in enumerate(edits):
+                if "find" not in e or "replace" not in e:
+                    console.print(f"[red]Error:[/red] Edit {i} missing 'find' or 'replace' key")
+                    raise typer.Exit(1)
+        else:
+            assert find is not None and replace is not None
+            edits = [{"find": find, "replace": replace}]
+
+        if not edits:
+            console.print("[yellow]No edits to apply[/yellow]")
+            raise typer.Exit(0)
+
+        # Confirmation
+        if not yes:
+            console.print(f"[bold]Edits to apply ({len(edits)}):[/bold]")
+            for i, e in enumerate(edits):
+                find_preview = e["find"][:50] + ("..." if len(e["find"]) > 50 else "")
+                replace_preview = e["replace"][:50] + ("..." if len(e["replace"]) > 50 else "")
+                scope = f" [dim](pages: {e['page_ids']})[/dim]" if e.get("page_ids") else ""
+                console.print(f"  [{i}] \"{find_preview}\" -> \"{replace_preview}\"{scope}")
+            confirm = typer.confirm("Apply?")
+            if not confirm:
+                console.print("[yellow]Aborted[/yellow]")
+                raise typer.Exit(0)
+
+        service = get_slides_service(account)
+
+        # Build replaceAllText requests
+        requests: list[dict] = []
+        for e in edits:
+            req: dict = {
+                "replaceAllText": {
+                    "containsText": {
+                        "text": e["find"],
+                        "matchCase": True,
+                    },
+                    "replaceText": e["replace"],
+                }
+            }
+            page_ids = e.get("page_ids")
+            if page_ids:
+                req["replaceAllText"]["pageObjectIds"] = page_ids
+            requests.append(req)
+
+        # Execute single batchUpdate for atomicity
+        result = service.presentations().batchUpdate(
+            presentationId=presentation_id,
+            body={"requests": requests},
+        ).execute()
+
+        # Parse response for replacement counts
+        replies = result.get("replies", [])
+        edit_results: list[dict] = []
+        total_replacements = 0
+        warnings: list[str] = []
+
+        for i, (e, reply) in enumerate(zip(edits, replies)):
+            count = reply.get("replaceAllText", {}).get("occurrencesChanged", 0)
+            total_replacements += count
+            entry: dict = {
+                "index": i,
+                "find": e["find"],
+                "replace": e["replace"],
+                "occurrences_changed": count,
+            }
+            if e.get("page_ids"):
+                entry["page_ids"] = e["page_ids"]
+            edit_results.append(entry)
+            if count == 0:
+                warnings.append(f"Edit {i}: no occurrences of \"{e['find'][:50]}\"")
+
+        # Output
+        if json_output:
+            out: dict = {
+                "presentation_id": presentation_id,
+                "edits": edit_results,
+                "total_replacements": total_replacements,
+            }
+            if warnings:
+                out["warnings"] = warnings
+            stdout_console.print_json(json.dumps(out))
+        else:
+            for er in edit_results:
+                status = "[green]OK[/green]" if er["occurrences_changed"] > 0 else "[yellow]NONE[/yellow]"
+                console.print(
+                    f"  [{er['index']}] {status} {er['occurrences_changed']} replacement(s): "
+                    f"\"{er['find'][:40]}\" -> \"{er['replace'][:40]}\""
+                )
+            console.print(f"\n[bold]Total replacements: {total_replacements}[/bold]")
+            for w in warnings:
+                console.print(f"[yellow]Warning:[/yellow] {w}")
+
+    except HttpError as e:
+        console.print(f"[red]API Error:[/red] {e.reason}")
+        raise typer.Exit(1)
+
+
 if __name__ == "__main__":
     app()

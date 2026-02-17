@@ -1,0 +1,52 @@
+{
+  "$schema": "https://schemas.a2a.dev/agent-card/v0.3",
+  "name": "Mux Orchestrator",
+  "description": "Parallel research-to-deliverable orchestration via multi-agent multiplexer",
+  "url": "http://localhost:8000/a2a",
+  "version": "1.0.0",
+  "supportedVersions": ["0.3"],
+  "provider": {
+    "name": "agentic-config",
+    "url": "https://github.com/example/agentic-config"
+  },
+  "capabilities": {
+    "streaming": false,
+    "pushNotifications": true,
+    "stateTransitionHistory": true
+  },
+  "skills": [
+    {
+      "id": "mux:research",
+      "name": "Research Workflow",
+      "description": "Multi-agent parallel research with consolidation and deliverable generation",
+      "inputModes": ["text"],
+      "outputModes": ["text", "file"],
+      "tags": ["research", "synthesis", "deliverable"]
+    },
+    {
+      "id": "mux:spec",
+      "name": "Specification Workflow",
+      "description": "Generate technical specifications from requirements with ruthless validation",
+      "inputModes": ["text"],
+      "outputModes": ["text", "file"],
+      "tags": ["spec", "documentation"]
+    },
+    {
+      "id": "mux:audit",
+      "name": "Audit Workflow",
+      "description": "Codebase gap analysis and compliance verification",
+      "inputModes": ["text"],
+      "outputModes": ["text", "file"],
+      "tags": ["audit", "compliance"]
+    }
+  ],
+  "authentication": {
+    "schemes": ["bearer"],
+    "credentials": {
+      "description": "Bearer token for API access",
+      "required": true
+    }
+  },
+  "defaultInputModes": ["text"],
+  "defaultOutputModes": ["text"]
+}

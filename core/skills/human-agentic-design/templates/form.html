@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Multi-Step Form</title>
+  <script src="https://cdn.tailwindcss.com/4.0"></script>
+  <link href="https://cdn.jsdelivr.net/npm/daisyui@5/themes.css" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/daisyui@5/full.css" rel="stylesheet" />
+  <style>
+    :focus-visible { outline: 2px solid #4f46e5; outline-offset: 2px; }
+    .step-panel[hidden] { display: none; }
+  </style>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebPage",
+    "name": "Registration Form",
+    "description": "Multi-step registration form with validation"
+  }
+  </script>
+</head>
+<body class="min-h-screen bg-base-100">
+  <header class="navbar bg-base-200">
+    <nav aria-label="Main navigation">
+      <a data-testid="nav-home" href="/" class="btn btn-ghost text-xl">FormApp</a>
+    </nav>
+  </header>
+
+  <main class="container mx-auto px-4 py-8 max-w-2xl">
+    <h1 class="text-3xl font-bold mb-2">Create Your Account</h1>
+    <p class="text-base-content/70 mb-8">Complete the steps below to set up your profile.</p>
+
+    <!-- Progress Steps -->
+    <ul class="steps steps-horizontal w-full mb-8" aria-label="Form progress">
+      <li class="step step-primary" data-testid="progress-step-1" aria-current="step">Personal Info</li>
+      <li class="step" data-testid="progress-step-2">Contact</li>
+      <li class="step" data-testid="progress-step-3">Preferences</li>
+    </ul>
+
+    <form data-testid="registration-form" novalidate onsubmit="event.preventDefault(); handleSubmit();">
+      <!-- Step 1: Personal Information -->
+      <div class="step-panel" id="step-1" role="group" aria-label="Step 1: Personal Information">
+        <fieldset>
+          <legend class="text-xl font-semibold mb-4">Personal Information</legend>
+
+          <div class="form-control mb-4">
+            <label for="first-name" class="label"><span class="label-text">First Name</span></label>
+            <input id="first-name" data-testid="first-name-input" type="text" class="input input-bordered w-full" required aria-describedby="first-name-error">
+            <span id="first-name-error" class="text-error text-sm mt-1" role="alert" hidden>First name is required</span>
+          </div>
+
+          <div class="form-control mb-4">
+            <label for="last-name" class="label"><span class="label-text">Last Name</span></label>
+            <input id="last-name" data-testid="last-name-input" type="text" class="input input-bordered w-full" required aria-describedby="last-name-error">
+            <span id="last-name-error" class="text-error text-sm mt-1" role="alert" hidden>Last name is required</span>
+          </div>
+
+          <div class="form-control mb-4">
+            <label for="dob" class="label"><span class="label-text">Date of Birth</span></label>
+            <input id="dob" data-testid="dob-input" type="date" class="input input-bordered w-full">
+          </div>
+        </fieldset>
+
+        <div class="flex justify-end mt-6">
+          <button data-testid="step-1-next" type="button" class="btn btn-primary" onclick="goToStep(2)">Next</button>
+        </div>
+      </div>
+
+      <!-- Step 2: Contact Details -->
+      <div class="step-panel" id="step-2" role="group" aria-label="Step 2: Contact Details" hidden>
+        <fieldset>
+          <legend class="text-xl font-semibold mb-4">Contact Details</legend>
+
+          <div class="form-control mb-4">
+            <label for="email" class="label"><span class="label-text">Email Address</span></label>
+            <input id="email" data-testid="email-input" type="email" class="input input-bordered w-full" required aria-invalid="false" aria-describedby="email-error email-hint">
+            <span id="email-hint" class="text-xs text-base-content/60 mt-1">We will send a verification email.</span>
+            <span id="email-error" class="text-error text-sm mt-1" role="alert" hidden>Please enter a valid email</span>
+          </div>
+
+          <div class="form-control mb-4">
+            <label for="phone" class="label"><span class="label-text">Phone Number (optional)</span></label>
+            <input id="phone" data-testid="phone-input" type="tel" class="input input-bordered w-full" placeholder="+1 (555) 000-0000">
+          </div>
+
+          <fieldset class="mb-4">
+            <legend class="label"><span class="label-text">Preferred Contact Method</span></legend>
+            <div class="flex gap-4 mt-2">
+              <label class="label cursor-pointer gap-2">
+                <input data-testid="contact-email-radio" type="radio" name="contact-method" value="email" class="radio radio-primary" checked>
+                <span class="label-text">Email</span>
+              </label>
+              <label class="label cursor-pointer gap-2">
+                <input data-testid="contact-phone-radio" type="radio" name="contact-method" value="phone" class="radio radio-primary">
+                <span class="label-text">Phone</span>
+              </label>
+            </div>
+          </fieldset>
+        </fieldset>
+
+        <div class="flex justify-between mt-6">
+          <button data-testid="step-2-back" type="button" class="btn btn-ghost" onclick="goToStep(1)">Back</button>
+          <button data-testid="step-2-next" type="button" class="btn btn-primary" onclick="goToStep(3)">Next</button>
+        </div>
+      </div>
+
+      <!-- Step 3: Preferences -->
+      <div class="step-panel" id="step-3" role="group" aria-label="Step 3: Preferences" hidden>
+        <fieldset>
+          <legend class="text-xl font-semibold mb-4">Preferences</legend>
+
+          <div class="form-control mb-4">
+            <label for="plan-select" class="label"><span class="label-text">Plan</span></label>
+            <select id="plan-select" data-testid="plan-select" class="select select-bordered w-full">
+              <option value="free">Free</option>
+              <option value="pro">Pro ($X/mo)</option>
+              <option value="enterprise">Enterprise (Contact us)</option>
+            </select>
+          </div>
+
+          <fieldset class="mb-4">
+            <legend class="label"><span class="label-text">Notifications</span></legend>
+            <label class="label cursor-pointer justify-start gap-3">
+              <input data-testid="notify-email-checkbox" type="checkbox" class="checkbox checkbox-primary" checked>
+              <span class="label-text">Email notifications</span>
+            </label>
+            <label class="label cursor-pointer justify-start gap-3">
+              <input data-testid="notify-sms-checkbox" type="checkbox" class="checkbox checkbox-primary">
+              <span class="label-text">SMS notifications</span>
+            </label>
+          </fieldset>
+
+          <div class="form-control mb-4">
+            <label for="bio-textarea" class="label"><span class="label-text">Short Bio (optional)</span></label>
+            <textarea id="bio-textarea" data-testid="bio-textarea" class="textarea textarea-bordered w-full" rows="3" maxlength="300" aria-describedby="bio-count"></textarea>
+            <span id="bio-count" class="text-xs text-base-content/60 mt-1">0/300 characters</span>
+          </div>
+        </fieldset>
+
+        <div class="flex justify-between mt-6">
+          <button data-testid="step-3-back" type="button" class="btn btn-ghost" onclick="goToStep(2)">Back</button>
+          <button data-testid="form-submit" type="submit" class="btn btn-primary">Create Account</button>
+        </div>
+      </div>
+    </form>
+  </main>
+
+  <footer class="footer footer-center p-4 bg-base-200 text-base-content mt-16">
+    <p>Form Prototype</p>
+  </footer>
+
+  <script>
+    var currentStep = parseInt(new URLSearchParams(window.location.search).get('step') || '1', 10);
+
+    function updateState(key, value) {
+      var url = new URL(window.location);
+      url.searchParams.set(key, value);
+      window.history.pushState({}, '', url);
+    }
+
+    function goToStep(step) {
+      // Basic validation before advancing
+      if (step > currentStep && !validateStep(currentStep)) return;
+
+      document.querySelectorAll('.step-panel').forEach(function(p) { p.hidden = true; });
+      var target = document.getElementById('step-' + step);
+      if (target) {
+        target.hidden = false;
+        target.focus();
+      }
+
+      // Update progress indicators
+      document.querySelectorAll('.steps .step').forEach(function(s, i) {
+        s.classList.toggle('step-primary', i < step);
+        s.removeAttribute('aria-current');
+      });
+      var activeStep = document.querySelector('[data-testid="progress-step-' + step + '"]');
+      if (activeStep) activeStep.setAttribute('aria-current', 'step');
+
+      currentStep = step;
+      updateState('step', String(step));
+    }
+
+    function validateStep(step) {
+      var panel = document.getElementById('step-' + step);
+      var inputs = panel.querySelectorAll('[required]');
+      var valid = true;
+      inputs.forEach(function(input) {
+        var errorEl = document.getElementById(input.id + '-error');
+        if (!input.value.trim()) {
+          input.setAttribute('aria-invalid', 'true');
+          input.classList.add('input-error');
+          if (errorEl) errorEl.hidden = false;
+          valid = false;
+        } else {
+          input.setAttribute('aria-invalid', 'false');
+          input.classList.remove('input-error');
+          if (errorEl) errorEl.hidden = true;
+        }
+      });
+      return valid;
+    }
+
+    function handleSubmit() {
+      if (validateStep(3)) {
+        alert('Account created successfully!');
+      }
+    }
+
+    // Character count for bio
+    var bio = document.getElementById('bio-textarea');
+    if (bio) {
+      bio.addEventListener('input', function() {
+        document.getElementById('bio-count').textContent = bio.value.length + '/300 characters';
+      });
+    }
+
+    // Initialize to current step
+    goToStep(currentStep);
+  </script>
+</body>
+</html>

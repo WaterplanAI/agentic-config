@@ -1,0 +1,20 @@
+{
+  "name": "example-coordinator",
+  "description": "Example phase configuration for the Layer 3 coordinator",
+  "phases": [
+    {
+      "name": "phase-01-research",
+      "orchestrator": "core/tools/agentic/ospec.py",
+      "modifier": "full",
+      "target": "specs/example/001-feature.md",
+      "depends_on": []
+    },
+    {
+      "name": "phase-02-implement",
+      "orchestrator": "core/tools/agentic/ospec.py",
+      "modifier": "leanest",
+      "target": "specs/example/002-tests.md",
+      "depends_on": ["phase-01-research"]
+    }
+  ]
+}

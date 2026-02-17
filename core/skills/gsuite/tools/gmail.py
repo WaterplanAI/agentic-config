@@ -239,7 +239,7 @@ def send(
     extra_headers: dict = {}
     if extra:
         try:
-            _, extra_headers = merge_extra({}, extra)
+            extra_headers, _ = merge_extra({}, extra)
             cc_list = extra_headers.pop("cc", [])
             bcc_list = extra_headers.pop("bcc", [])
             if isinstance(cc_list, str):
@@ -357,7 +357,7 @@ def reply(
         bcc_list: list[str] = []
         if extra:
             try:
-                _, extra_headers = merge_extra({}, extra)
+                extra_headers, _ = merge_extra({}, extra)
                 bcc_list = extra_headers.pop("bcc", [])
                 if isinstance(bcc_list, str):
                     bcc_list = [bcc_list]
@@ -426,7 +426,7 @@ def draft(
     bcc_list: list[str] = []
     if extra:
         try:
-            _, extra_headers = merge_extra({}, extra)
+            extra_headers, _ = merge_extra({}, extra)
             cc_list = extra_headers.pop("cc", [])
             bcc_list = extra_headers.pop("bcc", [])
             if isinstance(cc_list, str):

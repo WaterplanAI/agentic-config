@@ -476,6 +476,282 @@ def rename_tab(
         raise typer.Exit(1)
 
 
+@app.command()
+def edit(
+    doc_id: Annotated[str, typer.Argument(help="Document ID")],
+    find: Annotated[str | None, typer.Option("--find", "-f", help="Text to find (single edit mode)")] = None,
+    replace: Annotated[str | None, typer.Option("--replace", "-r", help="Replacement text (single edit mode)")] = None,
+    plan: Annotated[Path | None, typer.Option("--plan", "-p", help="JSON file with batch edits")] = None,
+    tab: Annotated[str | None, typer.Option("--tab", "-t", help="Tab ID or title to scope edits to")] = None,
+    yes: Annotated[bool, typer.Option("--yes", "-y", help="Skip confirmation")] = False,
+    account: Annotated[str | None, typer.Option("--account", "-a", help="Account email (default: active)")] = None,
+    json_output: Annotated[bool, typer.Option("--json", help="Output as JSON")] = False,
+) -> None:
+    """Replace text in a Google Doc using find-and-replace.
+
+    Single edit mode:
+        uv run docs.py edit <doc_id> --find "old text" --replace "new text"
+
+    Batch mode from JSON plan:
+        uv run docs.py edit <doc_id> --plan /tmp/edit-plan.json
+
+    Plan JSON format:
+        {"edits": [{"find": "old text", "replace": "new text"}, ...]}
+
+    Uses replaceAllText API -- no index math required.
+    """
+    try:
+        # Validate mode: either --find/--replace or --plan, not both
+        if plan and (find or replace):
+            console.print("[red]Error:[/red] Cannot combine --plan with --find/--replace")
+            raise typer.Exit(1)
+        if not plan and not (find and replace):
+            console.print("[red]Error:[/red] Provide either --find and --replace, or --plan")
+            raise typer.Exit(1)
+
+        # Build edits list
+        edits: list[dict[str, str]] = []
+        if plan:
+            if not plan.exists():
+                console.print(f"[red]Error:[/red] Plan file not found: {plan}")
+                raise typer.Exit(1)
+            plan_data = json.loads(plan.read_text())
+            if isinstance(plan_data, dict) and "edits" in plan_data:
+                edits = plan_data["edits"]
+            elif isinstance(plan_data, list):
+                edits = plan_data
+            else:
+                console.print("[red]Error:[/red] Plan must be {\"edits\": [...]} or a JSON array")
+                raise typer.Exit(1)
+            # Validate each edit
+            for i, e in enumerate(edits):
+                if "find" not in e or "replace" not in e:
+                    console.print(f"[red]Error:[/red] Edit {i} missing 'find' or 'replace' key")
+                    raise typer.Exit(1)
+        else:
+            assert find is not None and replace is not None
+            edits = [{"find": find, "replace": replace}]
+
+        if not edits:
+            console.print("[yellow]No edits to apply[/yellow]")
+            raise typer.Exit(0)
+
+        # Confirmation
+        if not yes:
+            console.print(f"[bold]Edits to apply ({len(edits)}):[/bold]")
+            for i, e in enumerate(edits):
+                find_preview = e["find"][:50] + ("..." if len(e["find"]) > 50 else "")
+                replace_preview = e["replace"][:50] + ("..." if len(e["replace"]) > 50 else "")
+                console.print(f"  [{i}] \"{find_preview}\" -> \"{replace_preview}\"")
+            confirm = typer.confirm("Apply?")
+            if not confirm:
+                console.print("[yellow]Aborted[/yellow]")
+                raise typer.Exit(0)
+
+        # Resolve tab if specified
+        tab_id: str | None = None
+        tab_title: str | None = None
+        if tab:
+            service = get_docs_service(account)
+            doc = get_doc_with_tabs(service, doc_id)
+            tab_id, tab_title = resolve_tab(doc, tab)
+        else:
+            service = get_docs_service(account)
+
+        # Build replaceAllText requests
+        requests: list[dict[str, Any]] = []
+        for e in edits:
+            contains_text: dict[str, Any] = {
+                "text": e["find"],
+                "matchCase": True,
+            }
+            if tab_id:
+                contains_text["tabId"] = tab_id
+            requests.append({
+                "replaceAllText": {
+                    "containsText": contains_text,
+                    "replaceText": e["replace"],
+                }
+            })
+
+        # Execute single batchUpdate for atomicity
+        result = service.documents().batchUpdate(
+            documentId=doc_id,
+            body={"requests": requests},
+        ).execute()
+
+        # Parse response for replacement counts
+        replies = result.get("replies", [])
+        edit_results: list[dict[str, Any]] = []
+        total_replacements = 0
+        warnings: list[str] = []
+
+        for i, (e, reply) in enumerate(zip(edits, replies)):
+            count = reply.get("replaceAllText", {}).get("occurrencesChanged", 0)
+            total_replacements += count
+            edit_results.append({
+                "index": i,
+                "find": e["find"],
+                "replace": e["replace"],
+                "occurrences_changed": count,
+            })
+            if count == 0:
+                warnings.append(f"Edit {i}: no occurrences of \"{e['find'][:50]}\"")
+
+        # Output
+        if json_output:
+            out: dict[str, Any] = {
+                "doc_id": doc_id,
+                "edits": edit_results,
+                "total_replacements": total_replacements,
+            }
+            if tab_id:
+                out["tab_id"] = tab_id
+                out["tab_title"] = tab_title
+            if warnings:
+                out["warnings"] = warnings
+            stdout_console.print_json(json.dumps(out))
+        else:
+            if tab_title:
+                console.print(f"[dim](tab: {tab_title})[/dim]")
+            for er in edit_results:
+                status = "[green]OK[/green]" if er["occurrences_changed"] > 0 else "[yellow]NONE[/yellow]"
+                console.print(
+                    f"  [{er['index']}] {status} {er['occurrences_changed']} replacement(s): "
+                    f"\"{er['find'][:40]}\" -> \"{er['replace'][:40]}\""
+                )
+            console.print(f"\n[bold]Total replacements: {total_replacements}[/bold]")
+            for w in warnings:
+                console.print(f"[yellow]Warning:[/yellow] {w}")
+
+    except ValueError as e:
+        console.print(f"[red]Error:[/red] {e}")
+        raise typer.Exit(1)
+    except HttpError as e:
+        console.print(f"[red]API Error:[/red] {e.reason}")
+        raise typer.Exit(1)
+
+
+def build_text_with_indices(body: dict) -> tuple[str, list[tuple[int, int]]]:
+    """Build flat text from document body, tracking API index per character.
+
+    Returns:
+        (flat_text, index_map) where index_map[i] = (doc_start_index, doc_end_index)
+        for each character in flat_text.
+    """
+    flat_text: list[str] = []
+    index_map: list[tuple[int, int]] = []
+
+    for element in body.get("content", []):
+        if "paragraph" in element:
+            for elem in element["paragraph"].get("elements", []):
+                if "textRun" in elem:
+                    text = elem["textRun"].get("content", "")
+                    start = elem.get("startIndex", 0)
+                    for i, ch in enumerate(text):
+                        flat_text.append(ch)
+                        index_map.append((start + i, start + i + 1))
+        elif "table" in element:
+            for row in element["table"].get("tableRows", []):
+                for cell in row.get("tableCells", []):
+                    for cell_elem in cell.get("content", []):
+                        if "paragraph" in cell_elem:
+                            for elem in cell_elem["paragraph"].get("elements", []):
+                                if "textRun" in elem:
+                                    text = elem["textRun"].get("content", "")
+                                    start = elem.get("startIndex", 0)
+                                    for i, ch in enumerate(text):
+                                        flat_text.append(ch)
+                                        index_map.append((start + i, start + i + 1))
+
+    return "".join(flat_text), index_map
+
+
+@app.command()
+def find(
+    doc_id: Annotated[str, typer.Argument(help="Document ID")],
+    query: Annotated[str, typer.Argument(help="Text to search for")],
+    tab: Annotated[str | None, typer.Option("--tab", "-t", help="Tab ID or title")] = None,
+    context_chars: Annotated[int, typer.Option("--context", "-c", help="Characters of surrounding context")] = 50,
+    account: Annotated[str | None, typer.Option("--account", "-a", help="Account email (default: active)")] = None,
+    json_output: Annotated[bool, typer.Option("--json", help="Output as JSON")] = False,
+) -> None:
+    """Find text in a Google Doc and return index positions.
+
+    Eliminates manual index calculation by returning exact start/end indices
+    that match the Docs API index system.
+
+    Examples:
+        uv run docs.py find <doc_id> "search text"
+        uv run docs.py find <doc_id> "search text" --json --context 100
+        uv run docs.py find <doc_id> "search text" --tab "My Tab"
+    """
+    try:
+        service = get_docs_service(account)
+
+        if tab:
+            doc = get_doc_with_tabs(service, doc_id)
+            tab_id, _ = resolve_tab(doc, tab)
+            body = get_tab_body(doc, tab_id)
+        else:
+            doc = service.documents().get(documentId=doc_id).execute()
+            body = doc.get("body", {})
+
+        flat_text, index_map = build_text_with_indices(body)
+
+        # Find all occurrences
+        matches: list[dict[str, Any]] = []
+        search_start = 0
+        occurrence = 0
+
+        while True:
+            pos = flat_text.find(query, search_start)
+            if pos == -1:
+                break
+            occurrence += 1
+            end_pos = pos + len(query)
+
+            # Map flat positions to document indices
+            doc_start = index_map[pos][0]
+            doc_end = index_map[end_pos - 1][1]
+
+            # Build context
+            ctx_start = max(0, pos - context_chars)
+            ctx_end = min(len(flat_text), end_pos + context_chars)
+            context_text = flat_text[ctx_start:ctx_end]
+
+            matches.append({
+                "start_index": doc_start,
+                "end_index": doc_end,
+                "text": query,
+                "context": context_text,
+                "occurrence": occurrence,
+            })
+
+            search_start = pos + 1
+
+        # Output
+        if json_output:
+            stdout_console.print_json(json.dumps(matches))
+        else:
+            if not matches:
+                console.print(f"[yellow]No occurrences found for:[/yellow] \"{query}\"")
+                raise typer.Exit(0)
+            console.print(f"Found {len(matches)} occurrence(s) of \"{query}\":")
+            for m in matches:
+                console.print(
+                    f"  {m['occurrence']}. [{m['start_index']}-{m['end_index']}] "
+                    f"...{m['context']}..."
+                )
+
+    except ValueError as e:
+        console.print(f"[red]Error:[/red] {e}")
+        raise typer.Exit(1)
+    except HttpError as e:
+        console.print(f"[red]API Error:[/red] {e.reason}")
+        raise typer.Exit(1)
+
+
 @app.command("delete-tab")
 def delete_tab(
     doc_id: Annotated[str, typer.Argument(help="Document ID")],

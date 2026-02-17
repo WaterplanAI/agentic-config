@@ -34,13 +34,93 @@ All notable changes to agentic-config.
   - PEP 723 self-contained CLI tools with inline dependency management
   - User customization support via `$AGENTIC_GLOBAL/customization/gsuite/`
   - CLI tools (11): auth.py, setup.py, sheets.py, docs.py, slides.py, drive.py, gmail.py, gcalendar.py, tasks.py, people.py, utils.py
-- `/swarm` command - Parallel research-to-deliverable orchestration via multi-agent swarm
+  - Comment-loop workflow tools for collaborative document review
+- `mux` skill for parallel research-to-deliverable orchestration (renamed from `swarm`)
+  - Progressive context management with signal-based completion
+  - `spy` command for real-time observation of running agents
+  - A2A (Agent-to-Agent) protocol support for external orchestration
+  - 10 agent definitions: researcher, auditor, consolidator, coordinator, writer, sentinel, proposer, spy, spec-compliance-validator, code-quality-validator
+  - Comprehensive tooling: session, signal, verify, check-signals, extract-summary, audit-protocol, circuit-breaker, parse-agent-metadata, version-diff, metrics
   - Decomposes tasks into research subjects and focus areas
   - Fan-out research with background agents
   - Gap analysis against codebase
   - Context consolidation for large outputs
   - High-tier coordinator for deliverable synthesis
   - Voice updates at phase transitions
+  - Context priming protocol (Phase 0) for all agents
+  - Pre-flight validation (Phase 0.5) with parameter checking
+  - 3-phase automated protocol enforcement via audit-protocol.py
+  - Distributed tracing with OpenTelemetry-style trace ID propagation
+  - Two-stage review (spec compliance validator + code quality validator)
+  - Circuit breaker pattern with auto-reset for failure recovery
+  - Role/Goal/Backstory persona format
+  - Progressive context management with YAML frontmatter (70% token reduction)
+  - Artifact versioning with diff tool for refinement loops
+  - Observability platform with metrics collection and dashboard
+  - 10 tools: session.py, signal.py, verify.py, check-signals.py, extract-summary.py, audit-protocol.py, circuit-breaker.py, parse-agent-metadata.py, version-diff.py, metrics.py
+  - A2A protocol stack: agent-card.json, task-manager.py, server.py, auth.py, client.py
+  - Observability dashboard: index.html, server.py
+  - Skill delegation enforcement (orchestrator forwards skills to subagents)
+  - Skill-scoped hooks for orchestrator and subagent isolation (mux-orchestrator-guard.py, mux-subagent-guard.py)
+  - Plan-mode gate with execution blocking until plan mode exit
+  - Preamble ritual enforcement (Action/Target/Rationale format)
+  - Signal protocol with Postel's Law (liberal reading, strict writing)
+  - Learning curriculum (`/mux-roadmap` command with 26 lessons)
+- `mux-ospec` skill for orchestrated spec workflow combining mux delegation with /spec stages
+  - 3 workflow modes: full (GATHER->CONSOLIDATE->CONFIRM_SC->PLAN->TEST->DOCUMENT->SENTINEL), lean (CONFIRM_SC->PLAN->TEST->DOCUMENT), leanest (CONFIRM_SC->PLAN->TEST)
+  - Mandatory SC (Success Criteria) gate before PLAN in all workflow paths
+  - CONSOLIDATE stage for large research outputs (>50k tokens)
+  - CONFIRM_SC stage with explicit user approval via AskUserQuestion
+  - CREATE stage support for generating new specs from inline prompts
+  - Strict stage sequencing enforcement preventing workflow jumps
+  - 7 agent definitions: spec-analyzer, spec-fixer, spec-reviewer, spec-tester, stage-writer, phase-executor, validator
+  - Repository type detection tool (detect-repo-type.py)
+  - Signal-based routing delegating signal reading to low-tier agents
+  - External specs repository path resolution support
+  - Review cycles with --cycles=N flag
+  - Phased execution with --phased flag
+  - 14 cookbook files covering workflow patterns and error recovery
+  - Real API integration tests with compliance validation
+  - Documentation: `core/prompts/orchestrators/ospec.md`
+- `mux-subagent` protocol skill for MUX subagent compliance
+  - Return code convention (0=success, like bash exit codes)
+  - Mandatory signal file creation before completion
+  - File-based communication via report files
+  - Executive summary format (bullets only, keyword-dense, max 5-7 bullets)
+  - Next Steps subsection (recommended action, dependencies, routing hints)
+  - Table of Contents extraction for orchestrator navigation
+- `human-agentic-design` skill (alias: `had`) for dual human+agent UI prototyping
+  - 2-tier architecture: Tier A (HTML+Tailwind+DaisyUI, zero-dep single-file), Tier B (React+shadcn/ui+Vite, multi-file with Node.js)
+  - 8 mandatory agent principles (semantic HTML, ARIA labels, keyboard nav, focus management, live regions, error announcements, landmark roles, form validation)
+  - Environment probe auto-detecting Playwright MCP and Node.js availability
+  - Preview loop with Playwright MCP integration for iterative development
+  - Accessibility-first design enabling AI agent navigation via accessibility trees
+  - 5 built-in templates: blog, dashboard, form, landing, portfolio
+  - 5 cookbook files covering agent principles, preview loop, tier architectures, validation
+  - Documentation: `docs/designs/composition-hierarchy.md`
+- `mux-roadmap` command for MUX learning curriculum
+  - 26 lessons covering orchestration architecture, delegation protocol, signal patterns
+  - Model tier guidance for test execution
+  - CLI skills preference over raw MCP
+  - Post-track lifecycle and QA gate specifications
+- [WIP - UNDER DEVELOPMENT] Agentic composition tools (L0-L4 hierarchy) for depth-N agent nesting
+  - L0 primitive: spawn.py for SDK-as-UV-Script agent spawning
+  - L1 executors: spec.py (/spec wrapper), ospec.py (mux-ospec wrapper), researcher.py (domain-parameterized research)
+  - L2 orchestrators: oresearch.py (parallel domain research), coordinator.py (multi-executor task coordination)
+  - L4 strategic planner: campaign.py (planning + execution oversight)
+  - Shared library: agentic/lib/__init__.py (exit codes, session management, logging)
+  - Observability patterns: agentic/lib/observability.py (L0-L4 patterns addressing 48 gaps)
+  - 6 pre-built campaign templates: big-feature, chores, debug-fix, iteration, planning-only, research-only
+  - Config-driven execution with --template, --dry-run, --list-templates CLI flags
+  - Schema-validated results with bounded context
+  - Per-depth agent specialization (tools, prompts, permissions, model tier)
+  - Zero infrastructure overhead (no separate server processes)
+  - OpenTelemetry-style distributed tracing
+  - Campaign config system with phase-specific configuration (PLAN, EXECUTE)
+  - Layer schema validation tests and campaign template validation tests
+  - Documentation: `docs/designs/composition-hierarchy.md` (890 lines), `docs/decisions/adr-001-sdk-uv-script-nesting.md` (210 lines)
+  - 9 prompt templates: 4 campaign prompts, 1 coordinator prompt, 4 executor prompts
+- Mandatory skill/command invocation rule in AGENTS.md and all project templates
 - `cpc` skill - Copy text to clipboard via pbcopy (macOS)
 - `gdate.py` utility - Date parsing and formatting for calendar operations
 - Mermaid diagram support for gsuite Drive uploads
@@ -50,9 +130,30 @@ All notable changes to agentic-config.
 
 ### Changed
 
+- **BREAKING**: Renamed `/swarm` skill to `/mux`
 - Model tier terminology now uses provider-agnostic naming (Low/Medium/High-tier)
   - Mapping: Anthropic (haiku/sonnet/opus), Google (flash-lite/flash/pro), OpenAI (codex mini/codex/codex max)
   - Added to PROJECT_AGENTS.md as project rule
+- MUX monitor pattern removed in favor of task-notification completion
+  - Archived monitor agent definition to `core/skills/mux/agents/_archive/monitor.md`
+  - Simplified completion detection to runtime task-notification events
+  - Reduced token consumption and protocol complexity
+- MUX rule deduplication across mux-ospec and mux-roadmap
+  - Extracted common rules to mux/SKILL.md as single source of truth
+  - mux-ospec and mux-roadmap reference core MUX protocol
+- MUX executive summary format enforced for conciseness
+  - Bullets-only format (no prose)
+  - Keyword-dense content for better LLM parsing
+  - Mandatory Next Steps subsection for routing decisions
+- MUX test suite migrated to pytest format
+  - Converted standalone test scripts to pytest structure
+  - Added conftest.py for shared fixtures
+  - Standardized test organization with 20+ test files
+
+### Fixed
+
+- gsuite: Gmail tool merge_extra return value destructuring
+- skill-writer: Standardized frontmatter format and added resources
 
 ## [0.1.16] - 2026-01-09
 

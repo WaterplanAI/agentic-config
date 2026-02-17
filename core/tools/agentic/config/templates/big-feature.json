@@ -1,0 +1,64 @@
+{
+  "$schema": "https://agentic-config/schemas/template-v1.json",
+  "template_name": "big-feature",
+  "template_version": "1.0",
+  "description": "Full pipeline: research all domains, roadmap with CEO review, implement, validate",
+  "layers": {
+    "L4": {
+      "research": {
+        "enabled": true,
+        "domains": ["market", "ux", "tech"],
+        "max_rounds": 3,
+        "model": "medium-tier",
+        "consolidation_model": "high-tier",
+        "timeout_per_worker": 300,
+        "timeout_overall": 600
+      },
+      "planning": {
+        "enabled": true,
+        "roadmap_model": "high-tier",
+        "decompose_model": "medium-tier",
+        "ceo_review": true
+      },
+      "execution": {
+        "enabled": true,
+        "max_depth": 5,
+        "timeout": 3600
+      },
+      "validation": {
+        "enabled": true,
+        "max_heal_cycles": 2
+      }
+    },
+    "L3": {
+      "checkpoint_enabled": true
+    },
+    "L2": {
+      "ospec": {
+        "modifier": "full"
+      },
+      "oresearch": {
+        "timeout_per_worker": 300,
+        "timeout_overall": 600,
+        "max_concurrency": 3
+      }
+    },
+    "L1": {
+      "spec": {
+        "stage_model_defaults": {
+          "RESEARCH": "medium-tier",
+          "PLAN": "medium-tier",
+          "IMPLEMENT": "high-tier"
+        }
+      },
+      "researcher": {
+        "model": "medium-tier"
+      }
+    },
+    "L0": {
+      "model": "medium-tier",
+      "max_depth": 5,
+      "permission_mode": "acceptEdits"
+    }
+  }
+}

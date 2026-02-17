@@ -1,0 +1,45 @@
+{
+  "$schema": "https://agentic-config/schemas/template-v1.json",
+  "template_name": "iteration",
+  "template_version": "1.0",
+  "description": "Skip research/planning, lean execution only",
+  "layers": {
+    "L4": {
+      "research": {
+        "enabled": false
+      },
+      "planning": {
+        "enabled": false
+      },
+      "execution": {
+        "enabled": true,
+        "max_depth": 4,
+        "timeout": 1800
+      },
+      "validation": {
+        "enabled": false
+      }
+    },
+    "L3": {
+      "checkpoint_enabled": false
+    },
+    "L2": {
+      "ospec": {
+        "modifier": "lean"
+      }
+    },
+    "L1": {
+      "spec": {
+        "stage_model_defaults": {
+          "PLAN": "medium-tier",
+          "IMPLEMENT": "medium-tier"
+        }
+      }
+    },
+    "L0": {
+      "model": "medium-tier",
+      "max_depth": 4,
+      "permission_mode": "acceptEdits"
+    }
+  }
+}

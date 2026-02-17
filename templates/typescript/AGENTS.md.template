@@ -23,6 +23,9 @@
 - Minimal changes; avoid ambiguity; no placeholders
 - Keep prompts concise; log costs
 - EFFICIENCY in application performance and user experience - REFLECT this in EVERY implementation
+- `/<command-or-skill-name>` is an explicit enforcement to INVOKE a skill or command, EVEN if you don't see it in your context.
+  - You MUST check if a command or skill with that name exists looking in .claude/skills/ and .claude/commands/ directories.
+  - If it exists, you MUST EXPLICITLY INVOKE it using the SKILL tool (e.g.: `Skill(skill="mux", args="...")`)
 
 ## /spec Workflow
 Reference agents/spec/{STAGE}.md for detailed instructions.

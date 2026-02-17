@@ -24,6 +24,7 @@ Google Suite integration for Claude Code with multi-account support (enterprise 
 - Calendar: List/create/update/delete events, manage calendars
 - Tasks: List/create/complete/delete tasks
 - People: Search contacts, resolve names to emails before operations
+- Comments: List/reply/resolve comments on any file type (Docs, Sheets, Slides) via Drive API, `@ac` convention for agent-directed comments
 - Auth: Multi-account management with account switching
 
 ## Orchestration
@@ -45,6 +46,8 @@ For delegation patterns and examples, see `cookbook/orchestration.md`.
 **Cookbook:** `<tool>.py` -> `cookbook/<tool>.md` (MANDATORY read before executing). If cookbook missing, check `<tool>.py --help` directly.
 
 **Customization:** `<tool>.py` -> `$AGENTIC_GLOBAL/customization/gsuite/<tool>.md`
+
+**Comment Loop Workflow:** For agent-directed comment workflows, see `cookbook/comments.md`. Default filter: `@ac` (agent-directed comments).
 
 **Large Content Strategy:** For multi-line or complex content (e.g.: docs, emails, slides):
 1. Write content to temp file first (e.g., `/tmp/content.md`)
@@ -121,6 +124,10 @@ Use `--yes` or `-y` flag to bypass confirmation.
 ## Extended API Access
 
 For `--extra` parameter usage (recurring events, CC/BCC, subtasks, etc.), see `cookbook/extra.md`.
+
+## Deprecated
+
+- `comments.py` is deprecated. Use `drive.py comments`, `drive.py reply`, `drive.py resolve` instead.
 
 ## Error Handling
 

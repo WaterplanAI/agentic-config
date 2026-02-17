@@ -72,7 +72,7 @@ jq --arg path "$PWD" '.installations[] | select(.path == $path)' \
 Format findings clearly:
 
 ```
-Validation Report: /Users/matias/projects/my-app
+Validation Report: /Users/jane/projects/my-app
 ================================================
 
 Symlinks:
