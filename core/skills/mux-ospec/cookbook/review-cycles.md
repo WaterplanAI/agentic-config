@@ -169,6 +169,6 @@ spec(042): FIX phase-2 cycle-2 - Quality improvements
 | Scenario | Behavior |
 |----------|----------|
 | PASS on cycle 1 | No fix, immediate exit |
-| FAIL on final cycle | Log warning, proceed to next phase |
+| WARN/FAIL on final cycle | STAGE_FAILED, escalate to user (ONLY PASS proceeds) |
 | Fixer timeout | Retry once, then escalate |
-| MAX_CYCLES=1 | Single review, no fix attempts |
+| MAX_CYCLES=1 | Single review, no fix attempts. WARN/FAIL = escalate to user |

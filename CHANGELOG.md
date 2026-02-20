@@ -4,6 +4,16 @@ All notable changes to agentic-config.
 
 ## [Unreleased]
 
+### Changed
+
+- `mux-ospec`: enforce PASS-only gates in REVIEW, TEST, SELF-VALIDATION, and SENTINEL stages
+  - WARN and FAIL grades now both trigger FIX cycles (previously WARN was treated as "good enough")
+  - Max cycle exhaustion without PASS now escalates to user instead of proceeding with warnings
+  - Updated SKILL.md orchestrator rules, pseudocode, error recovery table, and status templates
+  - Updated agents (phase-executor, spec-tester, validator) to reject WARN grades
+  - Updated cookbook files (error-recovery, review-cycles, signal-protocol) for consistency
+- `mux-roadmap` command moved from `.claude/commands/` to `core/commands/claude/` (now a relative symlink)
+
 ## [0.1.18] - 2026-02-17
 
 ### Added

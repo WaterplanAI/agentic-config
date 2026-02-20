@@ -156,7 +156,7 @@ If ANY missing:
 
    ## Review Summary
    - Cycles: {count}
-   - Final Grade: {PASS|WARN}
+   - Final Grade: {PASS}
 
 6. CREATE PHASE COMPLETION SIGNAL
    uv run tools/signal.py "{signal_path}" \
@@ -219,9 +219,9 @@ while cycle <= MAX_CYCLES:
         # Early exit - proceed to next stage
         break
     elif cycle == MAX_CYCLES:
-        # Max cycles reached - proceed with warning
-        log_warning("Max review cycles reached, proceeding")
-        break
+        # ONLY PASS proceeds - escalate to user
+        raise StageFailedError(f"grade={review_signal.grade} after {MAX_CYCLES} cycles. ONLY PASS proceeds.")
+        # Orchestrator escalates to user via AskUserQuestion
     else:
         # Launch fixer
         launch_fixer(review_signal.issues)

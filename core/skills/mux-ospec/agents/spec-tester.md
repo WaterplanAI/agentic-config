@@ -300,7 +300,7 @@ If ANY missing:
 
    Status mapping:
    - overall_status == "PASS" -> status success
-   - overall_status == "WARN" -> status success (with warning in metadata)
+   - overall_status == "WARN" -> status fail (ONLY PASS proceeds - WARN is NOT acceptable)
    - overall_status == "FAIL" -> status fail
 
 8. RETURN: "done"

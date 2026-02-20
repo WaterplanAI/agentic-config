@@ -66,8 +66,8 @@ Returns summary of all signals in directory.
 | Grade | Meaning | Action |
 |-------|---------|--------|
 | PASS | All checks pass | Proceed to next stage |
-| WARN | Minor issues | Proceed with caution |
-| FAIL | Critical issues | Trigger FIX cycle |
+| WARN | Minor issues | Trigger FIX cycle (ONLY PASS proceeds) |
+| FAIL | Critical issues | Trigger FIX cycle (ONLY PASS proceeds) |
 
 ## Status Values
 

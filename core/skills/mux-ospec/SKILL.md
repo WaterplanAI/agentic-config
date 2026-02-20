@@ -268,6 +268,7 @@ Skill(skill="spec", args="REVIEW {spec_path}")
 ENHANCEMENT: Also read agents/spec-reviewer.md at {AGENTIC_GLOBAL}/core/skills/mux-ospec/agents/spec-reviewer.md for additional review criteria beyond /spec defaults.
 
 DO NOT invent your own review criteria. DO NOT fix issues (only report them).
+CRITICAL: Be ruthlessly honest. ONLY grade PASS if ALL checks pass. WARN is NOT "good enough" - it triggers a FIX cycle.
 If Skill fails: RETURN "STAGE_FAILED"
 
 After Skill completes, verify:
@@ -317,8 +318,9 @@ If Skill fails: RETURN "STAGE_FAILED"
 After Skill completes, verify:
 1. Tests actually ran (check output for pass/fail counts)
 
-Signal: uv run {MUX_TOOLS}/signal.py {session}/.signals/test.done --status success --meta grade="{PASS|FAIL}",tests_run={N},tests_passed={N}
-RETURN: "STAGE_TEST_COMPLETE grade={PASS|FAIL}"
+CRITICAL: ONLY grade=PASS is acceptable. WARN (lint warnings, >50% skipped, no tests found) = FAIL.
+Signal: uv run {MUX_TOOLS}/signal.py {session}/.signals/test.done --status success --meta grade="{PASS|WARN|FAIL}",tests_run={N},tests_passed={N}
+RETURN: "STAGE_TEST_COMPLETE grade={PASS|WARN|FAIL}"
 """, subagent_type="general-purpose", model="sonnet", run_in_background=True)
 ```
 
@@ -352,11 +354,13 @@ Skill(skill="spec", args="SENTINEL {spec_path}")
 ENHANCEMENT: Also read agents/sentinel.md at {AGENTIC_GLOBAL}/core/skills/mux-ospec/agents/sentinel.md for cross-phase coordination review criteria.
 
 DO NOT approve incomplete work. DO NOT override the grade.
+CRITICAL: ONLY grade=PASS completes the workflow. WARN is NOT acceptable.
 If Skill fails: RETURN "STAGE_FAILED"
 
 After Skill completes, verify:
 1. All SC items explicitly graded
 2. Overall grade is explicit: PASS, WARN, or FAIL
+3. If grade is WARN or FAIL, report it accurately - orchestrator will handle escalation
 
 Signal: uv run {MUX_TOOLS}/signal.py {session}/.signals/sentinel.done --status success --meta grade="{PASS|WARN|FAIL}"
 RETURN: "STAGE_SENTINEL_COMPLETE grade={PASS|WARN|FAIL}"
@@ -437,6 +441,12 @@ uv run $MUX_TOOLS/check-signals.py $DIR --expected N
 
 **Rule:** When the user's task explicitly references a skill by name (e.g., "Use /my-skill", "run /spec", "invoke /browser"), the orchestrator MUST include a mandatory `Skill(skill="<name>", args="...")` invocation in the subagent's Task() prompt. Dropping explicit skill references is a CRITICAL VIOLATION — it discards the user's specialized tooling. The subagent prompt must make clear the Skill() call is NON-NEGOTIABLE and must not be skipped or replaced with manual execution.
 
+### 11. ONLY PASS Proceeds in Quality Gates (ZERO TOLERANCE)
+
+**What failed:** Orchestrator accepted WARN grades in REVIEW, TEST, SELF-VALIDATION, and SENTINEL stages, proceeding "with warnings." This allowed substandard work through quality gates, violating the spec contract. WARN was treated as "good enough" when it explicitly signals unresolved issues.
+
+**Rule:** In REVIEW, TEST, SELF-VALIDATION, and SENTINEL stages, ONLY a PASS grade allows progression. WARN and FAIL both trigger FIX cycles. If max cycles are exhausted without achieving PASS, the orchestrator MUST escalate to the user via AskUserQuestion — NEVER proceed with a non-PASS grade. This is NON-NEGOTIABLE. "Proceed with warning" is a CRITICAL VIOLATION.
+
 ## ERROR RECOVERY
 
 | Scenario | Action |
@@ -447,7 +457,7 @@ uv run $MUX_TOOLS/check-signals.py $DIR --expected N
 | Type check fails 3x | STAGE_FAILED with error details, escalate to user |
 | Tests fail 3x | STAGE_FAILED with failure analysis, escalate to user |
 | Context exhaustion | Stage agent dies mid-work. Relaunch from last signal checkpoint |
-| Review cycle WARN after max cycles | Proceed to TEST with warning. Log gaps |
+| Review cycle WARN/FAIL after max cycles | STAGE_FAILED. Escalate to user - ONLY PASS proceeds |
 | Signal file missing after "done" | Treat as STAGE_FAILED, relaunch fresh agent |
 
 ## SESSION CLEANUP
@@ -639,7 +649,7 @@ PHASE_LOOP (for each phase N):
         When task-notification arrives:
           Delegate signal reading to Task(haiku/explore): read phase-{N}-fix-{C}.done
           Launch NEW REVIEW agent (fresh context, cycle C+1)
-      IF grade=WARN/FAIL + cycle >= max -> proceed with warning
+      IF grade=WARN/FAIL + cycle >= max -> STAGE_FAILED, escalate to user (ONLY PASS proceeds)
 
 TEST:
   MUX MODE | Action: Task (TEST) | Target: test execution | Rationale: review passed
@@ -649,7 +659,7 @@ TEST:
   When task-notification arrives:
     Delegate signal reading to Task(haiku/explore): read test.done
     IF grade=PASS -> proceed
-    IF grade=FAIL -> STAGE_FAILED, escalate to user
+    IF grade=WARN/FAIL -> STAGE_FAILED, escalate to user (ONLY PASS proceeds)
 
 IF modifier != "leanest":
   DOCUMENT:
@@ -668,8 +678,7 @@ SENTINEL (full) / SELF-VALIDATION (lean/leanest):
   When task-notification arrives:
     Delegate signal reading to Task(haiku/explore): read sentinel.done
     IF grade=PASS -> WORKFLOW COMPLETE
-    IF grade=WARN -> WORKFLOW COMPLETE with warnings
-    IF grade=FAIL -> escalate to user
+    IF grade=WARN/FAIL -> STAGE_FAILED, escalate to user (ONLY PASS completes workflow)
 
 CLEANUP:
   uv run deactivate.py
@@ -740,7 +749,7 @@ REVIEW cycle {C} grade: {PASS|WARN|FAIL}
 Review Results:
 - Compliance: {grade} ({N} gaps)
 - Quality: {grade} ({N} issues)
-- Action: {EARLY EXIT to TEST | FIX + re-review | PROCEED with warning}
+- Action: {EARLY EXIT to TEST | FIX + re-review | ESCALATE to user}
 
 Workflow Progress:
 - REVIEW: cycle {C}/{max} - {grade}

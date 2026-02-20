@@ -226,8 +226,8 @@ If ANY missing:
 
    **Next Steps**:
    - If PASS: Proceed to next stage
-   - If WARN: Proceed with noted issues
-   - If FAIL: Return to stage-writer with issues list
+   - If WARN: Trigger FIX cycle (ONLY PASS proceeds - WARN is NOT acceptable)
+   - If FAIL: Trigger FIX cycle (ONLY PASS proceeds)
 
 7. CREATE SIGNAL
    uv run tools/signal.py "{signal_path}" \

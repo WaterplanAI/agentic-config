@@ -79,9 +79,9 @@ for cycle in range(1, MAX_LOOPS + 1):
         break  # Early exit
 
     if cycle == MAX_LOOPS:
-        # Proceed with warning
-        log_warning(f"Phase {phase_num}: Proceeding after {MAX_LOOPS} fix cycles with grade {review_grade}")
-        break
+        # ONLY PASS proceeds - escalate to user
+        raise StageFailedError(f"Phase {phase_num}: grade={review_grade} after {MAX_LOOPS} cycles. ONLY PASS proceeds.")
+        # Orchestrator escalates to user via AskUserQuestion
 
     # Fix
     Task(
@@ -283,7 +283,7 @@ while not signal_exists:
 | Error Type | Max Retries | Escalation |
 |------------|-------------|------------|
 | Agent Timeout | 2 | Ask user |
-| Grade FAIL | cycles (default 3) | Proceed with warning |
+| Grade WARN/FAIL | cycles (default 3) | STAGE_FAILED, escalate to user (ONLY PASS proceeds) |
 | Test Failure | 2 | Ask user |
 | Network Failure | 3 | Abort |
 
@@ -330,10 +330,9 @@ for iteration in range(1, MAX_VALIDATION_LOOPS + 1):
         break  # Success
 
     if iteration == MAX_VALIDATION_LOOPS:
-        # Proceed with warning
-        log_warning(f"Proceeding after {MAX_VALIDATION_LOOPS} validation attempts")
-        log_warning(f"Failing SC: {validation_result['failing_sc']}")
-        break
+        # ONLY PASS completes workflow - escalate to user
+        raise StageFailedError(f"Validation failed after {MAX_VALIDATION_LOOPS} attempts. Failing SC: {validation_result['failing_sc']}")
+        # Orchestrator escalates to user via AskUserQuestion
 
     # Fix failing criteria
     Task(
