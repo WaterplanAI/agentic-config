@@ -4,6 +4,14 @@ All notable changes to agentic-config.
 
 ## [Unreleased]
 
+## [0.1.19] - 2026-02-20
+
+### Added
+
+- `ac-release` command for automated release workflow (branch, changelog, PR, tag, GH release)
+  - Confirmation gates with `--auto` flag to skip
+  - `--preview` flag for prerelease GH releases
+
 ### Changed
 
 - `mux-ospec`: enforce PASS-only gates in REVIEW, TEST, SELF-VALIDATION, and SENTINEL stages
