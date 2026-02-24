@@ -242,14 +242,46 @@ def add(
     email: Annotated[str | None, typer.Argument(help="Email hint for account")] = None,
     credentials: Annotated[
         str | None,
-        typer.Option("--credentials", "-c", help="Credentials file (name or path)"),
+        typer.Option(
+            "--credentials",
+            "-c",
+            help=(
+                "Credentials file name or path. Defaults to credentials.json. "
+                "Use credentials-<org-label>.json for accounts from a different "
+                "Google organization (each org needs its own GCP project credentials). "
+                "Example: --credentials credentials-work.json"
+            ),
+        ),
     ] = None,
     authuser: Annotated[
         int | None,
-        typer.Option("--authuser", "-a", help="Google account index (0, 1, 2...) for multi-account browsers"),
+        typer.Option(
+            "--authuser",
+            "-a",
+            help=(
+                "Google account index for browsers with multiple signed-in accounts "
+                "(0=first/default, 1=second, 2=third, ...). "
+                "Check your browser's account switcher to find the correct index. "
+                "Required when the target account is not the browser default (authuser=0)."
+            ),
+        ),
     ] = None,
 ) -> None:
-    """Add a new account via OAuth flow."""
+    """Add a new account via OAuth flow.
+
+    For accounts in the same Google organization as the default credentials.json:
+
+        auth.py add
+
+    For accounts from a DIFFERENT Google organization (separate GCP project),
+    specify the org credentials file and the browser account index:
+
+        auth.py add --credentials credentials-<org-label>.json --authuser N
+
+    Credentials files live in ~/.agents/gsuite/ and follow the naming convention
+    credentials-<org-label>.json. Tokens are stored per-account — re-authenticating
+    one account never affects others.
+    """
     get_config_dir()
 
     # Resolve credentials file

@@ -4,6 +4,11 @@ All notable changes to agentic-config.
 
 ## [Unreleased]
 
+### Changed
+
+- `gsuite` auth: multi-credentials and `--authuser` documentation for multi-org setups (separate GCP projects per Google organization)
+- `gsuite` auth.py: expanded `--credentials` and `--authuser` help text and docstring with multi-org usage guidance
+
 ### Fixed
 
 - YAML frontmatter parsing errors in 18 `core/skills/*/SKILL.md` files: 17 files had unquoted `description` values containing colons (causing "Nested mappings are not allowed in compact mappings" errors), and `mux-subagent` was missing the `description` field entirely

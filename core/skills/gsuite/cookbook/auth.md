@@ -94,7 +94,78 @@ When new APIs are added to the skill, existing users must:
 
 This is required because OAuth tokens are scoped at authentication time.
 
-## Different Organization Handling
+## Multi-Credentials & `--authuser` (Multi-Org Setup)
+
+### When This Applies
+
+Use this pattern when authenticating accounts from **different Google organizations** (e.g., a personal Google account + a Workspace org account). Each org requires its own OAuth credentials from its own GCP project.
+
+### Credentials File Convention
+
+Store one credentials file per organization in `~/.agents/gsuite/`:
+
+```
+~/.agents/gsuite/
+  credentials.json              ← default (used when --credentials not specified)
+  credentials-<org-label>.json  ← per-org credentials (e.g., credentials-work.json)
+  accounts/
+    <account-A>/token.json      ← token for account A (untouched when re-authing B)
+    <account-B>/token.json      ← token for account B
+```
+
+Tokens are stored **per-account** — re-authenticating one account never affects another.
+
+### `--authuser` Parameter
+
+`--authuser N` tells Google which account to use in the browser's existing session:
+- `0` — first (default) Google account in browser
+- `1` — second account
+- `2` — third account, etc.
+
+Check your browser's account switcher (top-right avatar) to determine the correct index. Without this flag, Google defaults to `authuser=0`, which may authenticate the wrong account.
+
+### Decision Tree
+
+```
+Adding a new account?
+│
+├─ Same org as default credentials.json?
+│    └─ uv run auth.py add <account-email> [--authuser N]
+│
+└─ Different org (separate GCP project)?
+     ├─ 1. Obtain credentials JSON from that org's GCP project
+     ├─ 2. Save as: ~/.agents/gsuite/credentials-<org-label>.json
+     └─ 3. uv run auth.py add <account-email> \
+               --credentials credentials-<org-label>.json \
+               --authuser N
+```
+
+### Re-authenticating an Expired Token (Multi-Org)
+
+When a token expires for an account that uses non-default credentials:
+
+```bash
+# Step 1: remove only the expired account's token
+uv run core/skills/gsuite/tools/auth.py remove <expired-account-email>
+
+# Step 2: re-add specifying the correct credentials file and authuser index
+uv run core/skills/gsuite/tools/auth.py add <expired-account-email> \
+  --credentials credentials-<org-label>.json \
+  --authuser N
+```
+
+**Do NOT** run `auth.py add` without `--credentials` for an org-account — it will open the wrong GCP project's OAuth consent screen and authenticate the wrong account.
+
+### Agent Guidance: Diagnosing Wrong-Credentials Auth
+
+If auth completes but the wrong account is authenticated (e.g., personal instead of work):
+
+1. Check `ls ~/.agents/gsuite/` — look for `credentials-*.json` files
+2. Check `auth.py status --json` to see which accounts already have tokens
+3. Identify which credentials file belongs to the target org
+4. Run remove + re-add with `--credentials <correct-file>` and `--authuser N`
+
+### Different Organization Handling (OAuth Blocked)
 
 When adding an account from a different organization and OAuth fails, use AskUserQuestion:
 
@@ -102,19 +173,19 @@ When adding an account from a different organization and OAuth fails, use AskUse
 - Header: "Auth method"
 - Options:
   - "Option A: Create separate credentials (Recommended)" - Create OAuth credentials in that organization's GCP project
-  - "Option B: Add as test user" - Add the email to your existing OAuth consent screen's test users
+  - "Option B: Add as test user" - Add the account to your existing OAuth consent screen's test users
 
-### Option A: Separate Credentials (Recommended)
+#### Option A: Separate Credentials (Recommended)
 
 1. Guide user to create GCP project under the new organization
 2. Follow oauth-setup.md steps for that project
-3. Store credentials with org identifier: `~/.agents/gsuite/credentials-<org-domain>.json`
-4. Retry auth add
+3. Store credentials as: `~/.agents/gsuite/credentials-<org-label>.json`
+4. Re-add: `uv run auth.py add <account-email> --credentials credentials-<org-label>.json --authuser N`
 
-### Option B: Add as Test User
+#### Option B: Add as Test User
 
 1. Direct to: https://console.cloud.google.com/apis/credentials/consent
-2. Add the email to "Test users" section
+2. Add the account to "Test users" section
 3. Retry: `uv run core/skills/gsuite/tools/auth.py add`
 
 **Note**: Option A is recommended because:
