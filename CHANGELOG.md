@@ -4,6 +4,10 @@ All notable changes to agentic-config.
 
 ## [Unreleased]
 
+### Fixed
+
+- YAML frontmatter parsing errors in 18 `core/skills/*/SKILL.md` files: 17 files had unquoted `description` values containing colons (causing "Nested mappings are not allowed in compact mappings" errors), and `mux-subagent` was missing the `description` field entirely
+
 ## [0.1.19] - 2026-02-20
 
 ### Added

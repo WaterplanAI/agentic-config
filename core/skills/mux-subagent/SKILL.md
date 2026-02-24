@@ -1,5 +1,6 @@
 ---
 name: mux-subagent
+description: "Subagent execution protocol for MUX multi-agent orchestration. Enforces file-based communication, signal file creation, and structured report format with Executive Summary. Loaded by subagents spawned under MUX delegation to ensure protocol compliance and orchestrator-readable output. Triggers on keywords: mux-subagent, subagent protocol, mux delegation, signal file, executive summary, orchestrator report"
 hooks:
   PreToolUse:
     - matcher: "TaskOutput"

@@ -1,6 +1,6 @@
 ---
 name: product-manager
-description: Decomposes large features into concrete development phases with DAG dependencies. Each phase produces fully functional code. Outputs YAML manifest. Triggers on keywords: decompose feature, phase planning, roadmap breakdown, feature phases, PM decomposition, split feature
+description: "Decomposes large features into concrete development phases with DAG dependencies. Each phase produces fully functional code. Outputs YAML manifest. Triggers on keywords: decompose feature, phase planning, roadmap breakdown, feature phases, PM decomposition, split feature"
 project-agnostic: true
 allowed-tools:
   - Read

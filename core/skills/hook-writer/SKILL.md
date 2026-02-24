@@ -1,6 +1,6 @@
 ---
 name: hook-writer
-description: Expert assistant for authoring Claude Code hooks. Creates Python hooks with correct JSON output schema, validates against PreToolUse/PostToolUse/UserPromptSubmit formats, and applies fail-open principles. Triggers on keywords: writing hooks, creating hooks, hook authoring, pretooluse hook, posttooluse hook, new hook, hook template, hook validation, hook schema
+description: "Expert assistant for authoring Claude Code hooks. Creates Python hooks with correct JSON output schema, validates against PreToolUse/PostToolUse/UserPromptSubmit formats, and applies fail-open principles. Triggers on keywords: writing hooks, creating hooks, hook authoring, pretooluse hook, posttooluse hook, new hook, hook template, hook validation, hook schema"
 project-agnostic: true
 allowed-tools:
   - Read

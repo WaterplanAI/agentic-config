@@ -1,6 +1,6 @@
 ---
 name: cpc
-description: Copy text to clipboard via pbcopy. Triggers on keywords: copy, clipboard, pbcopy, cpc
+description: "Copy text to clipboard via pbcopy. Triggers on keywords: copy, clipboard, pbcopy, cpc"
 project-agnostic: true
 allowed-tools:
   - Bash

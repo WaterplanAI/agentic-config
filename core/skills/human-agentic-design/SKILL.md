@@ -1,6 +1,6 @@
 ---
 name: human-agentic-design
-description: Generates interactive HTML prototypes optimized for dual human+agent interaction. Produces semantic, accessible designs with Tailwind + DaisyUI (Tier A) or React + shadcn/ui + Vite (Tier B). Triggers on keywords: prototype, design, UI prototype, landing page, dashboard, form design, human-agentic, had, mockup, wireframe
+description: "Generates interactive HTML prototypes optimized for dual human+agent interaction. Produces semantic, accessible designs with Tailwind + DaisyUI (Tier A) or React + shadcn/ui + Vite (Tier B). Triggers on keywords: prototype, design, UI prototype, landing page, dashboard, form design, human-agentic, had, mockup, wireframe"
 project-agnostic: true
 allowed-tools:
   - Read

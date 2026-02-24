@@ -1,6 +1,6 @@
 ---
 name: skill-writer
-description: Expert assistant for authoring Claude Code skills. Creates SKILL.md files with proper YAML frontmatter, validates naming conventions, enforces tool minimalism, and applies official best practices. Triggers on keywords: writing skills, creating skills, skill authoring, SKILL.md, new skill, skill template, skill validation, skill structure, create skill, update skill
+description: "Expert assistant for authoring Claude Code skills. Creates SKILL.md files with proper YAML frontmatter, validates naming conventions, enforces tool minimalism, and applies official best practices. Triggers on keywords: writing skills, creating skills, skill authoring, SKILL.md, new skill, skill template, skill validation, skill structure, create skill, update skill"
 project-agnostic: true
 allowed-tools:
   - Read

@@ -1,6 +1,6 @@
 ---
 name: gsuite
-description: Google Suite integration for Sheets, Docs, Slides, Gmail, Calendar, Tasks with multi-account support. Orchestrates operations via CLI tools. Triggers on keywords: google sheets, google docs, google slides, gsuite, gdrive, spreadsheet, document, gmail, google calendar, google tasks
+description: "Google Suite integration for Sheets, Docs, Slides, Gmail, Calendar, Tasks with multi-account support. Orchestrates operations via CLI tools. Triggers on keywords: google sheets, google docs, google slides, gsuite, gdrive, spreadsheet, document, gmail, google calendar, google tasks"
 project-agnostic: true
 allowed-tools:
   - Bash

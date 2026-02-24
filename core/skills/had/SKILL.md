@@ -1,6 +1,6 @@
 ---
 name: had
-description: Alias skill that invokes /human-agentic-design with all arguments passed through. Provides shorthand for human-agentic-design. Triggers on keywords: had, human agentic design shorthand
+description: "Alias skill that invokes /human-agentic-design with all arguments passed through. Provides shorthand for human-agentic-design. Triggers on keywords: had, human agentic design shorthand"
 project-agnostic: true
 allowed-tools: []
 ---

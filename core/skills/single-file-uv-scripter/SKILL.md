@@ -1,6 +1,6 @@
 ---
 name: single-file-uv-scripter
-description: Creates self-contained Python scripts with inline PEP 723 metadata for UV. Embeds dependencies directly in script headers for zero-config execution via `uv run`. Triggers on keywords: uv script, single file script, inline dependencies, PEP 723, self-contained python, uv run script, standalone script
+description: "Creates self-contained Python scripts with inline PEP 723 metadata for UV. Embeds dependencies directly in script headers for zero-config execution via `uv run`. Triggers on keywords: uv script, single file script, inline dependencies, PEP 723, self-contained python, uv run script, standalone script"
 project-agnostic: true
 allowed-tools:
   - Read
