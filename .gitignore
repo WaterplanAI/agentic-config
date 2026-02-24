@@ -37,6 +37,7 @@ outputs/
 # Playwright video recordings
 videos/
 *.webm
+.playwright-cli/
 
 # Specs - always ignore (local working files)
 specs/
@@ -53,6 +54,7 @@ customization/
 
 # Git worktrees (local development, not tracked)
 trees/
+.claude/worktrees/
 
 # Invalid nested symlinks (artifacts from misconfigured setups)
 core/agents/agents

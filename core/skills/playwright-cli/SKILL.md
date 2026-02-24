@@ -1,6 +1,6 @@
 ---
 name: playwright-cli
-description: Browser automation via playwright-cli. Token-efficient alternative to Playwright MCP - uses CLI commands through Bash instead of MCP tool schemas. Supports navigation, interaction, screenshots, video recording, and session management. Triggers on keywords: browser, e2e, playwright, screenshot, navigate, click, type, test browser, visual test
+description: "Browser automation via playwright-cli. Token-efficient alternative to Playwright MCP - uses CLI commands through Bash instead of MCP tool schemas. Supports navigation, interaction, screenshots, video recording, and session management. Triggers on keywords: browser, e2e, playwright, screenshot, navigate, click, type, test browser, visual test"
 project-agnostic: true
 allowed-tools:
   - Bash
