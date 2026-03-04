@@ -1,1 +1,0 @@
-../../core/commands/claude/worktree.md

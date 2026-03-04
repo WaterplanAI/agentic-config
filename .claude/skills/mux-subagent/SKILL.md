@@ -1,1 +1,0 @@
-../../../core/skills/mux-subagent/SKILL.md

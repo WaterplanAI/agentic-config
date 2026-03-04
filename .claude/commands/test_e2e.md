@@ -1,1 +1,0 @@
-../../core/commands/claude/test_e2e.md

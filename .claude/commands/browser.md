@@ -1,1 +1,0 @@
-../../core/commands/claude/browser.md

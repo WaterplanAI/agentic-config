@@ -1,1 +1,0 @@
-../../core/commands/claude/ac-issue.md

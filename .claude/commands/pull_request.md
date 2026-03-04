@@ -1,1 +1,0 @@
-../../core/commands/claude/pull_request.md

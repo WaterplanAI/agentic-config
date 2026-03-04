@@ -1,1 +1,0 @@
-../../core/commands/claude/gh_pr_review.md

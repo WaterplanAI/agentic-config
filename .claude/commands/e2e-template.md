@@ -1,1 +1,0 @@
-../../core/commands/claude/e2e-template.md
