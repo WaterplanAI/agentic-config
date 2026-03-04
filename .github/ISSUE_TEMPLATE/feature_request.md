@@ -24,7 +24,7 @@ Have you considered any alternative solutions or workarounds?
 
 ## Environment
 
-- agentic-config: <!-- output of `git -C ~/.agents/agentic-config describe --tags --always` -->
+- ac-workflow plugin version: <!-- output of `claude plugin list | grep 'ac-workflow@agentic-plugins'` -->
 
 ## Additional Context
 

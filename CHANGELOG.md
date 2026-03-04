@@ -6,12 +6,27 @@ All notable changes to agentic-config.
 
 ### Changed
 
-- `gsuite` auth: multi-credentials and `--authuser` documentation for multi-org setups (separate GCP projects per Google organization)
-- `gsuite` auth.py: expanded `--credentials` and `--authuser` help text and docstring with multi-org usage guidance
+- **BREAKING (v0.2.0)**: distribution moved to Claude Code plugins via marketplace/install flow.
+- Canonical plugin set is now 5 plugins: `ac-workflow`, `ac-git`, `ac-qa`, `ac-tools`, `ac-meta`.
+- Surface area standardized to skills-first architecture (38 skills total, no command assets).
+- Setup/update guidance standardized on `/improve-agents-md` in `ac-tools` (legacy setup/update scripts removed).
+- Hook registration standardized via plugin `hooks/hooks.json` manifests (`ac-git`, `ac-tools`).
+- Documentation consolidated and aligned with v0.2.0 (`getting-started`, `plugin-catalog`, `distribution`, migration guide).
 
-### Fixed
+### Added
 
-- YAML frontmatter parsing errors in 18 `core/skills/*/SKILL.md` files: 17 files had unquoted `description` values containing colons (causing "Nested mappings are not allowed in compact mappings" errors), and `mux-subagent` was missing the `description` field entirely
+- `.claude-plugin/marketplace.json` manifest for the 5 `ac-*` plugins.
+- `dev.sh` helper for local multi-plugin `--plugin-dir` development.
+- Migration guide: `docs/migration-v0.2.0.md`.
+
+### Removed
+
+- Symlink-based installation/update workflow from active architecture.
+- Legacy `agentic-*` plugin naming and duplicated project-level symlink assets.
+
+### Compatibility
+
+- To remain on the legacy workflow, pin `v0.1.19` (see `docs/migration-v0.2.0.md`).
 
 ## [0.1.19] - 2026-02-20
 
@@ -237,7 +252,7 @@ All notable changes to agentic-config.
   - Automatic environment metadata collection (OS, shell, git version, agentic-config version)
   - Path sanitization and secret detection for privacy and security
   - Mandatory preview with confirmation before issue creation
-  - Targets MatiasComercio/agentic-config repository
+  - Targets WaterplanAI/agentic-config repository
 - Path persistence library (`scripts/lib/path-persistence.sh`) for reliable AGENTIC_CONFIG_PATH persistence
   - `persist_agentic_path`: Writes installation path to multiple locations
   - `discover_agentic_path`: Priority-based discovery algorithm across all locations

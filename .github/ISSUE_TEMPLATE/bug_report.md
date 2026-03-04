@@ -15,7 +15,7 @@ A clear and concise description of what the bug is.
 - OS: <!-- e.g., macOS 14.0, Ubuntu 22.04 -->
 - Shell: <!-- e.g., bash, zsh -->
 - Git: <!-- output of `git --version` -->
-- agentic-config: <!-- output of `git -C ~/.agents/agentic-config describe --tags --always` -->
+- ac-workflow plugin version: <!-- output of `claude plugin list | grep 'ac-workflow@agentic-plugins'` -->
 
 ## Steps to Reproduce
 

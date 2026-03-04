@@ -1,0 +1,49 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "agentic-plugins",
+  "description": "Agentic workflow automation plugins for AI-assisted development",
+  "owner": {
+    "name": "Agentic Config Contributors"
+  },
+  "metadata": {
+    "description": "Agentic workflow automation plugins for AI-assisted development",
+    "pluginRoot": "./plugins"
+  },
+  "plugins": [
+    {
+      "name": "ac-workflow",
+      "source": "./plugins/ac-workflow",
+      "description": "Spec workflow, MUX orchestration, and product management",
+      "category": "workflow",
+      "tags": ["spec", "mux", "orchestration", "workflow", "product-manager"]
+    },
+    {
+      "name": "ac-git",
+      "source": "./plugins/ac-git",
+      "description": "Git automation - PRs, releases, branches, worktrees",
+      "category": "development",
+      "tags": ["git", "pull-request", "release", "branch", "worktree"]
+    },
+    {
+      "name": "ac-qa",
+      "source": "./plugins/ac-qa",
+      "description": "Quality assurance - E2E testing, PR review, browser automation",
+      "category": "development",
+      "tags": ["qa", "e2e", "review", "testing", "browser", "playwright"]
+    },
+    {
+      "name": "ac-tools",
+      "source": "./plugins/ac-tools",
+      "description": "Utilities - integrations, dry-run, prototyping, asset management",
+      "category": "productivity",
+      "tags": ["tools", "gsuite", "dry-run", "adr", "milestone", "video"]
+    },
+    {
+      "name": "ac-meta",
+      "source": "./plugins/ac-meta",
+      "description": "Meta-prompting and self-improvement - skill writer, hook writer",
+      "category": "meta",
+      "tags": ["meta", "skill-writer", "hook-writer", "self-improvement"]
+    }
+  ]
+}

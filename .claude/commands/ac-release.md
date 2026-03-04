@@ -105,10 +105,22 @@ The `[Unreleased]` section becomes empty (just the header), and a new versioned 
 
 Write `{NEXT_VERSION}` to VERSION file (single line, no trailing newline beyond what exists).
 
-### 3.3 Commit
+### 3.3 Plugin Versions
+
+Update the `version` field in every `plugins/*/.claude-plugin/plugin.json` to `{NEXT_VERSION}`:
 
 ```bash
-git add CHANGELOG.md VERSION
+for f in plugins/*/.claude-plugin/plugin.json; do
+  # Update "version": "..." to new version
+done
+```
+
+Use the Edit tool (not sed) for each file. Only change the `version` field — leave everything else untouched.
+
+### 3.4 Commit
+
+```bash
+git add CHANGELOG.md VERSION plugins/*/.claude-plugin/plugin.json
 git commit -m "chore(release): prepare v{NEXT_VERSION}"
 ```
 

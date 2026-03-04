@@ -1,1 +1,0 @@
-../../../core/hooks/pretooluse/gsuite-public-asset-guard.py

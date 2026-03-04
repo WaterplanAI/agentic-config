@@ -1,1 +1,0 @@
-../../../core/hooks/pretooluse/dry-run-guard.py

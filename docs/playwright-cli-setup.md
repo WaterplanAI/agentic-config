@@ -23,14 +23,13 @@ playwright-cli install-browser
 
 ### 3. Install Skills (for Claude Code)
 
-If using agentic-config, skills are installed automatically during `/agentic setup`.
+Install the `ac-qa` plugin explicitly:
 
-For manual installation:
 ```bash
-playwright-cli install --skills
+claude plugin install ac-qa@agentic-plugins
 ```
 
-This generates `.claude/skills/playwright-cli/` with the skill definition and reference docs.
+This installs the `playwright-cli` skill.
 
 ### 4. Setup Project Directories
 

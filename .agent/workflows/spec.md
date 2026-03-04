@@ -1,1 +1,0 @@
-../../core/agents/spec-command.md

@@ -1,0 +1,12 @@
+{
+  "name": "ac-workflow",
+  "description": "Spec workflow, MUX orchestration, and product management",
+  "version": "0.2.0-dev",
+  "author": {
+    "name": "Agentic Config Contributors"
+  },
+  "homepage": "https://github.com/WaterplanAI/agentic-config",
+  "repository": "https://github.com/WaterplanAI/agentic-config",
+  "license": "MIT",
+  "keywords": ["spec", "mux", "orchestration", "workflow", "product-manager"]
+}

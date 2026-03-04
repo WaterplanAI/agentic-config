@@ -12,6 +12,11 @@ assets:
   # No symlinks needed - outputs are per-worktree
   symlink: []
 
+# Symlink gitignored directories from repo root into worktrees
+# These are NOT resolved from assets.source — they use the repo root as base
+root_symlinks:
+  - .specs
+
 # No environments - pure markdown/yaml config repo
 environments: []
 
