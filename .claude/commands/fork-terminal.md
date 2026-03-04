@@ -1,1 +1,0 @@
-../../core/commands/claude/fork-terminal.md
