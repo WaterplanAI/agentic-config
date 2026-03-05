@@ -3,10 +3,10 @@
 # dependencies = ["typer>=0.9.0", "rich>=13.0.0"]
 # requires-python = ">=3.12"
 # ///
-"""Customization preservation for agentic-config bootstrap.
+"""Backup and migration support for AGENTS.md generation.
 
-Preserves existing project-specific content in PROJECT_AGENTS.md.
-Creates timestamped backups before overwriting files.
+Creates timestamped backups of AGENTS.md before overwriting.
+Detects custom CLAUDE.md content for migration to AGENTS.md + symlink pattern.
 """
 from __future__ import annotations
 
@@ -26,11 +26,13 @@ def create_backup(target_dir: Path, *, dry_run: bool = False) -> Path | None:
     """Create timestamped backup of agentic-config files.
 
     Returns backup directory path, or None if nothing to back up.
+    Skips symlinks (only backs up real files).
     """
-    files_to_backup = [
-        "CLAUDE.md", "AGENTS.md", "PROJECT_AGENTS.md",
+    files_to_backup = ["CLAUDE.md", "AGENTS.md"]
+    existing = [
+        f for f in files_to_backup
+        if (target_dir / f).exists() and not (target_dir / f).is_symlink()
     ]
-    existing = [f for f in files_to_backup if (target_dir / f).exists()]
     if not existing:
         return None
 
@@ -52,41 +54,28 @@ def create_backup(target_dir: Path, *, dry_run: bool = False) -> Path | None:
     return backup_dir
 
 
-def preserve_to_project_agents(target_dir: Path, *, dry_run: bool = False) -> bool:
-    """Preserve existing CLAUDE.md/AGENTS.md content to PROJECT_AGENTS.md.
+def preserve_custom_content(target_dir: Path, *, dry_run: bool = False) -> str | None:
+    """Read custom content from CLAUDE.md if it's a regular file (not symlink).
 
-    If CLAUDE.md or AGENTS.md is a real file (not symlink) with custom content,
-    migrate that content to PROJECT_AGENTS.md before template overwrite.
-
-    Returns True if content was preserved.
+    Returns the content string if found, None otherwise.
+    This content is reported for awareness; backup handles actual preservation.
     """
-    project_agents = target_dir / "PROJECT_AGENTS.md"
-
-    # If PROJECT_AGENTS.md already exists, never overwrite
-    if project_agents.exists():
-        console.print("[dim]PROJECT_AGENTS.md exists -- preserving as-is[/dim]")
-        return False
-
-    # Check for custom content in CLAUDE.md or AGENTS.md (real files, not symlinks)
-    for source_name in ["CLAUDE.md", "AGENTS.md"]:
-        source = target_dir / source_name
-        if source.exists() and not source.is_symlink():
-            content = source.read_text().strip()
-            if content:
-                if dry_run:
-                    console.print(
-                        f"[dim]DRY-RUN: Would preserve {source_name} "
-                        f"({len(content)} chars) to PROJECT_AGENTS.md[/dim]"
-                    )
-                    return True
-                project_agents.write_text(content + "\n")
+    claude_md = target_dir / "CLAUDE.md"
+    if claude_md.exists() and not claude_md.is_symlink():
+        content = claude_md.read_text().strip()
+        if content:
+            if dry_run:
                 console.print(
-                    f"[green]Preserved {source_name} content to "
-                    f"PROJECT_AGENTS.md ({len(content)} chars)[/green]"
+                    f"[dim]DRY-RUN: Found custom content in CLAUDE.md "
+                    f"({len(content)} chars) -- would be backed up[/dim]"
                 )
-                return True
-
-    return False
+            else:
+                console.print(
+                    f"[yellow]Found custom content in CLAUDE.md "
+                    f"({len(content)} chars) -- backed up[/yellow]"
+                )
+            return content
+    return None
 
 
 @app.command()
@@ -94,17 +83,17 @@ def preserve(
     target: Annotated[Path, typer.Argument(help="Project root path")] = Path("."),
     dry_run: Annotated[bool, typer.Option("--dry-run", help="Print without writing")] = False,
 ) -> None:
-    """Preserve project customizations before setup/update."""
+    """Detect custom content before setup/update."""
     target = target.resolve()
     if not target.is_dir():
         console.print(f"[red]Error: {target} is not a directory[/red]")
         raise SystemExit(1)
 
-    preserved = preserve_to_project_agents(target, dry_run=dry_run)
-    if preserved:
-        console.print("[green]Customizations preserved[/green]")
+    content = preserve_custom_content(target, dry_run=dry_run)
+    if content:
+        console.print("[green]Custom content detected and backed up[/green]")
     else:
-        console.print("[dim]No customizations to preserve[/dim]")
+        console.print("[dim]No custom content to preserve[/dim]")
 
 
 @app.command()

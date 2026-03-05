@@ -36,4 +36,4 @@ SPEC: $ARGUMENT
 
 ## Behavior
 
-- RE-READ project `CLAUDE.md` and `PROJECT_AGENTS.md` (if present).
+- RE-READ project `CLAUDE.md` (AGENTS.md).

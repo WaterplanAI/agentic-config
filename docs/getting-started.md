@@ -57,7 +57,7 @@ claude
 /improve-agents-md update
 ```
 
-Regenerates AGENTS.md with latest template while preserving PROJECT_AGENTS.md customizations.
+Regenerates AGENTS.md with latest template.
 
 ## Validate
 
@@ -82,13 +82,13 @@ See [Plugin Catalog](plugin-catalog.md) for all skills across 5 plugins.
 
 ## Customization
 
-### CLAUDE.md + PROJECT_AGENTS.md
+### AGENTS.md + Symlinks
 
-- `CLAUDE.md` -- Template with standard guidelines (receives updates)
-- `PROJECT_AGENTS.md` -- Your customizations (never touched by setup or update)
+- `AGENTS.md` -- Primary file with standard guidelines (receives updates)
+- `CLAUDE.md` -- Symlink to AGENTS.md (for Claude Code)
+- `GEMINI.md` -- Symlink to AGENTS.md (for Gemini)
 
-`/improve-agents-md setup` creates a starter `PROJECT_AGENTS.md` when missing.
-Updates merge cleanly without conflicts.
+Add project-specific customizations directly to AGENTS.md.
 
 ## What Gets Installed
 
@@ -97,8 +97,8 @@ Updates merge cleanly without conflicts.
 - No symlinks -- plugins load from `~/.claude/plugins/cache/`
 
 **Copied (project-customizable):**
-- `CLAUDE.md` -- Project-specific guidelines
-- `PROJECT_AGENTS.md` -- Your customizations (never touched by updates)
+- `AGENTS.md` -- Project-specific guidelines
+- `CLAUDE.md`, `GEMINI.md` -- Symlinks to AGENTS.md
 
 ## Development Mode
 

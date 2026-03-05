@@ -6,10 +6,12 @@
 """AGENTS.md generation entrypoint.
 
 Orchestrates project type detection, tooling resolution, and AGENTS.md
-rendering via the template engine.
+rendering via the template engine. Creates CLAUDE.md and GEMINI.md as
+symlinks to AGENTS.md.
 """
 from __future__ import annotations
 
+import re
 import subprocess
 from pathlib import Path
 from typing import Annotated
@@ -21,11 +23,6 @@ app = typer.Typer(no_args_is_help=True)
 console = Console(stderr=True)
 
 TOOLS_DIR = Path(__file__).resolve().parent
-PROJECT_AGENTS_STUB = """# Project-Specific Instructions
-
-Add repository-specific guidelines here. This file is preserved by
-`/improve-agents-md update` and never overwritten automatically.
-"""
 
 
 def run_tool(name: str, args: list[str]) -> int:
@@ -51,21 +48,25 @@ def detect_type(target: Path) -> str:
     return "generic"
 
 
-def ensure_project_agents_file(target: Path, *, dry_run: bool) -> None:
-    """Create PROJECT_AGENTS.md if missing.
+def _ensure_symlinks(target: Path, *, dry_run: bool) -> None:
+    """Create CLAUDE.md and GEMINI.md as symlinks to AGENTS.md."""
+    for name in ("CLAUDE.md", "GEMINI.md"):
+        link = target / name
+        if link.is_symlink():
+            if str(link.readlink()) == "AGENTS.md":
+                console.print(f"[dim]{name} -> AGENTS.md (already exists)[/dim]")
+                continue
+            if not dry_run:
+                link.unlink()
+        elif link.exists():
+            if not dry_run:
+                link.unlink()
 
-    The file is intentionally lightweight and user-editable.
-    """
-    project_agents_path = target / "PROJECT_AGENTS.md"
-    if project_agents_path.exists():
-        return
-
-    if dry_run:
-        console.print(f"[dim]DRY-RUN: Would write {project_agents_path}[/dim]")
-        return
-
-    project_agents_path.write_text(PROJECT_AGENTS_STUB)
-    console.print(f"[green]Wrote {project_agents_path}[/green]")
+        if dry_run:
+            console.print(f"[dim]DRY-RUN: Would create symlink {name} -> AGENTS.md[/dim]")
+        else:
+            link.symlink_to("AGENTS.md")
+            console.print(f"[green]Created symlink {name} -> AGENTS.md[/green]")
 
 
 @app.command()
@@ -92,7 +93,7 @@ def setup(
     run_tool("preserve_custom.py", ["preserve", str(target), *dry_flag])
 
     # 3. Render AGENTS.md via template engine
-    output_path = target / "CLAUDE.md"
+    output_path = target / "AGENTS.md"
     render_args = [
         "render", project_type, str(output_path),
         *dry_flag,
@@ -102,8 +103,8 @@ def setup(
         console.print("[red]Template rendering failed[/red]")
         raise SystemExit(rc)
 
-    # 4. Ensure user customization file exists
-    ensure_project_agents_file(target, dry_run=dry_run)
+    # 4. Create CLAUDE.md and GEMINI.md symlinks
+    _ensure_symlinks(target, dry_run=dry_run)
 
     # 5. Render shared templates (e.g., .gitignore)
     shared_dir = TOOLS_DIR.parent / "assets" / "templates" / "shared"
@@ -133,10 +134,8 @@ def update(
     target = target.resolve()
     console.print("[bold]improve-agents-md: update[/bold]")
 
-    # 1. Detect current project type (from config or re-detect)
-    project_type = None
-    if not project_type:
-        project_type = detect_type(target)
+    # 1. Detect current project type
+    project_type = detect_type(target)
     console.print(f"Project type: {project_type}")
 
     # 2. Preserve customizations if force
@@ -146,7 +145,7 @@ def update(
         run_tool("preserve_custom.py", ["preserve", str(target), *dry_flag])
 
     # 3. Re-render AGENTS.md
-    output_path = target / "CLAUDE.md"
+    output_path = target / "AGENTS.md"
     render_args = [
         "render", project_type, str(output_path),
         *dry_flag,
@@ -155,6 +154,9 @@ def update(
     if rc != 0:
         console.print("[red]Template rendering failed[/red]")
         raise SystemExit(rc)
+
+    # 4. Ensure symlinks
+    _ensure_symlinks(target, dry_run=dry_run)
 
     console.print("\n[bold green]Update complete[/bold green]")
 
@@ -170,19 +172,18 @@ def validate(
 
     issues: list[str] = []
 
-    # Check CLAUDE.md exists
-    claude_md = target / "CLAUDE.md"
-    if not claude_md.exists():
-        console.print("  [red]MISS[/red] CLAUDE.md not found")
-        issues.append("CLAUDE.md missing -- Fix: run bootstrap.py setup .")
+    # Check AGENTS.md exists (primary file)
+    agents_md = target / "AGENTS.md"
+    if not agents_md.exists():
+        console.print("  [red]MISS[/red] AGENTS.md not found")
+        issues.append("AGENTS.md missing -- Fix: run bootstrap.py setup .")
     else:
-        content = claude_md.read_text()
+        content = agents_md.read_text()
         # Check for unresolved template vars
-        import re
         unresolved = re.findall(r"\{\{[A-Z_][A-Z0-9_]*\}\}", content)
         if unresolved:
             console.print(f"  [red]ERR[/red]  Unresolved template vars: {unresolved}")
-            issues.append(f"Unresolved vars in CLAUDE.md: {unresolved}")
+            issues.append(f"Unresolved vars in AGENTS.md: {unresolved}")
         else:
             console.print("  [green]OK[/green]  No unresolved template variables")
 
@@ -197,7 +198,29 @@ def validate(
                 console.print(f"  [green]OK[/green]  {section}")
             else:
                 console.print(f"  [yellow]WARN[/yellow] Missing section: {section}")
-                issues.append(f"Missing section '{section}' in CLAUDE.md")
+                issues.append(f"Missing section '{section}' in AGENTS.md")
+
+    # Check CLAUDE.md is a symlink to AGENTS.md
+    claude_md = target / "CLAUDE.md"
+    if not claude_md.exists():
+        console.print("  [yellow]WARN[/yellow] CLAUDE.md missing (should be symlink to AGENTS.md)")
+        issues.append("CLAUDE.md missing -- Fix: run bootstrap.py setup .")
+    elif not claude_md.is_symlink():
+        console.print("  [yellow]WARN[/yellow] CLAUDE.md is a regular file (should be symlink to AGENTS.md)")
+        issues.append("CLAUDE.md is not a symlink -- Fix: run bootstrap.py update .")
+    else:
+        link_target = str(claude_md.readlink())
+        if link_target == "AGENTS.md":
+            console.print("  [green]OK[/green]  CLAUDE.md -> AGENTS.md")
+        else:
+            console.print(f"  [yellow]WARN[/yellow] CLAUDE.md -> {link_target} (expected AGENTS.md)")
+            issues.append(f"CLAUDE.md symlink target is {link_target}, expected AGENTS.md")
+
+    # Check for legacy PROJECT_AGENTS.md
+    project_agents = target / "PROJECT_AGENTS.md"
+    if project_agents.exists():
+        console.print("  [yellow]WARN[/yellow] PROJECT_AGENTS.md found (legacy file, can be removed)")
+        issues.append("Legacy PROJECT_AGENTS.md found -- consider removing")
 
     # Check template assets
     assets_dir = TOOLS_DIR.parent / "assets"

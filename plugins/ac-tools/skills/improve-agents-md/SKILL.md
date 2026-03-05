@@ -28,7 +28,7 @@ tools/
   bootstrap.py           # Entrypoint: setup, update, validate
   template_engine.py     # Reads tooling.yml, renders template, injects extras
   project_type.py        # Auto-detect project type from file indicators
-  preserve_custom.py     # PROJECT_AGENTS.md preservation + backup
+  preserve_custom.py     # Backup + CLAUDE.md migration detection
 ```
 
 ## Modes
@@ -37,11 +37,12 @@ tools/
 
 Generate AGENTS.md for a project:
 1. Detect project type (or accept `--type` override)
-2. Preserve existing customizations to PROJECT_AGENTS.md
+2. Back up existing files if `--force`
 3. Load tooling values from `tooling.yml` for detected type
 4. Render `AGENTS.md.template` with tooling substitution
 5. Inject extras (e.g., PEP 723 section for Python types)
-6. Write rendered CLAUDE.md to project root
+6. Write rendered AGENTS.md to project root
+7. Create CLAUDE.md and GEMINI.md as symlinks to AGENTS.md
 
 ### update
 
@@ -53,10 +54,12 @@ Re-render AGENTS.md with latest template:
 ### validate
 
 Check AGENTS.md content:
-1. Verify CLAUDE.md exists
+1. Verify AGENTS.md exists
 2. Check for unresolved `{{VAR}}` placeholders
 3. Verify required sections present
-4. Check template assets exist
+4. Check CLAUDE.md is a symlink to AGENTS.md
+5. Warn if legacy PROJECT_AGENTS.md is present
+6. Check template assets exist
 
 ## Flags
 
@@ -107,6 +110,7 @@ Questions only asked when `tooling.yml` has null values for a type:
 
 ## Customization Preservation
 
-- Existing CLAUDE.md content preserved to PROJECT_AGENTS.md before template write
-- Existing PROJECT_AGENTS.md never overwritten (additive merge only)
+- If CLAUDE.md exists as a regular file, its content is backed up before migration
+- AGENTS.md is the primary file; CLAUDE.md and GEMINI.md are symlinks
 - Timestamped backup created before any destructive operation
+- Legacy PROJECT_AGENTS.md is no longer created; validate warns if present

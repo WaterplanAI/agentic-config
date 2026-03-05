@@ -38,6 +38,4 @@
 - Add to `[Unreleased]`; do NOT modify released/tagged versions
 
 ## Session Resume
-READ @PROJECT_AGENTS.md for project-specific instructions - CRITICAL COMPLIANCE
-
-<!-- PROJECT_AGENTS.md contains project-specific guidelines that override defaults -->
+READ @RESUME.md only when user asks "where we left off" / "what's next" / "resume"

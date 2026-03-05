@@ -110,7 +110,7 @@ This reads plugin source directly -- changes are picked up on restart without re
 
 ### Step 5: Update Project Configuration
 
-If your `CLAUDE.md` or `PROJECT_AGENTS.md` references old paths, update them:
+If your `AGENTS.md` references old paths, update them:
 
 | Old Reference | New Reference |
 |---------------|---------------|
@@ -199,12 +199,12 @@ claude plugin install ac-tools@agentic-plugins
 claude plugin install ac-git@agentic-plugins
 ```
 
-### Custom PROJECT_AGENTS.md lost
+### Custom AGENTS.md content lost
 
-v0.2.0 never overwrites `PROJECT_AGENTS.md`. If it was accidentally deleted, restore from git:
+v0.2.0 never overwrites custom sections in `AGENTS.md` without `--force`. If content was accidentally lost, restore from git:
 
 ```bash
-git checkout HEAD -- PROJECT_AGENTS.md
+git checkout HEAD -- AGENTS.md
 ```
 
 ## Removed Assets

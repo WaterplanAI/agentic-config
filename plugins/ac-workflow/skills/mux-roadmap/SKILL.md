@@ -1048,7 +1048,7 @@ Proven failures from real multi-track orchestrations. Violating them WILL cause 
 
 **What happened:** Prompts and CONTINUE files used provider-specific model names instead of tier-based terminology, violating the project's provider-agnostic convention.
 
-**Rule:** All agent prompts, templates, and documentation MUST use tier-based terminology (low-tier, medium-tier, high-tier) instead of specific model names. See PROJECT_AGENTS.md Model Tier Terminology table.
+**Rule:** All agent prompts, templates, and documentation MUST use tier-based terminology (low-tier, medium-tier, high-tier) instead of specific model names. See AGENTS.md Model Tier Terminology table.
 
 ### 23. NEVER Use High-Tier Model for Test Execution Agents
 
