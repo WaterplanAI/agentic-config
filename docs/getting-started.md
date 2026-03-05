@@ -129,6 +129,13 @@ claude plugin install ac-meta@agentic-plugins
 claude plugin marketplace add WaterplanAI/agentic-config
 ```
 
+**Uninstall legacy v0.1.x wiring:**
+```bash
+./uninstall.sh --project --dry-run   # preview project symlink removal
+./uninstall.sh --global --dry-run    # preview global wiring removal
+```
+See [Migration Guide](migration-v0.2.0.md#step-1-remove-old-symlinks) for details.
+
 **Version mismatch:**
 ```bash
 claude

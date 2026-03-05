@@ -36,14 +36,34 @@ v0.2.0 is a **breaking release** that replaces symlink-based installation with C
 
 ### Step 1: Remove Old Symlinks
 
-v0.1.x created symlinks in `.claude/skills/`, `.claude/commands/`, and `.claude/agents/`. Remove symlinked entries (but preserve any real files you created manually):
+Use the legacy uninstaller to safely remove v0.1.x wiring:
+
+**Project-level** (removes symlinks in `.claude/skills/`, `.claude/commands/`, etc.):
 
 ```bash
-# Check what exists (identify symlinks vs real files)
-find .claude/skills -type l 2>/dev/null
-find .claude/commands -type l 2>/dev/null
-find .claude/agents -type l 2>/dev/null
+./uninstall.sh --project [path] --dry-run   # preview
+./uninstall.sh --project [path]              # execute
+```
 
+**Global** (removes `~/.claude/commands/agentic*.md` symlinks, CLAUDE.md marker, path entries, optionally the cloned repo):
+
+```bash
+./uninstall.sh --global --dry-run   # preview
+./uninstall.sh --global             # execute
+```
+
+Safety guarantees:
+- Symlink-only -- never touches AGENTS.md, PROJECT_AGENTS.md, or copied files
+- Each symlink verified to point into the global repo before removal
+- `--dry-run` previews all actions without changes
+- Won't delete `/`, `$HOME`, or paths containing `$PWD`
+
+Options: `--yes` (non-interactive), `--verbose` (show skipped items), `--global-path <path>` (override discovered path).
+
+<details>
+<summary>Manual alternative (without uninstall.sh)</summary>
+
+```bash
 # Remove symlinks only (preserves real files)
 find .claude/skills -type l -delete 2>/dev/null
 find .claude/commands -type l -delete 2>/dev/null
@@ -52,6 +72,8 @@ find .claude/agents -type l -delete 2>/dev/null
 # Clean up empty directories
 rmdir .claude/skills .claude/commands .claude/agents 2>/dev/null
 ```
+
+</details>
 
 ### Step 2: Add the Marketplace
 
