@@ -105,6 +105,7 @@ Everything else = DELEGATE via Task()
 - **Blocking on agents** - Continue immediately after launch; runtime task-notification signals completion
 - **Polling agent output** - NEVER use Read/Bash/tail to check agent progress files. Wait for task-notification, then run verify.py once
 - **Filesystem polling loops** - NEVER poll .signals/ directory in a loop. Use one-shot check-signals.py or verify.py after notification
+- **Fabricating notifications** - NEVER pretend a task-notification arrived. If no `[notification: task ... completed]` message exists in the conversation, the agent has NOT completed. You are an EVENT LOOP, not a SCRIPT -- you HALT and wait for external input, you do NOT predict or pre-fill what comes next
 
 ## INTERACTIVE GATES
 
@@ -242,6 +243,14 @@ Task(prompt="Add find subcommand to docs.py", run_in_background=True)
 
 Workers return `0` on success -> Runtime task-notification -> Orchestrator receives.
 
+**YOU ARE AN EVENT LOOP, NOT A SCRIPT.** After launching background agents, you MUST:
+1. End your current response (announce what you launched, then STOP generating)
+2. WAIT for the runtime to deliver `[notification: task ... completed]` messages
+3. Only act on notifications that ACTUALLY APPEAR in the conversation
+4. NEVER pre-fill, predict, or fabricate what the notification will say
+
+If no `[notification: ...]` message exists in the conversation history after your launch message, the agent has NOT completed. Do NOT proceed. Do NOT write "the agent returned 0" unless you see the actual notification. Treating the workflow as a template to fill in rather than halting for external input is a CRITICAL VIOLATION.
+
 **Return code convention:**
 - Workers return `0` on success (1 character)
 - Any other return indicates a protocol violation
@@ -251,17 +260,20 @@ Workers return `0` on success -> Runtime task-notification -> Orchestrator recei
 **Batch-completion counting pattern:**
 1. Orchestrator knows N from decomposition
 2. Launch N workers (all `run_in_background=True`)
-3. Receive N task-notifications from runtime (each should contain `0`)
-4. Run `verify.py --action summary` once as safety check
-5. Proceed to next phase
+3. **END YOUR TURN** -- announce "Launched N agents, waiting for notifications" and STOP
+4. Receive N task-notifications from runtime (each should contain `0`)
+5. Run `verify.py --action summary` once as safety check
+6. Proceed to next phase
 
 ```python
 # Workers (ALL in ONE message)
 for item in items:
     Task(prompt="...", subagent_type="general-purpose", run_in_background=True)
 
-# Checkpoint (before next phase)
-# Workers return 0 -- runtime will notify on each completion
+# STOP HERE. End your response. Wait for runtime notifications.
+# Do NOT continue generating. Do NOT assume completion.
+
+# --- NEXT TURN (after receiving notifications) ---
 # After N notifications: run verify.py once, then proceed
 ```
 

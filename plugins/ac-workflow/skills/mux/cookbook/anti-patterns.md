@@ -46,6 +46,7 @@
 - NEVER wait for workers before proceeding
 - NEVER use bash loops to wait
 - NEVER poll .signals/ in a loop (use one-shot check-signals.py as fallback)
+- NEVER fabricate or pre-fill task-notification results (see Fabricated Notifications below)
 
 ### TaskOutput is FORBIDDEN
 
@@ -176,6 +177,47 @@ Old protocol used "done" (4 chars). New protocol uses "0" (1 char).
 - Subagent returning verbose text instead of `0` (context pollution)
 - Subagent skipping signal file creation (orchestrator detects via verify.py, work re-launched)
 - Subagent skipping mux-subagent skill loading (loses hook enforcement + protocol knowledge)
+
+---
+
+## Fabricated Notifications -- Scripting Instead of Event-Looping
+
+**Severity:** CRITICAL (undetectable by hooks)
+
+**Scenario:**
+1. Orchestrator launches N background agents
+2. Orchestrator writes "Waiting for auditor to complete..."
+3. Orchestrator CONTINUES generating in the same turn as if a notification arrived
+4. Writes "Auditor returned 0. Let me extract the summary."
+5. Runs extract-summary.py on a file that was never written
+6. Loops: re-launches, fabricates again, fails again
+
+**Why it's undetectable:**
+- No hook can distinguish "I received a notification" from "I am pretending I received one"
+- The orchestrator's text output looks correct -- it follows the right sequence of steps
+- The pattern feels natural: launch -> wait -> proceed. But the "wait" is fake.
+
+**The failure mode:**
+```
+Launch agent (run_in_background=True)
+-> "Waiting for completion..."
+-> [NO NOTIFICATION EXISTS IN CONVERSATION]
+-> "Agent returned 0. Extracting summary..."    <-- FABRICATED
+-> extract-summary.py -> "File not found"
+-> "Report wasn't written. Let me re-launch..."
+-> [Infinite retry loop on a phantom failure]
+```
+
+**Root cause:** The orchestrator mentally "scripts" the full flow (launch -> wait -> extract -> fan-out) and treats it as a template to fill in, rather than operating as an event loop that HALTS and waits for external input.
+
+**Correct behavior:**
+1. Launch agents in ONE message
+2. Announce "Launched N agents. Waiting for notifications."
+3. **END YOUR TURN** -- stop generating tokens entirely
+4. Only resume when `[notification: task ... completed]` messages appear
+5. Count notifications against expected N, then proceed
+
+**Key insight:** You are an event loop, not a script. The difference: a script always knows the next step. An event loop BLOCKS until external input arrives. After launching background agents, you have NOTHING to do. Stop. Wait. React.
 
 ---
 

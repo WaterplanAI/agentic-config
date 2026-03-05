@@ -2,7 +2,6 @@
 name: mux-subagent
 description: "MUX subagent protocol enforcer. Activates file-based communication protocol, blocks TaskOutput tool, enforces return code convention (0=success), and ensures signal file creation. Load as MANDATORY FIRST ACTION in all MUX-delegated subagents."
 project-agnostic: true
-allowed-tools: []
 hooks:
   PreToolUse:
     - matcher: "TaskOutput"
