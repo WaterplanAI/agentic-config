@@ -41,6 +41,9 @@ videos/
 # Specs - always ignore (local working files)
 specs/
 
+# Session resume (local working file)
+RESUME.md
+
 # Local environment
 .env
 .agentic-config.conf.yml
