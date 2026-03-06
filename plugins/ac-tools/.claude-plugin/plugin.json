@@ -1,7 +1,7 @@
 {
   "name": "ac-tools",
   "description": "Utilities - integrations, dry-run, prototyping, asset management",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "author": {
     "name": "Agentic Config Contributors"
   },
