@@ -1,232 +1,118 @@
 # External Specs Storage
 
-Store specification files in a separate repository to reduce clutter while maintaining version control.
+Store specification files in a separate repository to keep the main repository focused on product code.
 
 ## Configuration
 
-Configuration sources (priority order):
-1. Environment variables (highest)
-2. `.env` file
-3. `.agentic-config.conf.yml` file (lowest)
+Configuration sources (highest to lowest priority):
+1. Environment variables
+2. `.env`
+3. `.agentic-config.conf.yml`
 
-### Required Settings
+### Keys
 
 | Key | ENV Variable | Description |
 |-----|--------------|-------------|
-| `ext_specs_repo_url` | `EXT_SPECS_REPO_URL` | Git repository URL (SSH or HTTPS) |
+| `ext_specs_repo_url` | `EXT_SPECS_REPO_URL` | External specs git repository URL |
 | `ext_specs_local_path` | `EXT_SPECS_LOCAL_PATH` | Local clone path (default: `.specs`) |
 
-### Examples
+### Example
 
-**.env file:**
+`.env`
 ```bash
-EXT_SPECS_REPO_URL=git@github.com:user/project--specs.git
+EXT_SPECS_REPO_URL=https://example.com/example-org/example-specs.git
 EXT_SPECS_LOCAL_PATH=.specs
 ```
 
-**.agentic-config.conf.yml:**
+`.agentic-config.conf.yml`
 ```yaml
-ext_specs_repo_url: git@github.com:user/project--specs.git
+ext_specs_repo_url: https://example.com/example-org/example-specs.git
 ext_specs_local_path: .specs
 ```
 
-## Library Functions
+## Scripts and Functions
 
-### spec-resolver.sh
+### `spec-resolver.sh`
 
-Source: `core/lib/spec-resolver.sh`
-
-**Purpose**: Resolves spec file paths and commits spec changes to appropriate repository (external or local).
-
-**Usage**:
+Source: `plugins/ac-workflow/scripts/spec-resolver.sh`
 
 ```bash
-# Pure bash (no external commands like cat) for restricted shell compatibility
-_agp=""
-[[ -f ~/.agents/.path ]] && _agp=$(<~/.agents/.path)
-AGENTIC_GLOBAL="${AGENTIC_CONFIG_PATH:-${_agp:-$HOME/.agents/agentic-config}}"
-unset _agp
-source "$AGENTIC_GLOBAL/core/lib/spec-resolver.sh"
+source "${CLAUDE_PLUGIN_ROOT}/scripts/spec-resolver.sh"
 ```
 
-**resolve_spec_path** `<relative_path>` - Returns absolute spec path
-- If `EXT_SPECS_REPO_URL` configured: routes to external repo
-- Otherwise: routes to local `specs/` directory
-- Initializes external repo if needed
+### `resolve_spec_path <relative_path>`
+- Routes to external specs repository when `EXT_SPECS_REPO_URL` is set
+- Otherwise routes to local `specs/`
+- Creates parent directories as needed
+- Validates path input:
+  - rejects absolute paths
+  - rejects `..` traversal
+  - limits parent directory depth to 20
 
-**commit_spec_changes** `<spec_path> <stage> <nnn> <title> [--dry-run]` - Commits spec changes
-- Detects location by path prefix
-- External: commits and pushes to external repo
-- Local: commits to main repo
-- `--dry-run`: Preview changes without executing
+### `commit_spec_changes <spec_path> <stage> <nnn> <title> [--dry-run]`
+- Routes commit to external repo if `spec_path` is under configured external specs path
+- Otherwise commits to the main repository
+- Commit format: `spec(<NNN>): <STAGE> - <title>`
 
-### external-specs.sh
+### `external-specs.sh`
 
-Source: `scripts/external-specs.sh`
+Source: `plugins/ac-workflow/scripts/external-specs.sh`
 
 ```bash
-source scripts/external-specs.sh
+source "${CLAUDE_PLUGIN_ROOT}/scripts/external-specs.sh"
 ```
 
-**ext_specs_init** `[--dry-run]` - Clone/pull external repository
-- Serializes concurrent access using file locking
-- Returns error if lock cannot be acquired (10s timeout)
-- `--dry-run`: Preview clone/pull without executing
+### `ext_specs_init [--dry-run]`
+- Pulls when external repo is already initialized
+- Clones when missing
+- Validates repository URL before clone:
+  - rejects absolute file paths
+  - max length 2048
+  - accepts `git@`, `ssh://`, `https://`, `file://`
+- Uses cross-process lock at:
+  - `<project_root>/.tmp/agentic-locks/ext-specs`
+- Clone safety:
+  - fails if destination exists and is not a directory
+  - fails if destination directory exists but is not empty
 
-**ext_specs_commit** `<message> [--dry-run]` - Commit and push to external repo
-- Serializes concurrent operations using file locking
-- Returns error if lock cannot be acquired (30s timeout)
-- Rolls back commit if push fails
-- `--dry-run`: Preview commit/push without executing
+### `ext_specs_commit <message> [--dry-run]`
+- Runs `git add -A`, `git commit`, `git push` in external specs repo
+- Uses same lock path as `ext_specs_init`
+- If push fails after commit, attempts rollback with `git reset HEAD~1`
 
-**ext_specs_path** - Return absolute path to external specs directory
-- Validates project root exists
-- Returns error if not in valid project directory
+### `ext_specs_path`
+- Returns `<project_root>/<EXT_SPECS_LOCAL_PATH or .specs>`
 
-### config-loader.sh
+### `config-loader.sh`
 
-Source: `core/lib/config-loader.sh`
+Source: `plugins/ac-workflow/scripts/lib/config-loader.sh`
 
 ```bash
-# Pure bash (no external commands like cat) for restricted shell compatibility
-_agp=""
-[[ -f ~/.agents/.path ]] && _agp=$(<~/.agents/.path)
-AGENTIC_GLOBAL="${AGENTIC_CONFIG_PATH:-${_agp:-$HOME/.agents/agentic-config}}"
-unset _agp
-source "$AGENTIC_GLOBAL/core/lib/config-loader.sh"
+source "${CLAUDE_PLUGIN_ROOT}/scripts/lib/config-loader.sh"
 
-load_agentic_config  # Load all config with priority
-get_agentic_config "ext_specs_repo_url"  # Get specific value
-```
-- Works correctly in nested directories and git worktrees
-- Clears external specs config on each load to prevent multi-project state leaks
-- Safe for multi-project workflows in same terminal session
-
-### agentic-root.sh
-
-Source: `core/lib/agentic-root.sh`
-
-```bash
-# Pure bash (no external commands like cat) for restricted shell compatibility
-_agp=""
-[[ -f ~/.agents/.path ]] && _agp=$(<~/.agents/.path)
-AGENTIC_GLOBAL="${AGENTIC_CONFIG_PATH:-${_agp:-$HOME/.agents/agentic-config}}"
-unset _agp
-source "$AGENTIC_GLOBAL/core/lib/agentic-root.sh"
+load_agentic_config
+get_agentic_config "ext_specs_repo_url"
 ```
 
-**compare_versions** `<v1> <v2>` - Compare semantic versions
-- Pure bash implementation (cross-platform)
-- Handles different segment counts (1.0 vs 1.0.0)
-- Returns: 0 if v1 == v2, 1 if v1 > v2, 2 if v1 < v2
-- Example: `compare_versions "1.10.0" "1.2.0"` returns 1 (1.10.0 > 1.2.0)
+- Loads config with priority: ENV > `.env` > `.agentic-config.conf.yml`
+- Restricts `.env` exports to known keys (`EXT_SPECS_REPO_URL`, `EXT_SPECS_LOCAL_PATH`)
+- Resolves project root by walking up to `CLAUDE.md` or `.git`
 
 ## Command Integration
 
-Commands automatically use spec-resolver when external specs configured:
+These workflows use spec resolver automatically:
+- `/branch`
+- `/spec` stages
+- `mux-ospec`
 
-- `/branch` - Creates spec directories in resolved location
-- `/spec` stages - Commits via `commit_spec_changes`
-- `/o_spec` - Resolves paths at session initialization
-- `/po_spec` - Resolves phase spec paths
+No workflow code changes are needed when switching between local and external spec storage.
 
-No code changes needed when switching between external/local.
+## Behavior Summary
 
-## Behavior
+With external specs configured:
+- Specs are written to `<project_root>/<ext_specs_local_path>/specs/...`
+- Spec commits are made in the external specs repository
 
-**With external specs configured:**
-- Spec files stored in `.specs/specs/...`
-- Commits go to external repository
-- Main repo stays clean of spec content
-
-**Without configuration:**
-- Spec files stored in `specs/...`
-- Commits go to main repository
-- Backward compatible behavior
-
-## Safety Features
-
-### Concurrent Operation Protection
-
-Cross-platform file locking prevents race conditions in concurrent scenarios:
-- Uses mkdir-based atomic locking (works on macOS, Linux, BSD)
-- No external dependencies (flock not required)
-- Clone/pull operations serialized with 10s timeout
-- Commit/push operations serialized with 30s timeout
-- Lock directory: `.specs/.agentic-lock`
-- Automatic cleanup via trap on function exit
-
-**Lock Cleanup Mechanism:**
-```bash
-(
-  _acquire_lock "$lockdir" 30 || exit 1
-
-  # Set trap AFTER successful acquisition to ensure cleanup on any exit
-  trap '_release_lock "$lockdir"' EXIT
-
-  # ... git operations ...
-  # Trap fires on any exit (success or failure)
-)
-```
-
-The trap is set **after** successful lock acquisition to:
-- Prevent releasing non-existent locks if acquisition fails
-- Guarantee cleanup on all exit paths (success, failure, signal)
-- Avoid lock leaks that would block future operations
-
-### Input Validation
-
-All inputs are validated for security and safety:
-
-**URL Validation:**
-- Rejects absolute file paths (prevents path traversal)
-- Maximum URL length: 2048 characters
-- Accepts SSH, HTTPS, and file:// protocols
-
-**Path Validation:**
-- Rejects absolute paths (security)
-- Rejects paths containing `..` sequences (directory traversal)
-- Maximum directory depth: 20 levels (prevents resource exhaustion)
-- Shell profile paths validated with regex `^[a-zA-Z0-9_./-]+$` (prevents shell injection)
-  - Rejects paths containing: quotes, backticks, dollar signs, semicolons, pipes, etc.
-  - Prevents arbitrary code execution when shell profiles are sourced
-  - Example: `/home/user/$(whoami)` is rejected before being written to `.bashrc`
-
-**YAML/Config Parsing:**
-- Exact key matching (prevents substring false positives)
-- Graceful handling of unbalanced quotes
-- .env parser scoped to known safe keys only
-
-### Project Root Validation
-
-All operations validate project root exists:
-- Checks for `.agentic-config.json`, `CLAUDE.md`, or `.git` markers
-- Returns explicit error if no markers found
-- Prevents operations in invalid directories
-
-### Error Handling
-
-Improved error handling with recovery guidance:
-
-**Distinct Exit Codes:**
-- 1: Directory change failed
-- 2: Git add failed or rollback failed
-- 3: Git commit failed
-- 4: Git push failed
-
-**Rollback Protection:**
-- Automatic rollback on push failure
-- Manual recovery instructions if rollback fails
-- Index reset on commit failure (unstages all files)
-
-### Bootstrap Consistency
-
-All shell scripts use unified bootstrap logic:
-- Consistent 5-priority discovery system
-- VERSION file validation
-- Pure bash implementation (no external commands like `cat`)
-- Compatible with restricted shell environments
-
-### Temp File Cleanup
-
-Temporary files cleaned up on both success and error paths to prevent `/tmp` pollution.
+Without external specs configured:
+- Specs are written to `<project_root>/specs/...`
+- Spec commits are made in the main repository

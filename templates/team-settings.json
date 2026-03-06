@@ -1,0 +1,27 @@
+{
+  "//": "Team adoption template for agentic-config plugins.",
+  "//note": "Copy relevant sections into your project .claude/settings.json. Merge with existing hooks -- do not replace.",
+
+  "extraKnownMarketplaces": {
+    "agentic-plugins": {
+      "source": {
+        "source": "github",
+        "repo": "<owner>/agentic-config"
+      }
+    }
+  },
+
+  "enabledPlugins": {
+    "//tier2-full": "Enable all plugins for maximum team capability:",
+    "ac-workflow@agentic-plugins": true,
+    "ac-git@agentic-plugins": true,
+    "ac-qa@agentic-plugins": true,
+    "ac-tools@agentic-plugins": true,
+    "ac-meta@agentic-plugins": true,
+
+    "//tier3-selective": "Or enable only what your team needs (uncomment):",
+    "//ac-workflow@agentic-plugins": "Spec + MUX + product management",
+    "//ac-git@agentic-plugins": "Git automation (PR, release, branch)",
+    "//ac-qa@agentic-plugins": "QA workflows (E2E, review, testing)"
+  }
+}

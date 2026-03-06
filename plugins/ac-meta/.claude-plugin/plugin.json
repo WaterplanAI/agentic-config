@@ -1,0 +1,12 @@
+{
+  "name": "ac-meta",
+  "description": "Meta-prompting and self-improvement - skill writer, hook writer",
+  "version": "0.2.0-dev",
+  "author": {
+    "name": "Agentic Config Contributors"
+  },
+  "homepage": "https://github.com/WaterplanAI/agentic-config",
+  "repository": "https://github.com/WaterplanAI/agentic-config",
+  "license": "MIT",
+  "keywords": ["meta", "skill-writer", "hook-writer", "self-improvement"]
+}

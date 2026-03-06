@@ -5,131 +5,65 @@
 - **Type Checking:** uv run pyright
 - **Linting:** uv run ruff check [--fix] <path>
 - **Build:** Only when explicitly requested
-
-## Style & Conventions
-- Type hints for all public functions, descriptive names, small pure functions
 - After edits: uv run ruff check --fix <file> && uv run pyright <file>
 
-## PEP 723 Scripts (Inline Dependencies)
-
-For scripts with `# /// script` metadata blocks, standard pyright fails because inline deps aren't in pyproject.toml.
-
-**Type check PEP 723 scripts:**
-```bash
-# Extract deps and run pyright in isolated env
-uvx --from pyright --with <dep1> --with <dep2> pyright <script.py>
-
-# Example for a typer+rich script:
-uvx --from pyright --with typer --with rich pyright tools/setup.py
-```
-
-**One-liner to auto-extract deps:**
-```bash
-script="path/to/script.py"
-deps=$(python3 -c "
-import re, tomllib
-with open('$script') as f: c = f.read()
-m = re.search(r'# /// script\n(.*?)\n# ///', c, re.DOTALL)
-if m:
-    t = '\n'.join(l.lstrip('# ') for l in m.group(1).split('\n'))
-    print(' '.join('--with ' + re.split(r'[<>=!]', d)[0] for d in tomllib.loads(t).get('dependencies', [])))
-")
-eval "uvx --from pyright $deps pyright $script"
-```
-
-## Core Principles
-- Verify over assume
-- Failures first (lead with errors)
-- Always re-raise (never swallow exceptions)
-- DO NOT OVERCOMPLICATE
-- DO NOT OVERSIMPLIFY
-
-## Skill Triggering Enforcement
-
-**MANDATORY** - No exceptions, no rationalization:
-
-- `\<command-or-skill-name>` is an explicit enforcement to INVOKE a skill or command, EVEN if you don't see it in your context.
-  - You MUST check if a command or skill with that name exists looking in .claude/skills/ and .claude/commands/ directories.
-  - If it exists, you MUST EXPLICITLY INVOKE it using the SKILL tool (e.g.: `Skill(skill="mux", args="...")`)
-- If even 1% chance a skill applies to the current task, you MUST invoke it
-- You do not have a choice. You cannot rationalize your way out.
-- When user explicitly requests a skill (e.g., "/mux", "/spec"), invoke it IMMEDIATELY
-- NEVER skip skill invocation to "save time" or because "I can handle it myself"
-- Skills exist because they encode specialized knowledge and workflows you lack
-
-**Violations:**
-- Describing what a skill would do instead of invoking it
-- Partially implementing skill behavior manually
-- Claiming the task is "too simple" for the skill
-
-## Critical Rules
-- NEVER amend commits unless user says 'amend commit'
-- NEVER commit files in gitignored directories unless explicitly requested - DO NOT use git add -f to bypass .gitignore
+## Core Rules
+- Verify over assume; failures first; always re-raise (never swallow exceptions)
+- Type hints for all public functions, descriptive names, small pure functions
 - Minimal changes; avoid ambiguity; no placeholders
-- Keep prompts concise; log costs
-- EFFICIENCY in application performance and user experience - REFLECT this in EVERY implementation
-- Glob excludes hidden directories (`.claude/`). Use: `Glob(pattern="*.md", path=".claude/skills/x")` NOT `Glob(pattern=".claude/skills/x/*.md")`
+- EFFICIENCY in application and UX - reflect in every implementation
+- Glob excludes hidden dirs: use explicit non-hidden roots, e.g. `Glob(pattern="*.md", path="plugins/ac-tools/skills/x")`
 
-## /spec Workflow
-Reference agents/spec/{STAGE}.md for detailed instructions.
-- Default path: specs/<YYYY>/<MM>/<branch>/<NNN>-<title>.md
-- Modify AI Section only; never touch Human Section
-- Commit after each stage: spec(<NNN>): <STAGE> - <title>
+## Skill Triggering
 
-## Path Resolution
+**MANDATORY** - No exceptions:
+- `\<name>` = look up in `.claude/commands/`, `.claude/skills/` (if present), and `plugins/*/skills/`; invoke via Skill tool
+- 1% match = invoke. Never skip. Never reimplement skill behavior manually.
+- Explicit user request (e.g., "/mux", "/spec") = invoke IMMEDIATELY
 
-**Project root** = `$PWD` (where Claude is launched, `.agentic-config.json` stored)
-**Global installation** = `$AGENTIC_CONFIG_PATH` or `~/.agents/agentic-config` (where `core/`, `VERSION` exist)
-
-**CRITICAL**: `core/` does NOT exist at project root. Only specific command files are symlinked.
-
-To source global libs (spec-resolver.sh, etc.):
-```bash
-# Pure bash (no external commands like cat) for restricted shell compatibility
-_agp=""
-[[ -f ~/.agents/.path ]] && _agp=$(<~/.agents/.path)
-AGENTIC_GLOBAL="${AGENTIC_CONFIG_PATH:-${_agp:-$HOME/.agents/agentic-config}}"
-unset _agp
-source "$AGENTIC_GLOBAL/core/lib/spec-resolver.sh"
-```
-
-## User Customizations
-
-User-side behavior customizations for skills/commands live in `$AGENTIC_GLOBAL/customization/`:
-
-```
-$AGENTIC_GLOBAL/customization/
-  <skill-name>/           # Per-skill customizations
-    <tool>.md             # Tool-specific output format
-  <command-name>/         # Per-command customizations (future)
-```
-
-- **NOT tracked in git** - user-local configuration
-- Skills check for customizations before execution
-- Example: `customization/gsuite/gcalendar.md` for calendar output format
+## Content & PII
+- DO NOT use emojis in markdown files
+- All git-tracked content: project-agnostic, anonymized (no real names, emails, companies)
+- Use: John Smith, Jane Doe, Example Corp, example.com, `<email>`, `abc123`
+- NEVER add `outputs/` content to git
+- Pre-commit hook enforces PII. Confirm `PII_AUDIT: PASS`. Fix and re-commit if blocked.
+- Check `## Exceptions` for special cases.
 
 ## Git Workflow
-- Base branch: main (not master)
-- git status returns CWD-relative paths - use those exact paths with git add
-- Never commit to main; never amend unless 'amend commit' explicitly requested
-- One stage = one commit: spec(<NNN>): <STAGE> - <title>
+- Base branch: main (not master); never commit to main
+- NEVER amend unless user says 'amend commit'
+- NEVER commit gitignored files; do NOT `git add -f`
+- Use CWD-relative paths from git status for git add
+- Conventional Commits: `<type>(<scope>): <description>`
+  - Types: feat, fix, docs, chore, refactor, test, style, perf, build, ci
+  - Body sections: Added, Changed, Fixed, Removed
+  - Squashed commits include original commit list
 
-## CHANGELOG Guidelines
-- CHANGELOG entries are written **only against origin/main**
-- Fixes within the same branch/unreleased work are NOT separate entries
-- From main's linear history perspective, unreleased changes are ONE logical unit
-- Do NOT add "Fixed" entries for implementation iterations before merge to main
+## CHANGELOG
+- Entries only against origin/main; unreleased changes = ONE logical unit
+- No "Fixed" entries for pre-merge iterations
+- Add to `[Unreleased]`; do NOT modify released/tagged versions
 
-## Project-Specific Instructions
-READ @PROJECT_AGENTS.md for project-specific instructions - CRITICAL COMPLIANCE
+## Model Tier Terminology
 
-## Conditional Documentation
+Use tier-based names in core assets, not specific model names:
 
-Read documentation only when relevant to your task:
+| Tier | Anthropic | Google | OpenAI |
+|------|-----------|--------|--------|
+| Low-tier | haiku | flash-lite | codex mini |
+| Medium-tier | sonnet | flash | codex |
+| High-tier | opus | pro | codex max |
 
-- **docs/external-specs-storage.md** - When:
-  - Working with `/spec`, `/o_spec`, `/po_spec`, or `/branch` commands
-  - Configuring external specs repository
-  - Modifying spec path resolution or commit routing
+## Session Resume
+READ @RESUME.md only when user asks "where we left off" / "what's next" / "resume"
 
-<!-- PROJECT_AGENTS.md contains project-specific guidelines that override defaults -->
+## Exceptions
+
+### Git Commit Author Identity
+Commits may use personal identity or Claude (`Co-Authored-By: Claude <noreply@anthropic.com>`).
+
+### GitHub Organization Name
+`WaterplanAI` may appear in documentation as the public GitHub organization for plugin distribution.
+
+### Pre-commit PII Audit Model Pin
+`.githooks/pre-commit` may pin a concrete Anthropic model ID for deterministic local PII audit behavior.

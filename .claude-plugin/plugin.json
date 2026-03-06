@@ -1,0 +1,12 @@
+{
+  "name": "agentic-config",
+  "description": "Agentic workflow automation for AI-assisted development (monorepo root)",
+  "version": "0.2.0-dev",
+  "author": {
+    "name": "Agentic Config Contributors"
+  },
+  "homepage": "https://github.com/WaterplanAI/agentic-config",
+  "repository": "https://github.com/WaterplanAI/agentic-config",
+  "license": "MIT",
+  "keywords": ["workflow", "spec", "orchestration", "development"]
+}

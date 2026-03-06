@@ -45,9 +45,9 @@ Thank you for your interest in contributing!
 ## Development
 
 ```bash
-# Setup agentic-config in a project
-./scripts/setup-config.sh /path/to/project
+# Launch claude with all plugin dirs for local development
+./dev.sh
 
-# Run tests
-./scripts/test-python-tooling-variants.sh
+# Run Python tests
+uv run pytest
 ```

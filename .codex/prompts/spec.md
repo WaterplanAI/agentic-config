@@ -1,1 +1,0 @@
-../../core/commands/codex/spec.md

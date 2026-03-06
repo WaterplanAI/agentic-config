@@ -37,10 +37,12 @@ outputs/
 # Playwright video recordings
 videos/
 *.webm
-.playwright-cli/
 
 # Specs - always ignore (local working files)
 specs/
+
+# Session resume (local working file)
+RESUME.md
 
 # Local environment
 .env
@@ -50,11 +52,16 @@ specs/
 customization/
 
 # External specs repository (cloned locally, tracked separately)
+# Note: both forms needed — directory for clones, no-slash for worktree symlinks
 .specs/
+.specs
 
 # Git worktrees (local development, not tracked)
 trees/
-.claude/worktrees/
 
-# Invalid nested symlinks (artifacts from misconfigured setups)
-core/agents/agents
+
+# Legacy local compatibility artifacts from pre-v0.2 workflows
+/commands/
+/skills/
+/agents/
+.mux/

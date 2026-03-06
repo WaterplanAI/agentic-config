@@ -182,18 +182,18 @@ Argument: If failure resilience were the primary concern, Approach D would win. 
 
 ### Prototype Location
 
-`core/tools/agentic/spawn.py` -- PEP 723 script implementing the spawn pattern.
+`plugins/ac-workflow/scripts/tools/spawn.py` -- PEP 723 script implementing the spawn pattern.
 
 ### Usage Pattern
 
 ```bash
 # From any agent at any depth:
-uv run core/tools/agentic/spawn.py \
-  --task "Research authentication patterns" \
-  --tools "Read,Grep,Bash" \
+uv run ${CLAUDE_PLUGIN_ROOT}/scripts/tools/spawn.py \
+  --prompt "Research authentication patterns" \
+  --allowed-tools "Read,Grep,Bash" \
   --model medium-tier \
   --max-depth 3 \
-  --output /tmp/research-result.json
+  --output-format json
 ```
 
 ### Integration with Existing Infrastructure
