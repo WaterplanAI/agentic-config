@@ -4,6 +4,14 @@ All notable changes to agentic-config.
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-03-06
+
+### Fixed
+
+- `setup-voice-mode`: document local endpoint config requirement (`VOICEMODE_TTS_BASE_URLS`, `VOICEMODE_STT_BASE_URLS`) as workaround for `OPENAI_API_KEY` error when using local Kokoro/Whisper services
+  - `VOICEMODE_PREFER_LOCAL` alone does not remove OpenAI from the fallback chain
+  - Updated Provider Options and Troubleshooting sections with accurate guidance
+
 ## [0.2.1] - 2026-03-06
 
 ### Fixed

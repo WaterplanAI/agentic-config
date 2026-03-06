@@ -23,11 +23,15 @@ uvx voice-mode-install --yes
 claude mcp add --scope user voicemode -- uvx --refresh voice-mode
 ```
 
-3. Configure for local-first processing (recommended):
+3. Configure local endpoints (Kokoro TTS + Whisper STT):
 ```bash
+voicemode config set VOICEMODE_TTS_BASE_URLS http://127.0.0.1:8880/v1
+voicemode config set VOICEMODE_STT_BASE_URLS http://127.0.0.1:2022/v1
 voicemode config set VOICEMODE_PREFER_LOCAL true
 voicemode config set VOICEMODE_ALWAYS_TRY_LOCAL true
 ```
+
+**This is critical.** Without explicit `_BASE_URLS`, the default includes `https://api.openai.com/v1` as fallback, which crashes with `OPENAI_API_KEY` errors even when local services are running.
 
 4. Verify installation:
 ```bash
@@ -76,13 +80,13 @@ voicemode config list
 
 ### Provider Options
 
-- **Local-only**: Set `VOICEMODE_PREFER_LOCAL=true` and `VOICEMODE_ALWAYS_TRY_LOCAL=true` (no API key needed)
-- **Cloud-only**: Set `OPENAI_API_KEY` and leave local settings as false
-- **Hybrid**: Set both for local-first with cloud fallback
+- **Local-only** (default, recommended): Set `VOICEMODE_TTS_BASE_URLS=http://127.0.0.1:8880/v1` and `VOICEMODE_STT_BASE_URLS=http://127.0.0.1:2022/v1` (no API key needed)
+- **Cloud-only**: Set `OPENAI_API_KEY` and set URLs to `https://api.openai.com/v1`
+- **Hybrid** (local-first, cloud fallback): Set `OPENAI_API_KEY` and set URLs to `http://127.0.0.1:8880/v1,https://api.openai.com/v1` (TTS) and `http://127.0.0.1:2022/v1,https://api.openai.com/v1` (STT)
 
 ## Troubleshooting
 
-- **OpenAI API key error**: Configure local-first settings (step 3)
+- **OpenAI API key error**: Ensure `VOICEMODE_TTS_BASE_URLS` and `VOICEMODE_STT_BASE_URLS` point to local endpoints only (step 3). The `PREFER_LOCAL` flag alone is NOT sufficient — it does not remove OpenAI from the fallback chain
 - **Kokoro stuck "starting up"**: Wait 5+ mins on first run, or check logs: `voicemode service kokoro logs`
 - **macOS M3 crash**: Known issue with ggml_metal - use CPU mode
 - **WSL audio issues**: Install PulseAudio packages

@@ -1,7 +1,7 @@
 {
   "name": "ac-qa",
   "description": "Quality assurance - E2E testing, PR review, browser automation",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "author": {
     "name": "Agentic Config Contributors"
   },
