@@ -139,7 +139,8 @@ Task(prompt=f"""Your FIRST and MANDATORY action:
 Skill(skill="spec", args="CREATE {inline_prompt}")
 
 DO NOT read files, plan, or analyze before invoking this Skill.
-If Skill fails: RETURN "STAGE_FAILED"
+If you get "Permission to use Skill has been denied", return EXACTLY: PERMISSION_DENIED: Skill
+If Skill fails for other reasons: RETURN "STAGE_FAILED"
 
 After Skill completes, verify:
 1. git log --oneline -5 | grep -i "spec.*CREATE"
@@ -249,7 +250,8 @@ Skill(skill="spec", args="PLAN {spec_path}")
 
 DO NOT read files, write code, or do anything before invoking this Skill.
 DO NOT plan as a fallback if the Skill fails.
-If Skill fails: RETURN "STAGE_FAILED"
+If you get "Permission to use Skill has been denied", return EXACTLY: PERMISSION_DENIED: Skill
+If Skill fails for other reasons: RETURN "STAGE_FAILED"
 
 After Skill completes, verify:
 1. git log --oneline -5 | grep -i "spec.*PLAN" (commit must exist)
@@ -269,7 +271,8 @@ Your FIRST and MANDATORY action:
 Skill(skill="spec", args="IMPLEMENT {spec_path}")
 
 DO NOT read the spec to "understand" it first. DO NOT write code yourself.
-If Skill fails: RETURN "STAGE_FAILED"
+If you get "Permission to use Skill has been denied", return EXACTLY: PERMISSION_DENIED: Skill
+If Skill fails for other reasons: RETURN "STAGE_FAILED"
 
 After Skill completes, verify:
 1. git log --oneline -10 | grep -E "(feat|fix|refactor)\\(" (commit must exist)
@@ -293,7 +296,8 @@ ENHANCEMENT: Also read the spec-reviewer agent definition at ${CLAUDE_PLUGIN_ROO
 
 DO NOT invent your own review criteria. DO NOT fix issues (only report them).
 CRITICAL: Be ruthlessly honest. ONLY grade PASS if ALL checks pass. WARN is NOT "good enough" - it triggers a FIX cycle.
-If Skill fails: RETURN "STAGE_FAILED"
+If you get "Permission to use Skill has been denied", return EXACTLY: PERMISSION_DENIED: Skill
+If Skill fails for other reasons: RETURN "STAGE_FAILED"
 
 After Skill completes, verify:
 1. Review report exists with explicit grade: PASS, WARN, or FAIL
@@ -315,7 +319,8 @@ ENHANCEMENT: Also read the spec-fixer agent definition at ${CLAUDE_PLUGIN_ROOT}/
 REVIEW REPORT: {session}/reviews/phase-{N}-review-{cycle}.md
 
 DO NOT invent fixes outside the review findings. DO NOT delete working code.
-If Skill fails: RETURN "STAGE_FAILED"
+If you get "Permission to use Skill has been denied", return EXACTLY: PERMISSION_DENIED: Skill
+If Skill fails for other reasons: RETURN "STAGE_FAILED"
 
 After Skill completes, verify:
 1. git log --oneline -5 | grep -i "fix" (commit must exist)
@@ -337,7 +342,8 @@ Skill(skill="spec", args="TEST {spec_path}")
 ENHANCEMENT: Also read the spec-tester agent definition at ${CLAUDE_PLUGIN_ROOT}/skills/mux-ospec/agents/spec-tester.md for adaptive test execution and framework detection.
 
 DO NOT write tests yourself. DO NOT skip execution. DO NOT fabricate results.
-If Skill fails: RETURN "STAGE_FAILED"
+If you get "Permission to use Skill has been denied", return EXACTLY: PERMISSION_DENIED: Skill
+If Skill fails for other reasons: RETURN "STAGE_FAILED"
 
 After Skill completes, verify:
 1. Tests actually ran (check output for pass/fail counts)
@@ -357,7 +363,8 @@ Your FIRST and MANDATORY action:
 Skill(skill="spec", args="DOCUMENT {spec_path}")
 
 DO NOT read source files to summarize them. DO NOT write docs yourself.
-If Skill fails: RETURN "STAGE_FAILED"
+If you get "Permission to use Skill has been denied", return EXACTLY: PERMISSION_DENIED: Skill
+If Skill fails for other reasons: RETURN "STAGE_FAILED"
 
 After Skill completes, verify:
 1. git log --oneline -5 | grep -i "spec.*DOCUMENT" (commit must exist)
@@ -379,7 +386,8 @@ ENHANCEMENT: Also read the sentinel agent definition at ${CLAUDE_PLUGIN_ROOT}/sk
 
 DO NOT approve incomplete work. DO NOT override the grade.
 CRITICAL: ONLY grade=PASS completes the workflow. WARN is NOT acceptable.
-If Skill fails: RETURN "STAGE_FAILED"
+If you get "Permission to use Skill has been denied", return EXACTLY: PERMISSION_DENIED: Skill
+If Skill fails for other reasons: RETURN "STAGE_FAILED"
 
 After Skill completes, verify:
 1. All SC items explicitly graded
@@ -483,6 +491,7 @@ uv run ${CLAUDE_PLUGIN_ROOT}/skills/mux/tools/check-signals.py $DIR --expected N
 | Context exhaustion | Stage agent dies mid-work. Relaunch from last signal checkpoint |
 | Review cycle WARN/FAIL after max cycles | STAGE_FAILED. Escalate to user - ONLY PASS proceeds |
 | Signal file missing after "done" | Treat as STAGE_FAILED, relaunch fresh agent |
+| Skill permission denied | Subagent returns PERMISSION_DENIED. Escalate to user: "Background agents cannot surface permission prompts. Run Claude Code with `--dangerously-skip-permissions` or add `Skill` to allowed tools in `.claude/settings.json`" |
 
 ## SESSION CLEANUP
 
@@ -578,6 +587,14 @@ Do NOT summarize, interpret, or add commentary. Raw routing data only.""",
    ALL signal paths derived from {session} are RELATIVE to project root.
    NEVER prepend '/' — 'tmp/' is a project-local directory, NOT '/tmp/'.
 3. mkdir -p {session}/.signals
+
+PERMISSION_DENIED HANDLING (applies to ALL stages below):
+  IF any subagent returns "PERMISSION_DENIED: Skill":
+    STOP workflow. Report to user:
+    "Background agents cannot surface permission prompts.
+     Run Claude Code with --dangerously-skip-permissions
+     or add Skill to allowed tools in .claude/settings.json"
+    Do NOT retry. Do NOT launch new agents. The permission issue is session-wide.
 
 CREATE (optional, all modes):
   Detection: IF SPEC_PATH does not resolve to existing file

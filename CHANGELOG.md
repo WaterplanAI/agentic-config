@@ -4,6 +4,17 @@ All notable changes to agentic-config.
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-03-06
+
+### Fixed
+
+- `mux-ospec`: background subagents auto-denied Skill permission (cannot surface interactive prompts)
+  - All stage Task templates now detect "Permission denied" and return `PERMISSION_DENIED: Skill` instead of silent `STAGE_FAILED`
+  - Orchestrator execution loop stops immediately on `PERMISSION_DENIED` with actionable user guidance
+  - Error recovery table documents the scenario and resolution
+  - Stale documentation in `mux/cookbook/skill-delegation.md` incorrectly claimed Skill was blocked by mux-subagent hooks (only TaskOutput is blocked)
+  - Added Permissions section to README documenting `--dangerously-skip-permissions` and `--allowedTools` for MUX workflows
+
 ## [0.2.0] - 2026-03-06
 
 ### Changed

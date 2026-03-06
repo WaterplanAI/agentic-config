@@ -48,6 +48,24 @@ Core principles:
 - [Uninstall Legacy (v0.1.x)](docs/migration-v0.2.0.md#step-1-remove-old-symlinks) -- Remove legacy symlink wiring
 - [Full Documentation Index](docs/index.md)
 
+## Permissions
+
+MUX workflows (`ac-workflow` plugin) delegate to background agents via `Task(run_in_background=True)`. Background agents **cannot surface interactive permission prompts** -- any unapproved tool is auto-denied.
+
+**Recommended:** Run Claude Code with `--dangerously-skip-permissions` for MUX workflows:
+
+```bash
+claude --dangerously-skip-permissions
+```
+
+Alternatively, pre-authorize specific tools via CLI:
+
+```bash
+claude --allowedTools "Skill Bash Read Write Edit Grep Glob"
+```
+
+All plugins in this repository are designed and tested with full tool permissions enabled.
+
 ## Contributing
 
 See [Contributing Guidelines](.github/CONTRIBUTING.md).

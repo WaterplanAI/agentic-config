@@ -83,7 +83,7 @@ Every MUX subagent MUST load the `mux-subagent` skill as its FIRST action. This 
 ### Why mux-subagent is Different
 
 Unlike other skills that would pollute orchestrator context, `mux-subagent` is designed to run in the subagent's context. It:
-1. Activates subagent-specific hooks (blocks TaskOutput, blocks additional Skill loads)
+1. Activates subagent-specific hooks (blocks TaskOutput)
 2. Provides the file-based communication protocol
 3. Enforces the `0` return convention
 4. Documents signal file creation requirements
@@ -114,4 +114,11 @@ MUX SUBAGENT PROTOCOL:
 
 After loading `mux-subagent`, the subagent's hooks block:
 - **TaskOutput** -- must use signal files
-- **Skill** -- no additional skills after mux-subagent (all tools already available)
+
+Note: Skill is NOT blocked by mux-subagent hooks. Subagents need Skill to invoke `/spec` stages and other workflow skills.
+
+### Background Permission Limitation
+
+Background subagents (`run_in_background=True`) cannot surface interactive permission prompts. If the `Skill` tool has not been pre-authorized, calls are auto-denied with "Permission to use Skill has been denied."
+
+**Resolution:** Run Claude Code with `--dangerously-skip-permissions` or add `Skill` to allowed tools in `.claude/settings.json`. See the project README for details.
