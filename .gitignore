@@ -58,6 +58,7 @@ customization/
 
 # Git worktrees (local development, not tracked)
 trees/
+.claude/worktrees/
 
 
 # Legacy local compatibility artifacts from pre-v0.2 workflows
