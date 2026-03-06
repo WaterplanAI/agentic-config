@@ -4,6 +4,8 @@ All notable changes to agentic-config.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-03-06
+
 ### Changed
 
 - **BREAKING (v0.2.0)**: distribution moved to Claude Code plugins via marketplace/install flow.
