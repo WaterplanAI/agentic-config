@@ -5,17 +5,43 @@
 
 # CLAUDE_PLUGIN_ROOT is set by Claude Code plugin runtime
 # Fallback for direct execution: use script directory's parent
-: "${CLAUDE_PLUGIN_ROOT:="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"}"
+if [[ -z "${CLAUDE_PLUGIN_ROOT:-}" ]]; then
+  _spec_resolver_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  CLAUDE_PLUGIN_ROOT="$(cd "$_spec_resolver_dir/.." && pwd)"
+  unset _spec_resolver_dir
+fi
 
 # Source shared config loader
+# Tries CLAUDE_PLUGIN_ROOT first, then falls back to locating via BASH_SOURCE
 _source_config_loader() {
+  # Already loaded — skip
+  if declare -f load_agentic_config >/dev/null 2>&1; then
+    return 0
+  fi
+
   local config_loader="${CLAUDE_PLUGIN_ROOT}/scripts/lib/config-loader.sh"
+
+  # Fallback: resolve relative to this script's actual location
+  if [[ ! -f "$config_loader" ]]; then
+    local script_dir candidate
+    # Try each BASH_SOURCE entry (0=this file, 1=caller, etc.)
+    for candidate in "${BASH_SOURCE[@]}"; do
+      script_dir="$(cd "$(dirname "$candidate")" && pwd 2>/dev/null)" || continue
+      if [[ -f "$script_dir/lib/config-loader.sh" ]]; then
+        config_loader="$script_dir/lib/config-loader.sh"
+        CLAUDE_PLUGIN_ROOT="$(cd "$script_dir/.." && pwd)"
+        break
+      fi
+    done
+  fi
 
   if [[ -f "$config_loader" ]]; then
     # shellcheck source=lib/config-loader.sh
     source "$config_loader"
   else
-    echo "ERROR: config-loader.sh not found at $config_loader" >&2
+    echo "ERROR: config-loader.sh not found" >&2
+    echo "  Searched: ${CLAUDE_PLUGIN_ROOT}/scripts/lib/config-loader.sh" >&2
+    echo "  Set CLAUDE_PLUGIN_ROOT to the ac-git plugin directory" >&2
     return 1
   fi
 }
@@ -154,10 +180,10 @@ commit_spec_changes() {
   if [[ -n "${EXT_SPECS_REPO_URL:-}" && -n "$ext_specs_path" && "$spec_path" == "$project_root/$ext_specs_path/specs/"* ]]; then
     # External specs repository - use ext_specs_commit
     if [[ "$dry_run" == true ]]; then
-      echo "DRY RUN: commit_spec_changes (external)"
-      echo "  Spec: $spec_path"
-      echo "  Message: $commit_message"
-      echo "  Target: external specs repository"
+      echo "DRY RUN: commit_spec_changes (external)" >&2
+      echo "  Spec: $spec_path" >&2
+      echo "  Message: $commit_message" >&2
+      echo "  Target: external specs repository" >&2
       # Source and call ext_specs_commit with dry-run
       local ext_specs_script="${CLAUDE_PLUGIN_ROOT}/scripts/external-specs.sh"
       [[ -f "$ext_specs_script" ]] && source "$ext_specs_script"
@@ -176,7 +202,7 @@ commit_spec_changes() {
         return 1
       }
 
-      echo "Committed to external specs repository: $commit_message"
+      echo "Committed to external specs repository: $commit_message" >&2
     else
       echo "ERROR: external-specs.sh not found at $ext_specs_script" >&2
       return 1
@@ -184,10 +210,10 @@ commit_spec_changes() {
   else
     # Local specs directory - use standard git operations in PROJECT
     if [[ "$dry_run" == true ]]; then
-      echo "DRY RUN: commit_spec_changes (local)"
-      echo "  Spec: $spec_path"
-      echo "  Message: $commit_message"
-      echo "  Target: main repository at $project_root"
+      echo "DRY RUN: commit_spec_changes (local)" >&2
+      echo "  Spec: $spec_path" >&2
+      echo "  Message: $commit_message" >&2
+      echo "  Target: main repository at $project_root" >&2
       return 0
     fi
 
@@ -203,7 +229,7 @@ commit_spec_changes() {
       return 1
     }
 
-    echo "Committed to main repository: $commit_message"
+    echo "Committed to main repository: $commit_message" >&2
   fi
 
   return 0
