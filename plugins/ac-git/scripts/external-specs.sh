@@ -8,17 +8,42 @@
 
 # CLAUDE_PLUGIN_ROOT is set by Claude Code plugin runtime
 # Fallback for direct execution: use script directory's parent
-: "${CLAUDE_PLUGIN_ROOT:="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"}"
+if [[ -z "${CLAUDE_PLUGIN_ROOT:-}" ]]; then
+  _ext_specs_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  CLAUDE_PLUGIN_ROOT="$(cd "$_ext_specs_dir/.." && pwd)"
+  unset _ext_specs_dir
+fi
 
 # Source shared config loader
+# Tries CLAUDE_PLUGIN_ROOT first, then falls back to locating via BASH_SOURCE
 _source_config_loader() {
+  # Already loaded — skip
+  if declare -f load_agentic_config >/dev/null 2>&1; then
+    return 0
+  fi
+
   local config_loader="${CLAUDE_PLUGIN_ROOT}/scripts/lib/config-loader.sh"
+
+  # Fallback: resolve relative to this script's actual location
+  if [[ ! -f "$config_loader" ]]; then
+    local script_dir candidate
+    for candidate in "${BASH_SOURCE[@]}"; do
+      script_dir="$(cd "$(dirname "$candidate")" && pwd 2>/dev/null)" || continue
+      if [[ -f "$script_dir/lib/config-loader.sh" ]]; then
+        config_loader="$script_dir/lib/config-loader.sh"
+        CLAUDE_PLUGIN_ROOT="$(cd "$script_dir/.." && pwd)"
+        break
+      fi
+    done
+  fi
 
   if [[ -f "$config_loader" ]]; then
     # shellcheck source=lib/config-loader.sh
     source "$config_loader"
   else
-    echo "ERROR: config-loader.sh not found at $config_loader" >&2
+    echo "ERROR: config-loader.sh not found" >&2
+    echo "  Searched: ${CLAUDE_PLUGIN_ROOT}/scripts/lib/config-loader.sh" >&2
+    echo "  Set CLAUDE_PLUGIN_ROOT to the ac-git plugin directory" >&2
     return 1
   fi
 }
@@ -148,13 +173,13 @@ ext_specs_init() {
     trap '_release_lock "$lockdir"' EXIT INT TERM
 
     if [[ -d "$full_path/.git" ]]; then
-      echo "External specs repository already exists at: $full_path"
-      echo "Pulling latest changes..."
-      (cd "$full_path" && git pull) || {
+      echo "External specs repository already exists at: $full_path" >&2
+      echo "Pulling latest changes..." >&2
+      (cd "$full_path" && git pull >&2) || {
         echo "ERROR: Failed to pull latest changes" >&2
         exit 1
       }
-      echo "Successfully updated external specs repository"
+      echo "Successfully updated external specs repository" >&2
     else
       if [[ -e "$full_path" && ! -d "$full_path" ]]; then
         echo "ERROR: Clone destination exists and is not a directory: $full_path" >&2
@@ -175,15 +200,15 @@ ext_specs_init() {
       local dest_existed=false
       [[ -d "$full_path" ]] && dest_existed=true
 
-      echo "Cloning external specs repository to: $full_path"
-      git clone "$repo_url" "$full_path" || {
+      echo "Cloning external specs repository to: $full_path" >&2
+      git clone "$repo_url" "$full_path" >&2 || {
         if [[ "$dest_existed" == false ]]; then
           rm -rf "$full_path" 2>/dev/null || true
         fi
         echo "ERROR: Failed to clone repository from $repo_url" >&2
         exit 1
       }
-      echo "Successfully cloned external specs repository"
+      echo "Successfully cloned external specs repository" >&2
     fi
   ) || return 1
 
@@ -286,7 +311,7 @@ ext_specs_commit() {
           exit 4
         fi
       else
-        echo "No changes to commit"
+        echo "No changes to commit" >&2
         exit 0
       fi
     ) || {
@@ -296,7 +321,7 @@ ext_specs_commit() {
     }
   ) || return 1
 
-  echo "Successfully committed and pushed changes to external specs repository"
+  echo "Successfully committed and pushed changes to external specs repository" >&2
   return 0
 }
 
