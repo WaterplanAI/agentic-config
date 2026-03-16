@@ -1,0 +1,44 @@
+# ---------- Stage 1: Build ----------
+# Installs Python dependencies into a virtual environment.
+# This stage is thrown away — only the venv is kept.
+FROM python:3.12-slim AS builder
+
+WORKDIR /app
+
+# Create venv and install deps (cached if requirements.txt hasn't changed)
+RUN python -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+COPY requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy source
+COPY . .
+
+# ---------- Stage 2: Production ----------
+# Minimal image with only the venv and source.
+FROM python:3.12-slim
+
+# Non-root user (Cloud Run best practice — never run as root)
+RUN groupadd -g 1001 appuser && useradd -r -u 1001 -g appuser appuser
+
+WORKDIR /app
+
+# Copy venv from builder
+COPY --from=builder /opt/venv /opt/venv
+COPY --from=builder /app .
+
+ENV PATH="/opt/venv/bin:$PATH"
+
+# Switch to non-root user
+USER appuser
+
+# Cloud Run injects PORT=8080 — your app MUST listen on this port
+ENV PORT=8080
+EXPOSE 8080
+
+# Start the app — adjust this to match your framework
+# Examples:
+#   FastAPI:  CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8080"]
+#   Flask:    CMD ["gunicorn", "--bind", "0.0.0.0:8080", "app:app"]
+#   Django:   CMD ["gunicorn", "--bind", "0.0.0.0:8080", "project.wsgi:application"]
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8080"]
