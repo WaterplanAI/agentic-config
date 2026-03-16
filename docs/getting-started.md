@@ -21,6 +21,19 @@ claude plugin install ac-tools@agentic-plugins
 claude plugin install ac-meta@agentic-plugins
 ```
 
+## Enable Auto-Updates (Recommended)
+
+> **Warning:** Auto-updates are disabled by default for third-party marketplaces.
+> Without auto-updates, you must manually run `Update marketplace` to receive new
+> plugin versions and skills.
+
+1. Run `claude` and type `/plugins`
+2. Navigate to **Marketplaces** tab
+3. Select **agentic-plugins**
+4. Select **Enable auto-update**
+
+This keeps the marketplace and all installed plugins automatically in sync with new releases.
+
 ## Setup a Project
 
 In any project directory:

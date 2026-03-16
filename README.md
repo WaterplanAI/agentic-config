@@ -15,6 +15,10 @@ claude plugin install ac-tools@agentic-plugins
 claude plugin install ac-meta@agentic-plugins
 ```
 
+> **Note:** Auto-updates are disabled by default for third-party marketplaces.
+> Enable them via `/plugins` > Marketplaces > agentic-plugins > Enable auto-update
+> to stay in sync with new releases automatically.
+
 See [Getting Started](docs/getting-started.md) for full setup.
 
 ## What is agentic-config?
