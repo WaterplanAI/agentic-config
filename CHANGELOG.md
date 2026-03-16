@@ -4,6 +4,8 @@ All notable changes to agentic-config.
 
 ## [Unreleased]
 
+## [0.2.3] - 2026-03-16
+
 ### Added
 
 - `gcp-setup` skill for end-to-end GCP project provisioning via single YAML config
