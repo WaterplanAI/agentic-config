@@ -4,6 +4,17 @@ All notable changes to agentic-config.
 
 ## [Unreleased]
 
+### Added
+
+- `gcp-setup` skill for end-to-end GCP project provisioning via single YAML config
+  - Provisioning pipeline: preflight checks, resource creation, secrets management, verification
+  - Shell tools: `preflight.sh`, `provision.sh`, `secrets.sh`, `verify.sh`, `config.sh`, `diagnose.sh`
+  - Agent definitions: provisioner (resource creation), security-auditor (compliance validation)
+  - Auth modes: standalone (default, app-level auth), auth-proxy (centralized auth service), IAP (Google Identity-Aware Proxy, recommended)
+  - Cookbooks: prerequisites, OAuth setup, Auth.js on Cloud Run, auth-proxy, IAP setup, build pipelines, environments, security model, troubleshooting
+  - Asset templates: Dockerfiles (Go, Node, Python), Cloud Build YAML, `.env` example, PR template, `gcp-setup-example.yml`
+  - Project doc generators: README, AGENTS.md, secrets-and-envs guide
+
 ## [0.2.2] - 2026-03-06
 
 ### Fixed

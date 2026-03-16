@@ -1,0 +1,77 @@
+# Cloud Build template for GCP Cloud Run deployment
+# Replace __TOKEN__ placeholders with values from .gcp-setup.yml:
+#   __PROJECT_ID__      = projects.<env>.id
+#   __REPO_NAME__       = artifact_registry.repo_name
+#   __IMAGE_NAME__      = your application image name
+#   __REGION__          = region
+#   __SERVICE_NAME__    = projects.<env>.service_name
+#   __MAX_INSTANCES__   = your scaling limit
+#   __RUNTIME_SA__      = <sa_prefix.runtime>@<project>.iam.gserviceaccount.com
+#   __SECRETS_MAPPING__ = generated from secrets manifest
+#   __ENV_VARS__        = non-secret env vars (e.g., AUTH_URL, AUTH_TRUST_HOST, ALLOWED_DOMAIN)
+#   __AUTH_FLAG__       = --allow-unauthenticated (standalone/auth-proxy) or --no-allow-unauthenticated (iap)
+#   __ENTRYPOINT__      = 'gcloud' (default) or 'gcloud beta' (required for IAP mode)
+#   __IAP_FLAG__        = REMOVE this line for non-IAP mode; set to '--iap' for IAP mode
+#   __APP_DIR__         = directory containing the Dockerfile
+#
+# NOTE: __TOKEN__ syntax is used for skill-level placeholders to avoid
+# conflicts with Cloud Build's native $VARIABLE substitution syntax.
+#
+# Example secrets mapping (from config):
+#   GOOGLE_CLIENT_ID=oauth-client-id:latest,SESSION_SECRET=session-secret:latest,...
+#
+# Example env vars (not secrets — safe to have in the YAML):
+#   AUTH_URL=https://<service>-<project-num>.<region>.run.app,AUTH_TRUST_HOST=true
+
+steps:
+  # Step 1: Build Docker image
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '-t'
+      - '__REGION__-docker.pkg.dev/__PROJECT_ID__/__REPO_NAME__/__IMAGE_NAME__:$COMMIT_SHA'
+      - '.'
+    dir: '__APP_DIR__'
+
+  # Step 2: Push to Artifact Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - '__REGION__-docker.pkg.dev/__PROJECT_ID__/__REPO_NAME__/__IMAGE_NAME__:$COMMIT_SHA'
+
+  # Step 3: Deploy to Cloud Run
+  # IMPORTANT: Remove --set-secrets line if no secrets are defined
+  # IMPORTANT: Remove --set-env-vars line if no env vars are defined
+  # Empty values (--set-secrets= or --set-env-vars=) will cause deploy failure
+  # IMPORTANT: For IAP mode, __ENTRYPOINT__ must be 'gcloud beta' and __IAP_FLAG__ must be '--iap'
+  # IMPORTANT: For non-IAP mode, REMOVE the __IAP_FLAG__ line entirely (do not leave it empty)
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: '__ENTRYPOINT__'
+    args:
+      - 'run'
+      - 'deploy'
+      - '__SERVICE_NAME__'
+      - '--image=__REGION__-docker.pkg.dev/__PROJECT_ID__/__REPO_NAME__/__IMAGE_NAME__:$COMMIT_SHA'
+      - '--region=__REGION__'
+      - '--platform=managed'
+      - '__AUTH_FLAG__'
+      # IAP mode only: uncomment the line below and set __ENTRYPOINT__ to 'gcloud beta'.
+      # Non-IAP mode: REMOVE the next line entirely. An empty string arg breaks gcloud.
+      - '__IAP_FLAG__'
+      - '--port=8080'
+      - '--memory=1Gi'
+      - '--cpu=1'
+      - '--max-instances=__MAX_INSTANCES__'
+      - '--service-account=__RUNTIME_SA__'
+      - '--set-secrets=__SECRETS_MAPPING__'
+      - '--set-env-vars=__ENV_VARS__'
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+
+images:
+  - '__REGION__-docker.pkg.dev/__PROJECT_ID__/__REPO_NAME__/__IMAGE_NAME__:$COMMIT_SHA'
+
+# NOTE: No Cloud Build substitutions are used in generated files.
+# All __TOKEN__ placeholders are resolved at generation time by the skill.
+# The __IAP_FLAG__ line is either set to '--iap' (IAP mode) or removed entirely.
