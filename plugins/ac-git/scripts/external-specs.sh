@@ -249,7 +249,7 @@ ext_specs_commit() {
       }
 
       # Stage all changes
-      git add -A || {
+      git add -A >&2 || {
         echo "ERROR: Failed to stage changes" >&2
         exit 2
       }
@@ -263,7 +263,7 @@ ext_specs_commit() {
         }
 
         # Attempt push with rollback on failure
-        if ! git push; then
+        if ! git push >&2; then
           echo "ERROR: Push failed, rolling back commit" >&2
           if ! git reset HEAD~1 >&2; then
             echo "CRITICAL: Rollback failed. Manual recovery required:" >&2
