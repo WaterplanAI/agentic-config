@@ -74,7 +74,7 @@ _test "resolve_spec_path stdout contains only the resolved path (no informationa
 (
   # Create a temporary project directory with CLAUDE.md and .git
   TMPDIR_TEST=$(mktemp -d)
-  trap "rm -rf '$TMPDIR_TEST'" EXIT
+  trap 'rm -rf "$TMPDIR_TEST"' EXIT
   mkdir -p "$TMPDIR_TEST/.git"
   echo "test" > "$TMPDIR_TEST/CLAUDE.md"
   cd "$TMPDIR_TEST"
@@ -158,18 +158,9 @@ _test "external-specs.sh informational messages go to stderr"
   # (lines after dry-run block, excluding ext_specs_path which returns a value)
   operational_stdout_echos=$(grep -n 'echo "' "$PLUGIN_ROOT/scripts/external-specs.sh" \
     | grep -v '>&2' \
-    | grep -v 'DRY RUN' \
-    | grep -v 'Would ' \
-    | grep -v 'From:' \
-    | grep -v 'Remote:' \
-    | grep -v 'Changes:' \
-    | grep -v 'Total files:' \
-    | grep -v 'Repository:' \
-    | grep -v 'Message:' \
     | grep -v 'ext_specs_path()' \
     | grep -v 'echo "$project_root/' \
     | grep -v '_ext_specs_lockdir' \
-    | grep -v 'echo "    $line"' \
     || true)
 
   if [[ -n "$operational_stdout_echos" ]]; then
