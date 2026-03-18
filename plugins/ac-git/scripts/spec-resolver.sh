@@ -149,7 +149,7 @@ commit_spec_changes() {
       local ext_specs_script="${CLAUDE_PLUGIN_ROOT}/scripts/external-specs.sh"
       # shellcheck source=external-specs.sh
       [[ -f "$ext_specs_script" ]] && source "$ext_specs_script"
-      ext_specs_commit "$commit_message" --dry-run 2>/dev/null || true
+      ext_specs_commit "$commit_message" --dry-run || true
       return 0
     fi
 
