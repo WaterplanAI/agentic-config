@@ -91,7 +91,8 @@ def main() -> None:
         "~/projects/", "~/.claude/", "~/.claude-secondary/", "/private/tmp/", "/tmp/",
     ])
     blocked_write_prefixes: list[str] = ws.get("blocked_write_prefixes", [
-        "~/.ssh/", "~/.aws/", "~/.config/gh/", "~/.docker/", "~/.gnupg/",
+        "~/.ssh/", "~/.aws/", "~/.config/gcloud/", "~/.config/gh/", "~/.azure/", "~/.kube/",
+        "~/.docker/", "~/.gnupg/", "~/.terraform.d/",
         "~/Library/LaunchAgents/", "~/Library/LaunchDaemons/",
         "/etc/", "/usr/", "/bin/", "/sbin/",
     ])

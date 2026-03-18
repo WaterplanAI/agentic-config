@@ -46,7 +46,8 @@ def _strip_glob_wildcards(path: str) -> str:
 # Blocked directory segments that should trigger blocking even when embedded in glob patterns.
 # These are concrete names (no wildcards) that indicate sensitive directories.
 _BLOCKED_SEGMENTS = {
-    ".ssh", ".aws", ".docker", ".gnupg", ".config/gh",
+    ".ssh", ".aws", ".config/gcloud", ".config/gh", ".azure", ".kube",
+    ".docker", ".gnupg", ".terraform.d",
     "Library/Keychains", "Library/LaunchAgents",
     ".claude/debug", ".claude/.claude.json",
 }
@@ -125,7 +126,7 @@ def _categorize_block(prefix: str) -> str:
     p = prefix.rstrip("/").lower()
     if ".ssh" in p:
         return "ssh-keys"
-    if ".aws" in p or ".docker" in p or ".config/gh" in p:
+    if any(s in p for s in (".aws", ".docker", ".config/gh", ".config/gcloud", ".azure", ".kube", ".terraform")):
         return "cloud-credentials"
     if ".gnupg" in p:
         return "cloud-credentials"
@@ -193,11 +194,12 @@ def main() -> None:
         cg = {}
 
     blocked_prefixes: list[str] = cg.get("blocked_prefixes", [
-        "~/.aws/", "~/.ssh/", "~/.config/gh/", "~/.docker/",
-        "~/.gnupg/", "~/Library/", "~/.claude/debug/", "~/.claude/.claude.json",
+        "~/.aws/", "~/.ssh/", "~/.config/gcloud/", "~/.config/gh/", "~/.azure/", "~/.kube/",
+        "~/.docker/", "~/.gnupg/", "~/.terraform.d/",
+        "~/Library/", "~/.claude/debug/", "~/.claude/.claude.json",
     ])
     blocked_filenames: list[str] = cg.get("blocked_filenames", [
-        ".npmrc", ".netrc", ".pypirc", ".git-credentials",
+        ".npmrc", ".netrc", ".pypirc", ".git-credentials", ".vault-token",
     ])
     blocked_extensions: list[str] = cg.get("blocked_extensions", [".pem", ".key", ".p12", ".pfx"])
     allowed_project_roots: list[str] = config.get("allowed_project_roots", ["~/projects/"])
