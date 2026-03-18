@@ -5,12 +5,14 @@
 #   2. _source_config_loader finds config-loader.sh via CLAUDE_PLUGIN_ROOT
 #   3. _source_config_loader finds config-loader.sh via BASH_SOURCE fallback
 #   4. Informational messages go to stderr, not stdout
+#   5. Preloaded config-loader still repairs CLAUDE_PLUGIN_ROOT for external specs flows
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 PLUGIN_ROOT="$REPO_ROOT/plugins/ac-git"
+WORKFLOW_PLUGIN_ROOT="$REPO_ROOT/plugins/ac-workflow"
 
 PASS=0
 FAIL=0
@@ -33,6 +35,62 @@ _fail() {
   echo "  FAIL: $msg"
 }
 
+_assert_preloaded_loader_repairs_plugin_root() (
+  local plugin_root="$1"
+  local plugin_name="$2"
+  local tmpdir remote_repo project_dir stderr_file stdout_output stderr_output line_count
+
+  tmpdir=$(mktemp -d)
+  trap 'rm -rf "$tmpdir"' EXIT
+
+  remote_repo="$tmpdir/remote.git"
+  project_dir="$tmpdir/project"
+  stderr_file="$tmpdir/resolve.stderr"
+
+  git init --bare "$remote_repo" >/dev/null 2>&1
+  mkdir -p "$project_dir"
+
+  cd "$project_dir"
+  git init >/dev/null 2>&1
+  echo "test" > CLAUDE.md
+  printf 'EXT_SPECS_REPO_URL=file://%s\n' "$remote_repo" > .env
+
+  unset -f load_agentic_config 2>/dev/null || true
+  unset -f get_project_root 2>/dev/null || true
+  unset EXT_SPECS_REPO_URL 2>/dev/null || true
+  unset EXT_SPECS_LOCAL_PATH 2>/dev/null || true
+
+  source "$plugin_root/scripts/lib/config-loader.sh"
+  export CLAUDE_PLUGIN_ROOT="/nonexistent/path"
+  source "$plugin_root/scripts/spec-resolver.sh"
+
+  _source_config_loader 2>"$stderr_file"
+
+  if [[ "$CLAUDE_PLUGIN_ROOT" != "$plugin_root" ]]; then
+    echo "$plugin_name: CLAUDE_PLUGIN_ROOT was not repaired: $CLAUDE_PLUGIN_ROOT" >&2
+    exit 1
+  fi
+
+  stdout_output=$(resolve_spec_path "2025/03/feat/test/001-spec.md" 2>>"$stderr_file")
+
+  line_count=$(echo "$stdout_output" | wc -l | tr -d ' ')
+  if [[ "$line_count" -ne 1 ]]; then
+    echo "$plugin_name: expected 1 line on stdout, got $line_count: $stdout_output" >&2
+    exit 1
+  fi
+
+  if [[ "$stdout_output" != *".specs/specs/2025/03/feat/test/001-spec.md" ]]; then
+    echo "$plugin_name: unexpected stdout: $stdout_output" >&2
+    exit 1
+  fi
+
+  stderr_output=$(<"$stderr_file")
+  if [[ "$stderr_output" != *"WARNING: CLAUDE_PLUGIN_ROOT fallback activated"* ]]; then
+    echo "$plugin_name: missing fallback warning on stderr: $stderr_output" >&2
+    exit 1
+  fi
+)
+
 # ---- Test 1: _source_config_loader succeeds with correct CLAUDE_PLUGIN_ROOT ----
 _test "_source_config_loader finds config-loader.sh via CLAUDE_PLUGIN_ROOT"
 (
@@ -52,16 +110,14 @@ _test "_source_config_loader finds config-loader.sh via CLAUDE_PLUGIN_ROOT"
   fi
 ) && _pass || _fail "config-loader.sh not found with correct CLAUDE_PLUGIN_ROOT"
 
-# ---- Test 2: _source_config_loader fails with bad CLAUDE_PLUGIN_ROOT, then recovers via fallback ----
+# ---- Test 2: _source_config_loader recovers with bad CLAUDE_PLUGIN_ROOT ----
 _test "_source_config_loader recovers via BASH_SOURCE fallback when CLAUDE_PLUGIN_ROOT is wrong"
 (
   unset -f load_agentic_config 2>/dev/null || true
   unset -f get_project_root 2>/dev/null || true
-  # Set CLAUDE_PLUGIN_ROOT to a bogus path - the script should fall back
+  # Set CLAUDE_PLUGIN_ROOT to a bogus path - the helper should fall back
   export CLAUDE_PLUGIN_ROOT="/nonexistent/path"
   source "$PLUGIN_ROOT/scripts/spec-resolver.sh"
-  # After sourcing, CLAUDE_PLUGIN_ROOT was reset by the fallback in the file header
-  # since /nonexistent/path doesn't exist, but BASH_SOURCE resolves correctly
   if _source_config_loader 2>/dev/null; then
     exit 0
   else
@@ -154,8 +210,7 @@ _test "Error messages go to stderr, not stdout"
 # ---- Test 5: external-specs.sh informational messages go to stderr ----
 _test "external-specs.sh informational messages go to stderr"
 (
-  # Verify no bare echo without >&2 in the non-dry-run operational section
-  # (lines after dry-run block, excluding ext_specs_path which returns a value)
+  # Verify no bare echo without >&2 in the non-value-returning paths
   operational_stdout_echos=$(grep -n 'echo "' "$PLUGIN_ROOT/scripts/external-specs.sh" \
     | grep -v '>&2' \
     | grep -v 'ext_specs_path()' \
@@ -189,23 +244,12 @@ _test "spec-resolver.sh commit success messages go to stderr"
   exit 0
 ) && _pass || _fail "commit success messages not redirected to stderr"
 
-# ---- Test 7: _source_config_loader skips if already loaded ----
-_test "_source_config_loader skips re-sourcing when load_agentic_config already defined"
+# ---- Test 7: preloaded config-loader still repairs CLAUDE_PLUGIN_ROOT ----
+_test "preloaded config-loader still repairs CLAUDE_PLUGIN_ROOT for ac-git and ac-workflow"
 (
-  # Define a dummy load_agentic_config before sourcing
-  load_agentic_config() { echo "dummy"; }
-  export CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT"
-  source "$PLUGIN_ROOT/scripts/spec-resolver.sh"
-
-  # Should succeed immediately without trying to find the file
-  # Even with a bogus CLAUDE_PLUGIN_ROOT, it should skip
-  CLAUDE_PLUGIN_ROOT="/nonexistent"
-  if _source_config_loader 2>/dev/null; then
-    exit 0
-  else
-    exit 1
-  fi
-) && _pass || _fail "didn't skip when load_agentic_config already defined"
+  _assert_preloaded_loader_repairs_plugin_root "$PLUGIN_ROOT" "ac-git"
+  _assert_preloaded_loader_repairs_plugin_root "$WORKFLOW_PLUGIN_ROOT" "ac-workflow"
+) && _pass || _fail "preloaded config-loader did not repair CLAUDE_PLUGIN_ROOT"
 
 # ---- Summary ----
 echo ""
