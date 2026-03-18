@@ -32,6 +32,7 @@ def test_blocks_browser_evaluate() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -43,6 +44,7 @@ def test_allows_browser_snapshot() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -54,6 +56,7 @@ def test_allows_navigate_allowed_domain() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -65,6 +68,7 @@ def test_asks_navigate_blocked_domain() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -80,6 +84,7 @@ def test_asks_action_with_url_on_blocked_domain() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -94,6 +99,7 @@ def test_allows_action_with_url_on_allowed_domain() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 

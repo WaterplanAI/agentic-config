@@ -32,6 +32,7 @@ def test_allows_npm_install() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -43,6 +44,7 @@ def test_allows_uv_sync() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -55,6 +57,7 @@ def test_asks_pip_install_direct() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -66,6 +69,7 @@ def test_asks_npx_unknown_package() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -77,6 +81,7 @@ def test_asks_npm_install_package() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -88,6 +93,7 @@ def test_asks_npm_install_global() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -99,6 +105,7 @@ def test_asks_yarn_add_package() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -110,6 +117,7 @@ def test_asks_uv_run_with_package() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -121,6 +129,7 @@ def test_asks_pnpm_dlx_package() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -132,6 +141,7 @@ def test_asks_uv_add_direct() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -143,6 +153,7 @@ def test_asks_uv_add_dev_flag() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -154,6 +165,7 @@ def test_asks_uv_add_group_flag() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -166,6 +178,7 @@ def test_asks_npm_exec_double_dash() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -178,6 +191,7 @@ def test_asks_uv_add_double_dash() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -190,6 +204,7 @@ def test_asks_pip3_install() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -202,6 +217,7 @@ def test_allows_pip3_install_requirements() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -214,6 +230,7 @@ def test_asks_npm_install_ignore_scripts_evil() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -226,6 +243,7 @@ def test_asks_pip_install_r_with_trailing_pkg() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -238,6 +256,7 @@ def test_asks_uv_sync_chained_uv_add() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -250,6 +269,7 @@ def test_asks_npx_chained_evil() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -262,6 +282,7 @@ def test_asks_npm_i_alias() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -274,6 +295,7 @@ def test_allows_npm_i_bare() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -286,6 +308,7 @@ def test_asks_semicolon_chained_pip() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -298,6 +321,7 @@ def test_asks_pipe_chained_npm_install() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -314,6 +338,7 @@ def test_asks_npm_install_multi_first_allowlisted() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -326,6 +351,7 @@ def test_asks_uv_add_multi_first_allowlisted() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -338,6 +364,7 @@ def test_asks_yarn_add_multi_packages() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -350,6 +377,7 @@ def test_asks_pnpm_add_multi_packages() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -362,6 +390,7 @@ def test_asks_bun_add_multi_packages() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -377,6 +406,7 @@ def test_asks_xargs_npm_install() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -389,6 +419,7 @@ def test_asks_xargs_pip_install() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -401,6 +432,7 @@ def test_asks_xargs_uv_add() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -416,6 +448,7 @@ def test_asks_pip_install_r_remote_url() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -428,6 +461,7 @@ def test_asks_pip_install_e_absolute_path() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -440,6 +474,7 @@ def test_asks_uv_pip_install_e_git_url() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -452,6 +487,7 @@ def test_asks_pip_install_r_absolute_path() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -464,6 +500,7 @@ def test_asks_pip_install_r_tilde_path() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -476,6 +513,7 @@ def test_allows_pip_install_r_requirements_txt() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -488,6 +526,7 @@ def test_allows_pip_install_r_subdir() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -500,6 +539,7 @@ def test_allows_pip_install_r_dot_relative() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -512,6 +552,7 @@ def test_allows_pip_install_e_dot() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -524,6 +565,7 @@ def test_allows_pip_install_e_dot_extras() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -536,6 +578,7 @@ def test_asks_uv_pip_install_r_url() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -548,6 +591,7 @@ def test_allows_uv_pip_install_e_dot() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -560,6 +604,7 @@ def test_allows_uv_pip_install_e_dot_extras() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -628,36 +673,36 @@ def main() -> None:
 def test_asks_pip_install_r_parent_traversal() -> TestResult:
     r = TestResult("Asks for pip install -r with parent traversal (../)")
     try:
-        output = run_hook("pip install -r ../../../etc/evil.txt")
-        decision = output.get("hookSpecificOutput", {}).get("permissionDecision")
-        assert decision == "ask", f"Expected ask, got {decision}"
+        out = run_hook("pip install -r ../../../etc/evil.txt")
+        assert out["decision"] == "ask", f"Expected ask, got {out['decision']}"
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
 def test_allows_pip_install_requirement_equals() -> TestResult:
     r = TestResult("Allows pip install --requirement=requirements.txt (equals form)")
     try:
-        output = run_hook("pip install --requirement=requirements.txt")
-        decision = output.get("hookSpecificOutput", {}).get("permissionDecision")
-        assert decision != "deny" and decision != "ask", f"Expected allow, got {decision}"
+        out = run_hook("pip install --requirement=requirements.txt")
+        assert out["decision"] == "allow", f"Expected allow, got {out['decision']}"
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
 def test_allows_pip_install_editable_equals() -> TestResult:
     r = TestResult("Allows pip install --editable=. (equals form)")
     try:
-        output = run_hook("pip install --editable=.")
-        decision = output.get("hookSpecificOutput", {}).get("permissionDecision")
-        assert decision != "deny" and decision != "ask", f"Expected allow, got {decision}"
+        out = run_hook("pip install --editable=.")
+        assert out["decision"] == "allow", f"Expected allow, got {out['decision']}"
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 

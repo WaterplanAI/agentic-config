@@ -50,6 +50,10 @@ def _deep_merge(base: dict, overlay: dict) -> dict:
     """
     result = dict(base)
     for key, overlay_val in overlay.items():
+        # Never let YAML null overwrite an existing value -- most-defensive approach
+        # consistent with "most-restrictive-wins" philosophy.
+        if overlay_val is None:
+            continue
         if key not in result:
             result[key] = overlay_val
         elif isinstance(result[key], dict) and isinstance(overlay_val, dict):
@@ -103,17 +107,50 @@ def _resolve_broad_paths() -> frozenset[str]:
     return _OVERLY_BROAD_PATHS
 
 
-def _strip_broad_entries(config: dict[str, Any]) -> dict[str, Any]:
-    """Remove overly broad entries (/, ~/) from union-merged security lists."""
+def _is_broad_path(resolved: str) -> bool:
+    """Return True if resolved path is too broad for security-critical lists.
+
+    Rejects:
+    - Exact / and $HOME
+    - Any ancestor of $HOME (e.g. /Users, /home)
+    - Top-level system directories (single-component absolute paths like /tmp, /var, /etc)
+    """
     broad = _resolve_broad_paths()
+    if resolved in broad:
+        return True
+    home = os.path.realpath(os.path.expanduser("~"))
+    # Reject any path that is an ancestor of HOME
+    if home.startswith(resolved.rstrip("/") + "/"):
+        return True
+    # Reject single-component absolute paths (top-level dirs: /tmp, /var, /etc, /Users, etc.)
+    # A resolved absolute path like "/Users" has parts ('/', 'Users') -- 2 parts = top-level dir.
+    from pathlib import PurePosixPath
+    parts = PurePosixPath(resolved).parts
+    if len(parts) <= 2 and resolved != "/":
+        return True
+    return False
+
+
+def _strip_broad_entries(config: dict[str, Any]) -> dict[str, Any]:
+    """Remove overly broad entries from union-merged allowlist security lists.
+
+    Strips: /, ~/, HOME ancestors (/Users, /home), and top-level system dirs.
+    Only applies to allowlist-type keys. Keys starting with ``blocked`` are
+    deny-lists and intentionally contain broad paths -- stripping them would
+    weaken security.
+    """
     for key, val in config.items():
         if isinstance(val, dict):
             config[key] = _strip_broad_entries(val)
-        elif isinstance(val, list) and any(key.endswith(s) for s in _UNION_MERGE_SUFFIXES):
+        elif (
+            isinstance(val, list)
+            and any(key.endswith(s) for s in _UNION_MERGE_SUFFIXES)
+            and not key.startswith("blocked")
+        ):
             original_len = len(val)
             cleaned = [
                 item for item in val
-                if os.path.realpath(os.path.expanduser(str(item).rstrip("/") or "/")) not in broad
+                if not _is_broad_path(os.path.realpath(os.path.expanduser(str(item).rstrip("/") or "/")))
             ]
             if len(cleaned) < original_len:
                 print(

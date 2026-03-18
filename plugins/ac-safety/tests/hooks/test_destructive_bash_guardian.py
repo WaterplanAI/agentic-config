@@ -33,6 +33,7 @@ def test_blocks_rm_rf_home() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -44,6 +45,7 @@ def test_blocks_git_force_push() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -55,6 +57,7 @@ def test_blocks_terraform_destroy() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -67,6 +70,7 @@ def test_allows_safe_commands() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -84,6 +88,7 @@ def test_allows_non_bash_tools() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -95,6 +100,7 @@ def test_blocks_rm_rf_home_no_slash() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -106,6 +112,7 @@ def test_blocks_rm_rf_parent_dir() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -117,6 +124,7 @@ def test_blocks_rm_rf_parent_relative() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -128,6 +136,7 @@ def test_blocks_git_push_origin_f() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -139,6 +148,7 @@ def test_blocks_git_push_origin_main_f() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -151,6 +161,7 @@ def test_blocks_rm_rf_double_dash_home() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -163,6 +174,7 @@ def test_blocks_rm_r_f_double_dash_home() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -175,6 +187,7 @@ def test_blocks_rm_rf_subshell() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -187,6 +200,7 @@ def test_blocks_rm_rf_backtick() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -199,6 +213,7 @@ def test_blocks_rm_rf_dollar_subshell() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -211,6 +226,7 @@ def test_blocks_rm_split_flags() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -223,6 +239,7 @@ def test_blocks_rm_split_flags_reversed() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -235,6 +252,7 @@ def test_blocks_find_delete() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -247,6 +265,7 @@ def test_blocks_find_exec_rm() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -259,6 +278,7 @@ def test_blocks_xargs_rm() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -271,6 +291,7 @@ def test_blocks_rm_rf_dollar_home() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -283,6 +304,7 @@ def test_blocks_rm_rf_dollar_brace_home() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -295,6 +317,7 @@ def test_blocks_rm_rf_dollar_home_subdir() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -307,6 +330,7 @@ def test_blocks_git_push_combined_uf() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -319,6 +343,7 @@ def test_allows_git_push_force_with_lease() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -331,6 +356,7 @@ def test_blocks_rm_rf_quoted_dollar_home() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -343,6 +369,7 @@ def test_blocks_rm_rf_single_quoted_dollar_home() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -355,6 +382,7 @@ def test_blocks_rm_rf_quoted_brace_home() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -367,6 +395,7 @@ def test_blocks_rm_rf_quoted_tilde() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -379,6 +408,7 @@ def test_blocks_rm_rf_quoted_dollar_home_subdir() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -391,6 +421,7 @@ def test_blocks_rm_rf_quoted_brace_home_subdir() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -403,6 +434,7 @@ def test_blocks_eval_rm_rf_tilde() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -415,6 +447,7 @@ def test_blocks_bash_c_rm_rf_tilde() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -427,6 +460,7 @@ def test_blocks_find_exec_bin_rm() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -439,6 +473,7 @@ def test_blocks_find_exec_usr_bin_rm() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -451,6 +486,7 @@ def test_blocks_find_exec_usr_local_bin_rm() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -463,6 +499,7 @@ def test_blocks_curl_pipe_sh() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -475,6 +512,7 @@ def test_blocks_curl_pipe_bash() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -487,6 +525,7 @@ def test_blocks_wget_pipe_sh() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -499,6 +538,7 @@ def test_blocks_wget_pipe_bash() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -511,6 +551,7 @@ def test_blocks_bash_c_curl_subshell() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -523,6 +564,7 @@ def test_blocks_sh_process_substitution_curl() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -535,6 +577,7 @@ def test_allows_safe_curl_get() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -547,6 +590,7 @@ def test_blocks_chained_curl_pipe_sh() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -562,6 +606,7 @@ def test_blocks_curl_pipe_bin_sh() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -574,6 +619,7 @@ def test_blocks_curl_pipe_usr_bin_bash() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -586,6 +632,7 @@ def test_blocks_curl_pipe_usr_local_bin_zsh() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -598,6 +645,7 @@ def test_blocks_wget_pipe_bin_bash() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -610,6 +658,7 @@ def test_blocks_curl_pipe_env_sh() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -622,6 +671,7 @@ def test_blocks_curl_pipe_exec_sh() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -637,6 +687,7 @@ def test_blocks_eval_curl_subshell() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -649,6 +700,7 @@ def test_blocks_eval_wget_subshell() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -661,6 +713,7 @@ def test_blocks_source_process_substitution_curl() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -673,6 +726,7 @@ def test_blocks_dot_process_substitution_curl() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -685,6 +739,7 @@ def test_blocks_source_process_substitution_wget() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -700,6 +755,7 @@ def test_blocks_curl_pipe_python3() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -712,6 +768,7 @@ def test_blocks_curl_pipe_perl() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -724,6 +781,7 @@ def test_blocks_curl_pipe_ruby() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -736,6 +794,7 @@ def test_blocks_curl_pipe_node() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -748,6 +807,7 @@ def test_blocks_curl_pipe_python() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -763,6 +823,7 @@ def test_allows_safe_curl_no_pipe() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -778,6 +839,7 @@ def test_blocks_curl_o_then_bash() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -790,6 +852,7 @@ def test_blocks_wget_O_then_sh() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -805,6 +868,7 @@ def test_blocks_bare_dollar_curl() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -817,6 +881,7 @@ def test_blocks_bare_dollar_wget() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -832,6 +897,7 @@ def test_blocks_curl_xargs_bash() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -847,6 +913,7 @@ def test_blocks_bash_herestring_curl() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -862,6 +929,7 @@ def test_allows_curl_download_no_execute() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -877,6 +945,7 @@ def test_blocks_git_push_force_refspec() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -889,6 +958,7 @@ def test_blocks_git_push_delete_refspec() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -904,6 +974,7 @@ def test_blocks_head_ssh_key() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -916,6 +987,7 @@ def test_blocks_tail_aws_credentials() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -928,6 +1000,7 @@ def test_blocks_base64_ssh_key() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -940,6 +1013,7 @@ def test_blocks_grep_aws_credentials() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -952,6 +1026,7 @@ def test_blocks_cp_ssh_key() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -964,6 +1039,7 @@ def test_blocks_strings_kube_config() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -979,6 +1055,7 @@ def test_blocks_strings_gnupg_secring() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -991,6 +1068,7 @@ def test_blocks_grep_gnupg() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -1006,6 +1084,7 @@ def test_blocks_tar_ssh() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -1018,6 +1097,7 @@ def test_blocks_rsync_aws() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -1030,6 +1110,7 @@ def test_blocks_mv_ssh_key() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -1042,6 +1123,7 @@ def test_blocks_ln_docker_config() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -1054,6 +1136,7 @@ def test_blocks_zip_gnupg() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -1070,6 +1153,7 @@ def test_blocks_sort_absolute_npmrc() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -1083,6 +1167,7 @@ def test_blocks_cat_absolute_netrc() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -1096,6 +1181,7 @@ def test_blocks_head_absolute_claude_debug() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -1111,6 +1197,7 @@ def test_blocks_diff_ssh_key() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -1126,6 +1213,7 @@ def test_allows_rm_rf_in_project_dir() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -1138,6 +1226,7 @@ def test_blocks_rm_rf_outside_project() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -1150,6 +1239,7 @@ def test_blocks_rm_rf_tmp() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 

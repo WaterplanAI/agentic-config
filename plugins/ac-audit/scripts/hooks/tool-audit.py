@@ -34,6 +34,8 @@ def _deep_merge(base: dict, overlay: dict) -> dict:
     """Deep-merge overlay into base. Simpler than ac-safety (no union-merge or most-restrictive-wins)."""
     result = dict(base)
     for key, overlay_val in overlay.items():
+        if overlay_val is None:
+            continue
         if key not in result:
             result[key] = overlay_val
         elif isinstance(result[key], dict) and isinstance(overlay_val, dict):
@@ -125,21 +127,45 @@ _SECRET_PATTERNS: list[tuple[re.Pattern[str], str]] = [
     (re.compile(r"\b(xox[bpras]-[A-Za-z0-9\-]+)\b"), "***REDACTED_KEY***"),
 ]
 
+# Key names that indicate sensitive values -- matched case-insensitively against dict keys.
+# Three tiers to avoid false positives (e.g. "monkey", "author", "token_count"):
+#   1. Exact-match standalone words: token, secret, password, etc.
+#   2. Known compound key patterns: api_key, access_token, private_key, etc.
+#   3. Short ambiguous words only when exact: key, auth
+_SENSITIVE_KEYS: re.Pattern[str] = re.compile(
+    r"^(?:token|secret|password|passwd|credentials?|authorization|bearer)$"
+    r"|(?:api[_\-]?key|access[_\-]?token|refresh[_\-]?token|private[_\-]?key"
+    r"|client[_\-]?secret|auth[_\-]?token)"
+    r"|^(?:key|auth)$",
+    re.IGNORECASE,
+)
+
 # Maximum acceptable log permissions (0o600). More permissive values are clamped.
 _MAX_LOG_PERMISSIONS = 0o600
 
 
 def _redact_secrets(obj: object) -> object:
-    """Redact common secret patterns from strings in a nested structure."""
+    """Redact common secret patterns from strings and sensitive dict keys in a nested structure."""
     if isinstance(obj, dict):
-        return {k: _redact_secrets(v) for k, v in obj.items()}
+        result: dict[str, object] = {}
+        for k, v in obj.items():
+            if isinstance(k, str) and _SENSITIVE_KEYS.search(k):
+                # For container values (dict/list), recurse so nested keys
+                # are individually redacted rather than replacing the whole structure.
+                if isinstance(v, (dict, list)):
+                    result[k] = _redact_secrets(v)
+                else:
+                    result[k] = "***REDACTED***"
+            else:
+                result[k] = _redact_secrets(v)
+        return result
     elif isinstance(obj, list):
         return [_redact_secrets(item) for item in obj]
     elif isinstance(obj, str):
-        result = obj
+        text = obj
         for pattern, replacement in _SECRET_PATTERNS:
-            result = pattern.sub(replacement, result)
-        return result
+            text = pattern.sub(replacement, text)
+        return text
     return obj
 
 
@@ -197,7 +223,8 @@ def main() -> None:
         _write_audit_log(tool_name, tool_input, log_dir, log_permissions)
 
         if tool_name in display_tools:
-            truncated = _truncate_field_values(tool_input, max_words)
+            redacted = _redact_secrets(tool_input)
+            truncated = _truncate_field_values(redacted, max_words)
             message = f"{tool_name}:\n{_format_simple(truncated) if isinstance(truncated, dict) else str(truncated)}"
             print(json.dumps({"systemMessage": message}))
 

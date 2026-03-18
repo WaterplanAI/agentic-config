@@ -161,13 +161,16 @@ def _is_blocked(
             category = _categorize_block(prefix)
             return f"Access to {prefix} is blocked (credential protection)", category
 
-    # Blocked filenames: always block in home dir, also block outside project roots
+    # Blocked filenames: block outside project roots; inside home but outside project roots too
     basename = os.path.basename(resolved)
     home = os.path.expanduser("~")
     if basename in blocked_filenames:
-        if resolved.startswith(home + "/"):
+        in_project = is_in_prefixes(path, allowed_project_roots + ["/private/tmp/", "/tmp/"])
+        if in_project:
+            pass  # Allow credential-named files inside project roots
+        elif resolved.startswith(home + "/"):
             return f"Access to {basename} is blocked (credential file)", "app-tokens"
-        if not is_in_prefixes(path, allowed_project_roots + ["/private/tmp/", "/tmp/"]):
+        else:
             return f"Access to {basename} outside project dirs is blocked (credential file)", "app-tokens"
 
     # Outside project roots: block sensitive extensions and .env

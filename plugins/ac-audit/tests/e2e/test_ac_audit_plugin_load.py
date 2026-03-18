@@ -31,6 +31,7 @@ def test_ac_audit_structure() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 

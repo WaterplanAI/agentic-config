@@ -15,6 +15,7 @@ from ac_safety_test_support import TestResult  # noqa: E402  # pyright: ignore[r
 from _lib import (  # noqa: E402  # pyright: ignore[reportMissingImports]
     _UNION_MERGE_SUFFIXES,
     _deep_merge,
+    _is_broad_path,
     _most_restrictive,
     _strip_broad_entries,
     allow,
@@ -40,6 +41,7 @@ def test_most_restrictive() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -57,6 +59,7 @@ def test_deep_merge_basic() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -72,6 +75,7 @@ def test_deep_merge_categories_most_restrictive() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -99,6 +103,7 @@ def test_deep_merge_list_replacement() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -114,6 +119,7 @@ def test_get_category_decision_defaults() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -127,6 +133,7 @@ def test_resolve_path() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -139,6 +146,7 @@ def test_is_in_prefixes() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -163,6 +171,7 @@ def test_fail_close_decorator() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -198,6 +207,7 @@ def test_decision_helpers_output() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -212,21 +222,23 @@ def test_strip_broad_entries_removes_root() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
 def test_strip_broad_entries_removes_home() -> TestResult:
-    r = TestResult("_strip_broad_entries: strips ~/ from security lists")
+    r = TestResult("_strip_broad_entries: strips ~/ from security allowlist lists")
     try:
         home = os.path.expanduser("~")
-        config = {"blocked_prefixes": ["~/", "~/.ssh/", home]}
+        config = {"allowed_write_prefixes": ["~/", "~/.ssh/", home]}
         result = _strip_broad_entries(config)
-        resolved = [os.path.realpath(os.path.expanduser(p)) for p in result["blocked_prefixes"]]
+        resolved = [os.path.realpath(os.path.expanduser(p)) for p in result["allowed_write_prefixes"]]
         assert os.path.realpath(home) not in resolved, "~/ should be stripped"
         assert any(".ssh" in p for p in resolved), "~/.ssh/ should remain"
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -241,20 +253,22 @@ def test_strip_broad_entries_ignores_non_security_lists() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
 def test_strip_broad_entries_nested() -> TestResult:
     r = TestResult("_strip_broad_entries: recurses into nested dicts")
     try:
-        config = {"credential_guardian": {"blocked_prefixes": ["/", "~/.ssh/"]}}
+        config = {"credential_guardian": {"allowed_write_prefixes": ["/", "~/.ssh/"]}}
         result = _strip_broad_entries(config)
-        resolved = [os.path.realpath(os.path.expanduser(p)) for p in result["credential_guardian"]["blocked_prefixes"]]
+        resolved = [os.path.realpath(os.path.expanduser(p)) for p in result["credential_guardian"]["allowed_write_prefixes"]]
         assert os.path.realpath("/") not in resolved, "/ should be stripped from nested list"
         assert any(".ssh" in p for p in resolved), "~/.ssh/ should remain"
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -279,6 +293,7 @@ def test_resolve_path_private_normalization() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -297,6 +312,7 @@ def test_resolve_path_private_preserves_real_dirs() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -312,6 +328,174 @@ def test_union_merge_roots_suffix() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
+    return r
+
+
+def test_deep_merge_null_does_not_overwrite_dict() -> TestResult:
+    r = TestResult("deep_merge: null overlay does not overwrite existing dict (Issue 1)")
+    try:
+        base = {"credential_guardian": {"categories": {"ssh-keys": "deny"}}}
+        overlay = {"credential_guardian": None}
+        result = _deep_merge(base, overlay)
+        # null must NOT replace the dict
+        assert isinstance(result["credential_guardian"], dict), (
+            f"Expected dict, got {type(result['credential_guardian'])}"
+        )
+        assert result["credential_guardian"]["categories"]["ssh-keys"] == "deny"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+        raise
+    return r
+
+
+def test_deep_merge_null_does_not_overwrite_scalar() -> TestResult:
+    r = TestResult("deep_merge: null overlay does not overwrite existing scalar")
+    try:
+        base = {"max_retries": 3}
+        overlay = {"max_retries": None}
+        result = _deep_merge(base, overlay)
+        assert result["max_retries"] == 3, f"Expected 3, got {result['max_retries']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+        raise
+    return r
+
+
+def test_deep_merge_null_does_not_overwrite_list() -> TestResult:
+    r = TestResult("deep_merge: null overlay does not overwrite existing list")
+    try:
+        base = {"blocked_prefixes": ["~/.ssh/", "~/.aws/"]}
+        overlay = {"blocked_prefixes": None}
+        result = _deep_merge(base, overlay)
+        assert result["blocked_prefixes"] == ["~/.ssh/", "~/.aws/"], (
+            f"Expected original list, got {result['blocked_prefixes']}"
+        )
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+        raise
+    return r
+
+
+def test_deep_merge_null_adds_new_key() -> TestResult:
+    r = TestResult("deep_merge: null for new key is skipped (never introduces None)")
+    try:
+        base = {"a": 1}
+        overlay = {"b": None}
+        result = _deep_merge(base, overlay)
+        # New key with None value should be skipped entirely
+        assert "b" not in result, f"Expected 'b' absent, got {result}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+        raise
+    return r
+
+
+def test_strip_broad_entries_rejects_users_dir() -> TestResult:
+    r = TestResult("_strip_broad_entries: strips /Users and /home (Issue 2)")
+    try:
+        config = {"allowed_project_roots": ["/Users", "/home", "~/projects/"]}
+        result = _strip_broad_entries(config)
+        resolved_roots = [os.path.realpath(os.path.expanduser(p)) for p in result["allowed_project_roots"]]
+        home = os.path.realpath(os.path.expanduser("~"))
+        # /Users and /home should be stripped (they are ancestors of HOME or top-level)
+        for root in resolved_roots:
+            assert not home.startswith(root.rstrip("/") + "/"), (
+                f"HOME ancestor {root} should have been stripped"
+            )
+        assert any("projects" in p for p in resolved_roots), "~/projects/ should remain"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+        raise
+    return r
+
+
+def test_strip_broad_entries_rejects_home_ancestors() -> TestResult:
+    r = TestResult("_strip_broad_entries: strips any ancestor of HOME")
+    try:
+        home = os.path.realpath(os.path.expanduser("~"))
+        # Build ancestor: e.g. if HOME is /Users/john, ancestor is /Users
+        parent = os.path.dirname(home)
+        if parent and parent != home:  # Ensure we have a real parent
+            config = {"allowed_project_roots": [parent, "~/projects/"]}
+            result = _strip_broad_entries(config)
+            resolved_roots = [os.path.realpath(os.path.expanduser(p)) for p in result["allowed_project_roots"]]
+            assert os.path.realpath(parent) not in resolved_roots, (
+                f"HOME ancestor {parent} should be stripped"
+            )
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+        raise
+    return r
+
+
+def test_strip_broad_entries_rejects_top_level_dirs() -> TestResult:
+    r = TestResult("_strip_broad_entries: strips top-level dirs like /Applications, /System")
+    try:
+        # Use dirs that resolve to true top-level paths (len(parts) <= 2).
+        # On macOS, /tmp -> /private/tmp (3 parts), so use /Applications, /System instead.
+        config = {"allowed_project_roots": ["/Applications", "/System", "~/projects/"]}
+        result = _strip_broad_entries(config)
+        resolved_roots = [os.path.realpath(os.path.expanduser(p)) for p in result["allowed_project_roots"]]
+        # Single-component top-level paths should be stripped
+        for raw in ["/Applications", "/System"]:
+            resolved = os.path.realpath(raw)
+            assert resolved not in resolved_roots, f"Top-level dir {raw} ({resolved}) should be stripped"
+        assert any("projects" in p for p in resolved_roots), "~/projects/ should remain"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+        raise
+    return r
+
+
+def test_strip_broad_entries_preserves_blocked_prefixes() -> TestResult:
+    r = TestResult("_strip_broad_entries: preserves broad entries in blocked_* deny-lists (MEDIUM-1)")
+    try:
+        config = {
+            "blocked_write_prefixes": ["/usr/", "/bin/", "/sbin/", "~/.ssh/"],
+            "allowed_project_roots": ["/usr/", "~/projects/"],
+        }
+        result = _strip_broad_entries(config)
+        # Deny-list entries must survive -- stripping them weakens security
+        blocked = result["blocked_write_prefixes"]
+        assert "/usr/" in blocked, f"/usr/ missing from blocked_write_prefixes: {blocked}"
+        assert "/bin/" in blocked, f"/bin/ missing from blocked_write_prefixes: {blocked}"
+        assert "/sbin/" in blocked, f"/sbin/ missing from blocked_write_prefixes: {blocked}"
+        assert "~/.ssh/" in blocked, f"~/.ssh/ missing from blocked_write_prefixes: {blocked}"
+        # Allowlist entries with broad paths should still be stripped
+        allowed = result["allowed_project_roots"]
+        assert "/usr/" not in allowed, "/usr/ should be stripped from allowed_project_roots"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+        raise
+    return r
+
+
+def test_is_broad_path_detects_ancestors() -> TestResult:
+    r = TestResult("_is_broad_path: correctly identifies HOME ancestors")
+    try:
+        home = os.path.realpath(os.path.expanduser("~"))
+        parent = os.path.dirname(home)
+        assert _is_broad_path(os.path.realpath("/")), "/ should be broad"
+        assert _is_broad_path(os.path.realpath(home)), "HOME should be broad"
+        if parent and parent != "/":
+            assert _is_broad_path(os.path.realpath(parent)), f"HOME parent {parent} should be broad"
+        # A project dir deep inside home should NOT be broad
+        assert not _is_broad_path(os.path.realpath(os.path.expanduser("~/projects/myapp"))), (
+            "~/projects/myapp should NOT be broad"
+        )
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -330,6 +514,15 @@ def main() -> None:
         test_resolve_path_private_normalization,
         test_resolve_path_private_preserves_real_dirs,
         test_union_merge_roots_suffix,
+        test_deep_merge_null_does_not_overwrite_dict,
+        test_deep_merge_null_does_not_overwrite_scalar,
+        test_deep_merge_null_does_not_overwrite_list,
+        test_deep_merge_null_adds_new_key,
+        test_strip_broad_entries_rejects_users_dir,
+        test_strip_broad_entries_rejects_home_ancestors,
+        test_strip_broad_entries_rejects_top_level_dirs,
+        test_strip_broad_entries_preserves_blocked_prefixes,
+        test_is_broad_path_detects_ancestors,
     ])
 
 

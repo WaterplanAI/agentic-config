@@ -1,10 +1,7 @@
 """Shared test utilities for ac-audit tests."""
 
 import sys
-import warnings
 from typing import Callable
-
-warnings.filterwarnings("ignore", message=r"Test functions should return None, but .* returned .*")
 
 
 class TestResult:
@@ -37,7 +34,11 @@ def run_tests(name: str, tests: list[Callable[[], TestResult]]) -> None:
     print(f"Running {name}...\n")
     passed = failed = 0
     for test_func in tests:
-        result = test_func()
+        try:
+            result = test_func()
+        except Exception as e:
+            result = TestResult(test_func.__name__)
+            result.mark_fail(str(e))
         print(result)
         if result.passed:
             passed += 1

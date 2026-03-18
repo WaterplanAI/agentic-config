@@ -62,6 +62,7 @@ def test_jsonl_log_writing() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -84,6 +85,7 @@ def test_truncation_behavior() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -100,6 +102,7 @@ def test_fail_close_on_error() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -120,6 +123,7 @@ def test_missing_log_directory_autocreates() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -152,6 +156,7 @@ def test_config_override_precedence() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -174,6 +179,7 @@ def test_fail_close_when_log_path_is_unusable() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -215,6 +221,7 @@ def test_redact_secrets_api_key() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -237,6 +244,7 @@ def test_validate_log_permissions_valid() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -265,6 +273,7 @@ def test_validate_log_permissions_clamps() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -287,6 +296,7 @@ def test_redact_secrets_list() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -305,6 +315,222 @@ def test_fail_close_on_empty_input() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
+    return r
+
+
+def test_redact_secrets_sensitive_keys() -> TestResult:
+    r = TestResult("_redact_secrets: redacts values for sensitive dict keys (Issue 3)")
+    try:
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location("tool_audit", str(HOOK_PATH))
+        assert spec and spec.loader
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)  # type: ignore[union-attr]
+        _redact_secrets = mod._redact_secrets
+
+        # Direct sensitive keys
+        result = _redact_secrets({"token": "abc123", "api_key": "secret_value"})
+        assert result["token"] == "***REDACTED***", f"token not redacted: {result}"
+        assert result["api_key"] == "***REDACTED***", f"api_key not redacted: {result}"
+
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+        raise
+    return r
+
+
+def test_redact_secrets_nested_sensitive_keys() -> TestResult:
+    r = TestResult("_redact_secrets: redacts nested sensitive keys like Authorization header (Issue 3)")
+    try:
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location("tool_audit", str(HOOK_PATH))
+        assert spec and spec.loader
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)  # type: ignore[union-attr]
+        _redact_secrets = mod._redact_secrets
+
+        # Nested: headers.Authorization
+        result = _redact_secrets({"headers": {"Authorization": "Bearer abc123"}})
+        assert result["headers"]["Authorization"] == "***REDACTED***", (
+            f"Authorization not redacted: {result}"
+        )
+
+        # Nested: credentials.password
+        result = _redact_secrets({"credentials": {"password": "s3cret"}})
+        assert result["credentials"]["password"] == "***REDACTED***", (
+            f"password not redacted: {result}"
+        )
+
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+        raise
+    return r
+
+
+def test_redact_secrets_preserves_nonsensitive_keys() -> TestResult:
+    r = TestResult("_redact_secrets: preserves non-sensitive keys (Issue 3)")
+    try:
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location("tool_audit", str(HOOK_PATH))
+        assert spec and spec.loader
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)  # type: ignore[union-attr]
+        _redact_secrets = mod._redact_secrets
+
+        result = _redact_secrets({"command": "ls -la", "file_path": "/tmp/test.txt"})
+        assert result["command"] == "ls -la", f"command modified: {result}"
+        assert result["file_path"] == "/tmp/test.txt", f"file_path modified: {result}"
+
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+        raise
+    return r
+
+
+def test_redact_secrets_mixed_keys() -> TestResult:
+    r = TestResult("_redact_secrets: redacts sensitive keys while preserving others in same dict")
+    try:
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location("tool_audit", str(HOOK_PATH))
+        assert spec and spec.loader
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)  # type: ignore[union-attr]
+        _redact_secrets = mod._redact_secrets
+
+        result = _redact_secrets({
+            "url": "https://example.com",
+            "access_token": "mytoken123",
+            "method": "POST",
+            "private_key": "-----BEGIN RSA PRIVATE KEY-----",
+        })
+        assert result["url"] == "https://example.com", f"url modified: {result}"
+        assert result["method"] == "POST", f"method modified: {result}"
+        assert result["access_token"] == "***REDACTED***", f"access_token not redacted: {result}"
+        assert result["private_key"] == "***REDACTED***", f"private_key not redacted: {result}"
+
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+        raise
+    return r
+
+
+def test_system_message_redacts_secrets() -> TestResult:
+    r = TestResult("systemMessage display redacts secrets (MEDIUM-2)")
+    try:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_dir = Path(tmpdir) / "plugin" / "config"
+            config_dir.mkdir(parents=True)
+            (config_dir / "audit.default.yaml").write_text(
+                f'log_dir: "{tmpdir}/logs"\nmax_words: 50\ndisplay_tools:\n  - "Bash"\n'
+            )
+
+            env = {"CLAUDE_PLUGIN_ROOT": str(Path(tmpdir) / "plugin")}
+            output = run_hook(
+                "Bash",
+                {"command": "echo hi", "token": "secret123", "api_key": "mykey"},
+                env_override=env,
+            )
+
+            msg = output.get("systemMessage", "")
+            assert "secret123" not in msg, f"Raw token leaked in systemMessage: {msg}"
+            assert "mykey" not in msg, f"Raw api_key leaked in systemMessage: {msg}"
+            assert "REDACTED" in msg, f"Expected REDACTED marker in systemMessage: {msg}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+        raise
+    return r
+
+
+def test_sensitive_keys_no_false_positives() -> TestResult:
+    r = TestResult("_SENSITIVE_KEYS: no false-positive on monkey/keyboard/author/token_count (MEDIUM-3)")
+    try:
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location("tool_audit", str(HOOK_PATH))
+        assert spec and spec.loader
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)  # type: ignore[union-attr]
+        _redact_secrets = mod._redact_secrets
+
+        # These keys should NOT be redacted (false positives in old regex)
+        result = _redact_secrets({
+            "monkey": "banana",
+            "keyboard": "qwerty",
+            "author": "Jane Doe",
+            "token_count": "42",
+            "authority": "admin",
+            "turkey": "gobble",
+        })
+        assert result["monkey"] == "banana", f"monkey falsely redacted: {result}"
+        assert result["keyboard"] == "qwerty", f"keyboard falsely redacted: {result}"
+        assert result["author"] == "Jane Doe", f"author falsely redacted: {result}"
+        assert result["token_count"] == "42", f"token_count falsely redacted: {result}"
+        assert result["authority"] == "admin", f"authority falsely redacted: {result}"
+        assert result["turkey"] == "gobble", f"turkey falsely redacted: {result}"
+
+        # These keys SHOULD be redacted (true positives)
+        result = _redact_secrets({
+            "api_key": "secret_val",
+            "token": "abc123",
+            "password": "s3cret",
+            "Authorization": "Bearer tok",
+            "access_token": "tok123",
+            "client_secret": "cs_val",
+        })
+        assert result["api_key"] == "***REDACTED***", f"api_key not redacted: {result}"
+        assert result["token"] == "***REDACTED***", f"token not redacted: {result}"
+        assert result["password"] == "***REDACTED***", f"password not redacted: {result}"
+        assert result["Authorization"] == "***REDACTED***", f"Authorization not redacted: {result}"
+        assert result["access_token"] == "***REDACTED***", f"access_token not redacted: {result}"
+        assert result["client_secret"] == "***REDACTED***", f"client_secret not redacted: {result}"
+
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+        raise
+    return r
+
+
+def test_deep_merge_skips_yaml_null() -> TestResult:
+    r = TestResult("_deep_merge: skips None overlay values (YAML null)")
+    try:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Plugin defaults with display_tools list
+            config_dir = Path(tmpdir) / "plugin" / "config"
+            config_dir.mkdir(parents=True)
+            (config_dir / "audit.default.yaml").write_text(
+                f'log_dir: "{tmpdir}/logs"\nmax_words: 50\ndisplay_tools:\n  - "Bash"\n'
+            )
+
+            # Project override with display_tools: null (YAML null -> Python None)
+            project_dir = Path(tmpdir) / "project"
+            project_dir.mkdir()
+            (project_dir / "audit.yaml").write_text("display_tools: null\n")
+
+            env = {
+                "CLAUDE_PLUGIN_ROOT": str(Path(tmpdir) / "plugin"),
+                "CLAUDE_PROJECT_DIR": str(project_dir),
+            }
+            # Should NOT crash; display_tools: null should be ignored
+            output = run_hook("Bash", {"command": "echo hello"}, env_override=env)
+
+            # Hook should succeed (systemMessage or empty -- not a deny)
+            decision = output.get("hookSpecificOutput", {}).get("permissionDecision")
+            assert decision != "deny", f"Hook denied due to null display_tools: {output}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -321,6 +547,13 @@ def main() -> None:
         test_validate_log_permissions_valid,
         test_validate_log_permissions_clamps,
         test_redact_secrets_list,
+        test_redact_secrets_sensitive_keys,
+        test_redact_secrets_nested_sensitive_keys,
+        test_redact_secrets_preserves_nonsensitive_keys,
+        test_redact_secrets_mixed_keys,
+        test_system_message_redacts_secrets,
+        test_sensitive_keys_no_false_positives,
+        test_deep_merge_skips_yaml_null,
     ])
 
 

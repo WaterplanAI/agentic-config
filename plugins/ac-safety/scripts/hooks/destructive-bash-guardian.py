@@ -124,7 +124,7 @@ PATTERNS: list[tuple[re.Pattern[str], str, str]] = [
     (re.compile(_BIN + r"\brm\s+(-[^\s]*)*\s*-[rR].*(" + re.escape(os.path.expanduser("~")) + r"[/\s]|~/|/Users/\w+/)"), "rm -r targeting home or user directory", "file-destruction"),
     (re.compile(_BIN + r"\brm\s+" + _RM_RF + r"/\S"), "rm -rf targeting absolute path", "file-destruction"),
     (re.compile(_BIN + r"\brm\s+" + _RM_RF + r"~/"), "rm -rf targeting home subdirectory", "file-destruction"),
-    (re.compile(_BIN + r"\brm\s+" + _RM_RF + r"~" + _END), "rm -rf targeting entire home directory", "file-destruction"),
+    (re.compile(_BIN + r"\brm\s+" + _RM_RF + _OPT_QUOTE + r"~" + _OPT_QUOTE + _END), "rm -rf targeting entire home directory", "file-destruction"),
     (re.compile(_BIN + r"\brm\s+" + _RM_RF + r"\.\." + _END), "rm -rf targeting parent directory", "file-destruction"),
     (re.compile(_BIN + r"\brm\s+" + _RM_RF + r"\.\./"), "rm -rf targeting parent-relative path", "file-destruction"),
     # $HOME / ${HOME} variable expansion (combined -rf flags)
@@ -135,7 +135,7 @@ PATTERNS: list[tuple[re.Pattern[str], str, str]] = [
     # Split flags: rm -r -f ~ / rm -f -r ~
     (re.compile(_BIN + r"\brm\s+" + _RM_RF_SPLIT + r"/\S"), "rm with split flags targeting absolute path", "file-destruction"),
     (re.compile(_BIN + r"\brm\s+" + _RM_RF_SPLIT + r"~/"), "rm with split flags targeting home subdirectory", "file-destruction"),
-    (re.compile(_BIN + r"\brm\s+" + _RM_RF_SPLIT + r"~" + _END), "rm with split flags targeting entire home directory", "file-destruction"),
+    (re.compile(_BIN + r"\brm\s+" + _RM_RF_SPLIT + _OPT_QUOTE + r"~" + _OPT_QUOTE + _END), "rm with split flags targeting entire home directory", "file-destruction"),
     (re.compile(_BIN + r"\brm\s+" + _RM_RF_SPLIT + r"\.\." + _END), "rm with split flags targeting parent directory", "file-destruction"),
     (re.compile(_BIN + r"\brm\s+" + _RM_RF_SPLIT + r"\.\./"), "rm with split flags targeting parent-relative path", "file-destruction"),
     # $HOME / ${HOME} variable expansion (split flags)
@@ -247,8 +247,8 @@ def _extract_rm_targets(command: str) -> list[str]:
             continue
         if not past_flags and part.startswith("-"):
             continue
-        # Remove surrounding quotes
-        cleaned = part.strip("\"'")
+        # Remove surrounding quotes and shell metacharacters
+        cleaned = part.strip("\"'`()$")
         # Expand $HOME / ${HOME}
         cleaned = cleaned.replace("${HOME}", os.path.expanduser("~"))
         cleaned = cleaned.replace("$HOME", os.path.expanduser("~"))

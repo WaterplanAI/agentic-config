@@ -33,6 +33,7 @@ def test_blocks_ssh_read() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -44,6 +45,7 @@ def test_blocks_aws_grep() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -55,6 +57,7 @@ def test_allows_project_read() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -66,6 +69,7 @@ def test_allows_claude_settings() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -77,6 +81,7 @@ def test_allows_non_read_tools() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -88,6 +93,7 @@ def test_blocks_relative_glob_from_home() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -99,6 +105,7 @@ def test_blocks_relative_grep_glob_from_home() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -115,6 +122,7 @@ def test_fail_close_on_bad_input() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -127,6 +135,7 @@ def test_blocks_npmrc_outside_project_roots() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -138,6 +147,7 @@ def test_allows_npmrc_in_project() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -149,6 +159,7 @@ def test_blocks_netrc_outside_project_roots() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -161,6 +172,7 @@ def test_glob_wildcard_stripping() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -172,6 +184,7 @@ def test_grep_glob_wildcard_stripping() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -184,6 +197,7 @@ def test_blocks_recursive_glob_ssh_from_home() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -196,6 +210,7 @@ def test_blocks_recursive_glob_aws_from_home() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -208,6 +223,7 @@ def test_blocks_recursive_grep_ssh_from_home() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -220,6 +236,7 @@ def test_blocks_grep_root_glob_aws() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -232,6 +249,7 @@ def test_blocks_grep_root_glob_ssh() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -244,6 +262,7 @@ def test_blocks_glob_root_docker() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -256,6 +275,7 @@ def test_blocks_glob_root_gnupg() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -270,6 +290,7 @@ def test_blocks_tmp_traversal_ssh() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -284,6 +305,7 @@ def test_blocks_var_traversal_aws() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -296,6 +318,7 @@ def test_blocks_broad_glob_from_home() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -308,6 +331,7 @@ def test_blocks_broad_grep_from_root() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -320,6 +344,7 @@ def test_blocks_broad_glob_tilde_str() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -332,6 +357,7 @@ def test_denies_broad_glob_from_root() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -344,6 +370,7 @@ def test_allows_broad_glob_in_project() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -356,6 +383,7 @@ def test_allows_non_recursive_glob_from_home() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -376,6 +404,7 @@ def test_blocks_empty_path_glob_ssh() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -395,6 +424,7 @@ def test_blocks_empty_path_grep_aws() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -402,18 +432,29 @@ def test_allows_empty_path_safe_pattern() -> TestResult:
     """MEDIUM-002 regression: Glob(path='', pattern='*.py') from project dir should ALLOW."""
     r = TestResult("Allows Glob(path='', pattern='*.py') from project dir")
     try:
+        import tempfile
         project_dir = os.path.expanduser("~/projects/myapp")
-        result = subprocess.run(
-            [str(HOOK_PATH)],
-            input=json.dumps({"tool_name": "Glob", "tool_input": {"path": "", "pattern": "*.py"}}),
-            capture_output=True, text=True, cwd=project_dir,
-        )
-        output = json.loads(result.stdout)
-        decision = output.get("hookSpecificOutput", {}).get("permissionDecision", "allow")
-        assert decision == "allow", f"Expected allow, got {decision}"
+        # Use a temp dir under ~/projects/ as CWD if the target doesn't exist
+        if not os.path.isdir(project_dir):
+            tmpdir = tempfile.mkdtemp(prefix="myapp_", dir=os.path.expanduser("~/projects"))
+        else:
+            tmpdir = project_dir
+        try:
+            result = subprocess.run(
+                [str(HOOK_PATH)],
+                input=json.dumps({"tool_name": "Glob", "tool_input": {"path": "", "pattern": "*.py"}}),
+                capture_output=True, text=True, cwd=tmpdir,
+            )
+            output = json.loads(result.stdout)
+            decision = output.get("hookSpecificOutput", {}).get("permissionDecision", "allow")
+            assert decision == "allow", f"Expected allow, got {decision}"
+        finally:
+            if tmpdir != project_dir:
+                os.rmdir(tmpdir)
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 

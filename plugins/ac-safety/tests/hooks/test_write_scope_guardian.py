@@ -33,6 +33,7 @@ def test_allows_project_write() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -44,6 +45,7 @@ def test_blocks_settings_write() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -55,6 +57,7 @@ def test_asks_hooks_write() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -66,6 +69,7 @@ def test_blocks_system_write() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -77,6 +81,7 @@ def test_blocks_git_hooks_injection() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -91,6 +96,7 @@ def test_category_deny_cannot_weaken_to_allow() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -103,6 +109,7 @@ def test_blocks_safety_yaml_write() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
@@ -114,6 +121,7 @@ def test_blocks_audit_yaml_write() -> TestResult:
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
+        raise
     return r
 
 
