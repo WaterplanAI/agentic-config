@@ -4,6 +4,16 @@ All notable changes to agentic-config.
 
 ## [Unreleased]
 
+### Fixed
+
+- `ac-git`, `ac-workflow`: redirect `git push` and `git add -A` output to stderr in `ext_specs_commit` for consistent stdout cleanliness
+- `ac-git`, `ac-workflow`: remove `2>/dev/null` on `ext_specs_commit --dry-run` that silenced entire dry-run report after stderr migration
+- `ac-git`, `ac-workflow`: repair `_source_config_loader` to validate and fix `CLAUDE_PLUGIN_ROOT` before idempotent early return
+  - Prevents stale root when config-loader functions are already in memory but `CLAUDE_PLUGIN_ROOT` points to wrong directory
+  - Early return now requires both `load_agentic_config` and `get_project_root` to be defined
+  - Post-source validation fails explicitly if required functions are missing
+- Tests: regression coverage for preloaded config-loader with bad `CLAUDE_PLUGIN_ROOT` across both plugins
+
 ## [0.2.3] - 2026-03-16
 
 ### Added
