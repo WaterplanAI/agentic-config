@@ -205,6 +205,102 @@ def test_allows_pip3_install_requirements() -> TestResult:
     return r
 
 
+def test_asks_npm_install_ignore_scripts_evil() -> TestResult:
+    """Issue 2: npm install --ignore-scripts evil-pkg (safe pattern overmatch)."""
+    r = TestResult("Asks for npm install --ignore-scripts evil-pkg")
+    try:
+        out = run_hook("npm install --ignore-scripts evil-pkg")
+        assert out["decision"] == "ask", f"Expected ask, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+    return r
+
+
+def test_asks_pip_install_r_with_trailing_pkg() -> TestResult:
+    """Issue 2: pip install -r requirements.txt evilpkg (trailing package arg)."""
+    r = TestResult("Asks for pip install -r requirements.txt evilpkg")
+    try:
+        out = run_hook("pip install -r requirements.txt evilpkg")
+        assert out["decision"] == "ask", f"Expected ask, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+    return r
+
+
+def test_asks_uv_sync_chained_uv_add() -> TestResult:
+    """Issue 2: uv sync && uv add evilpkg (chained command bypass)."""
+    r = TestResult("Asks for uv sync && uv add evilpkg")
+    try:
+        out = run_hook("uv sync && uv add evilpkg")
+        assert out["decision"] == "ask", f"Expected ask, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+    return r
+
+
+def test_asks_npx_chained_evil() -> TestResult:
+    """Issue 3: npx prettier && npx evilpkg (chained npx, first allowlisted)."""
+    r = TestResult("Asks for npx prettier && npx evilpkg")
+    try:
+        out = run_hook("npx prettier && npx evilpkg")
+        assert out["decision"] == "ask", f"Expected ask, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+    return r
+
+
+def test_asks_npm_i_alias() -> TestResult:
+    """Issue 3: npm i evil-pkg (alias for npm install)."""
+    r = TestResult("Asks for npm i evil-pkg")
+    try:
+        out = run_hook("npm i evil-pkg")
+        assert out["decision"] == "ask", f"Expected ask, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+    return r
+
+
+def test_allows_npm_i_bare() -> TestResult:
+    """Issue 3: npm i (bare, lockfile install) should be safe."""
+    r = TestResult("Allows npm i (bare)")
+    try:
+        out = run_hook("npm i")
+        assert out["decision"] == "allow", f"Expected allow, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+    return r
+
+
+def test_asks_semicolon_chained_pip() -> TestResult:
+    """Issue 2: echo ok ; pip install evil (semicolon chaining)."""
+    r = TestResult("Asks for echo ok ; pip install evil")
+    try:
+        out = run_hook("echo ok ; pip install evil")
+        assert out["decision"] == "ask", f"Expected ask, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+    return r
+
+
+def test_asks_pipe_chained_npm_install() -> TestResult:
+    """Issue 2: echo ok | npm install evil (pipe chaining)."""
+    r = TestResult("Asks for echo ok | npm install evil")
+    try:
+        out = run_hook("echo ok | npm install evil")
+        assert out["decision"] == "ask", f"Expected ask, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+    return r
+
+
 def main() -> None:
     from ac_safety_test_support import run_tests  # pyright: ignore[reportMissingImports]
     run_tests("supply-chain-guardian unit tests", [
@@ -227,6 +323,16 @@ def main() -> None:
         # NEW-05: pip3 install
         test_asks_pip3_install,
         test_allows_pip3_install_requirements,
+        # Issue 2: safe pattern overmatch / chaining bypass
+        test_asks_npm_install_ignore_scripts_evil,
+        test_asks_pip_install_r_with_trailing_pkg,
+        test_asks_uv_sync_chained_uv_add,
+        # Issue 3: aliases and chained installs
+        test_asks_npx_chained_evil,
+        test_asks_npm_i_alias,
+        test_allows_npm_i_bare,
+        test_asks_semicolon_chained_pip,
+        test_asks_pipe_chained_npm_install,
     ])
 
 

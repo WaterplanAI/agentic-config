@@ -287,6 +287,124 @@ def test_blocks_var_traversal_aws() -> TestResult:
     return r
 
 
+def test_blocks_broad_glob_from_home() -> TestResult:
+    """Issue 1: Glob(path='~', pattern='**/*') broad recursive scan from HOME."""
+    r = TestResult("Blocks Glob(path='~', pattern='**/*') broad scan")
+    try:
+        out = run_hook("Glob", {"path": os.path.expanduser("~"), "pattern": "**/*"})
+        assert out["decision"] != "allow", f"Expected deny/ask, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+    return r
+
+
+def test_blocks_broad_grep_from_root() -> TestResult:
+    """Issue 1: Grep(path='/', glob='**/*', pattern='PRIVATE KEY') broad scan from root."""
+    r = TestResult("Blocks Grep(path='/', pattern='PRIVATE KEY') broad scan")
+    try:
+        out = run_hook("Grep", {"path": "/", "glob": "**/*", "pattern": "PRIVATE KEY"})
+        assert out["decision"] != "allow", f"Expected deny/ask, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+    return r
+
+
+def test_blocks_broad_glob_tilde_str() -> TestResult:
+    """Issue 1: Glob(path='~/', pattern='**/*.pem') from HOME with tilde."""
+    r = TestResult("Blocks Glob(path='~/', pattern='**/*.pem') broad scan")
+    try:
+        out = run_hook("Glob", {"path": "~/", "pattern": "**/*.pem"})
+        assert out["decision"] != "allow", f"Expected deny/ask, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+    return r
+
+
+def test_allows_broad_glob_in_project() -> TestResult:
+    """Issue 1: Glob(path='~/projects/myapp', pattern='**/*') in project root is OK."""
+    r = TestResult("Allows Glob in project root with **/*")
+    try:
+        out = run_hook("Glob", {"path": os.path.expanduser("~/projects/myapp"), "pattern": "**/*"})
+        assert out["decision"] == "allow", f"Expected allow, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+    return r
+
+
+def test_allows_non_recursive_glob_from_home() -> TestResult:
+    """Issue 1: Glob(path='~', pattern='*.txt') non-recursive from HOME is OK."""
+    r = TestResult("Allows non-recursive Glob from HOME")
+    try:
+        out = run_hook("Glob", {"path": os.path.expanduser("~"), "pattern": "*.txt"})
+        assert out["decision"] == "allow", f"Expected allow, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+    return r
+
+
+def test_blocks_empty_path_glob_ssh() -> TestResult:
+    """MEDIUM-002: Glob(path='', pattern='**/.ssh/*') from HOME should DENY."""
+    r = TestResult("Blocks Glob(path='', pattern='**/.ssh/*') empty base_path")
+    try:
+        # Run with CWD=HOME to simulate the bypass scenario
+        home = os.path.expanduser("~")
+        result = subprocess.run(
+            [str(HOOK_PATH)],
+            input=json.dumps({"tool_name": "Glob", "tool_input": {"path": "", "pattern": "**/.ssh/*"}}),
+            capture_output=True, text=True, cwd=home,
+        )
+        output = json.loads(result.stdout)
+        decision = output.get("hookSpecificOutput", {}).get("permissionDecision", "allow")
+        assert decision != "allow", f"Expected deny/ask, got {decision}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+    return r
+
+
+def test_blocks_empty_path_grep_aws() -> TestResult:
+    """MEDIUM-002: Grep(path='', glob='**/.aws/*') from HOME should DENY."""
+    r = TestResult("Blocks Grep(path='', glob='**/.aws/*') empty base_path")
+    try:
+        home = os.path.expanduser("~")
+        result = subprocess.run(
+            [str(HOOK_PATH)],
+            input=json.dumps({"tool_name": "Grep", "tool_input": {"path": "", "glob": "**/.aws/*", "pattern": "secret"}}),
+            capture_output=True, text=True, cwd=home,
+        )
+        output = json.loads(result.stdout)
+        decision = output.get("hookSpecificOutput", {}).get("permissionDecision", "allow")
+        assert decision != "allow", f"Expected deny/ask, got {decision}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+    return r
+
+
+def test_allows_empty_path_safe_pattern() -> TestResult:
+    """MEDIUM-002 regression: Glob(path='', pattern='*.py') from project dir should ALLOW."""
+    r = TestResult("Allows Glob(path='', pattern='*.py') from project dir")
+    try:
+        project_dir = os.path.expanduser("~/projects/myapp")
+        result = subprocess.run(
+            [str(HOOK_PATH)],
+            input=json.dumps({"tool_name": "Glob", "tool_input": {"path": "", "pattern": "*.py"}}),
+            capture_output=True, text=True, cwd=project_dir,
+        )
+        output = json.loads(result.stdout)
+        decision = output.get("hookSpecificOutput", {}).get("permissionDecision", "allow")
+        assert decision == "allow", f"Expected allow, got {decision}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+    return r
+
+
 def main() -> None:
     from ac_safety_test_support import run_tests  # pyright: ignore[reportMissingImports]
     run_tests("credential-guardian unit tests", [
@@ -316,6 +434,16 @@ def main() -> None:
         # H-005-02: macOS /private symlink traversal
         test_blocks_tmp_traversal_ssh,
         test_blocks_var_traversal_aws,
+        # Issue 1: broad recursive scan bypass
+        test_blocks_broad_glob_from_home,
+        test_blocks_broad_grep_from_root,
+        test_blocks_broad_glob_tilde_str,
+        test_allows_broad_glob_in_project,
+        test_allows_non_recursive_glob_from_home,
+        # MEDIUM-002: empty base_path bypass
+        test_blocks_empty_path_glob_ssh,
+        test_blocks_empty_path_grep_aws,
+        test_allows_empty_path_safe_pattern,
     ])
 
 

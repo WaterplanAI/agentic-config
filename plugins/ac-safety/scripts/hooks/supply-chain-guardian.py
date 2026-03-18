@@ -19,16 +19,20 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from _lib import allow, ask, deny, fail_close, get_category_decision, load_config
 
-# Patterns that are SAFE (skip blocking)
+# Patterns that are SAFE (skip blocking).
+# These are applied per-segment (after splitting on shell operators).
+# Patterns must be tight -- they should not match when extra package args follow.
 SAFE_PATTERNS = [
-    re.compile(r"\bnpm\s+(install|ci)\s*$"),
+    re.compile(r"\bnpm\s+(install|ci|i)\s*$"),
     re.compile(
-        r"\bnpm\s+(install|ci)\s+--(legacy-peer-deps|prefer-offline|no-audit"
-        r"|ignore-scripts|frozen-lockfile|no-optional|no-save|production)\b"
+        r"\bnpm\s+(install|ci|i)\s+--(legacy-peer-deps|prefer-offline|no-audit"
+        r"|ignore-scripts|frozen-lockfile|no-optional|no-save|production)\s*$"
     ),
-    re.compile(r"\bpip3?\s+install\s+(-r\s|--requirement\s|-e\s|--editable\s|\.\s*$)"),
-    re.compile(r"\buv\s+sync\b"),
-    re.compile(r"\buv\s+pip\s+install\s+(-r\s|--requirement\s|-e\s|--editable\s|\.\s*$)"),
+    # pip install from requirements/editable/current-dir only (no trailing package args)
+    re.compile(r"\bpip3?\s+install\s+(-r\s+\S+|--requirement\s+\S+|-e\s+\S+|--editable\s+\S+|\.)\s*$"),
+    re.compile(r"\buv\s+sync\s*$"),
+    # uv pip install from requirements/editable/current-dir only
+    re.compile(r"\buv\s+pip\s+install\s+(-r\s+\S+|--requirement\s+\S+|-e\s+\S+|--editable\s+\S+|\.)\s*$"),
     re.compile(r"\buv\s+pip\s+compile\b"),
 ]
 
@@ -273,8 +277,8 @@ def _extract_first_package_arg(args: list[str]) -> str | None:
 
 
 def _is_npm_install_blocked(command: str, npm_install_allowlist: set[str]) -> str | None:
-    """Check for npm install <package> (not bare npm install / npm ci)."""
-    match = re.search(r"\bnpm\s+install\s+(.*)", command)
+    """Check for npm install/i <package> (not bare npm install / npm ci)."""
+    match = re.search(r"\bnpm\s+(?:install|i)\s+(.*)", command)
     if not match:
         return None
     package = _extract_first_package_arg(_split_args(match.group(1)))
@@ -314,6 +318,58 @@ def _is_bun_add_blocked(command: str, npm_install_allowlist: set[str]) -> str | 
     return f"bun add with unapproved package '{package}' (not in allowlist)"
 
 
+def _split_shell_segments(command: str) -> list[str]:
+    """Split a command string on shell operators (&&, ||, ;, |) into segments.
+
+    Each segment is stripped of leading/trailing whitespace. Pipe (|) is
+    included because piped commands are independently dangerous (e.g.,
+    ``safe-cmd | npm install evil``).
+    """
+    # Split on &&, ||, ;, | (but not || as part of &&)
+    # Order matters: match && and || before single & and |
+    segments = re.split(r"\s*(?:&&|\|\||[;|])\s*", command)
+    return [s.strip() for s in segments if s.strip()]
+
+
+def _check_segment(
+    segment: str,
+    npx_allowlist: set[str],
+    uv_add_allowlist: set[str],
+    npm_install_allowlist: set[str],
+    yarn_add_allowlist: set[str],
+) -> tuple[str | None, str]:
+    """Check a single command segment for supply chain risks.
+
+    Returns (reason, category) or (None, '') if safe.
+    """
+    # Safe pattern fast-path: only safe if the ENTIRE segment matches
+    for safe in SAFE_PATTERNS:
+        if safe.search(segment):
+            return None, ""
+
+    checks: list[tuple[str | None, str]] = [
+        (_is_npx_blocked(segment, npx_allowlist), "npx-packages"),
+        (_is_npm_exec_blocked(segment, npx_allowlist), "npx-packages"),
+        (_is_pnpm_dlx_blocked(segment, npx_allowlist), "npx-packages"),
+        (_is_yarn_dlx_blocked(segment, npx_allowlist), "npx-packages"),
+        (_is_bunx_blocked(segment, npx_allowlist), "npx-packages"),
+        (_is_uvx_blocked(segment, npx_allowlist), "npx-packages"),
+        (_is_uv_tool_run_blocked(segment, npx_allowlist), "npx-packages"),
+        (_is_pip_blocked(segment), "pip-direct"),
+        (_is_uv_add_blocked(segment, uv_add_allowlist), "uv-add"),
+        (_is_uv_pip_blocked(segment), "uv-pip-direct"),
+        (_is_uv_run_with_blocked(segment), "uv-pip-direct"),
+        (_is_npm_install_blocked(segment, npm_install_allowlist), "npm-install"),
+        (_is_pnpm_add_blocked(segment, npm_install_allowlist), "npm-install"),
+        (_is_yarn_add_blocked(segment, yarn_add_allowlist), "yarn-add"),
+        (_is_bun_add_blocked(segment, npm_install_allowlist), "npm-install"),
+    ]
+    for reason, category in checks:
+        if reason:
+            return reason, category
+    return None, ""
+
+
 @fail_close
 def main() -> None:
     input_data = json.load(sys.stdin)
@@ -325,12 +381,6 @@ def main() -> None:
         return
 
     command = tool_input.get("command", "")
-
-    # Fast path: safe patterns always allowed
-    for safe in SAFE_PATTERNS:
-        if safe.search(command):
-            allow()
-            return
 
     config = load_config()
     sc = config.get("supply_chain", {})
@@ -344,25 +394,14 @@ def main() -> None:
     npm_install_allowlist = set(sc.get("npm_install_allowlist", []))
     yarn_add_allowlist = set(sc.get("yarn_add_allowlist", []))
 
-    # Check each supply chain risk
-    checks: list[tuple[str | None, str]] = [
-        (_is_npx_blocked(command, npx_allowlist), "npx-packages"),
-        (_is_npm_exec_blocked(command, npx_allowlist), "npx-packages"),
-        (_is_pnpm_dlx_blocked(command, npx_allowlist), "npx-packages"),
-        (_is_yarn_dlx_blocked(command, npx_allowlist), "npx-packages"),
-        (_is_bunx_blocked(command, npx_allowlist), "npx-packages"),
-        (_is_uvx_blocked(command, npx_allowlist), "npx-packages"),
-        (_is_uv_tool_run_blocked(command, npx_allowlist), "npx-packages"),
-        (_is_pip_blocked(command), "pip-direct"),
-        (_is_uv_add_blocked(command, uv_add_allowlist), "uv-add"),
-        (_is_uv_pip_blocked(command), "uv-pip-direct"),
-        (_is_uv_run_with_blocked(command), "uv-pip-direct"),
-        (_is_npm_install_blocked(command, npm_install_allowlist), "npm-install"),
-        (_is_pnpm_add_blocked(command, npm_install_allowlist), "npm-install"),
-        (_is_yarn_add_blocked(command, yarn_add_allowlist), "yarn-add"),
-        (_is_bun_add_blocked(command, npm_install_allowlist), "npm-install"),
-    ]
-    for reason, category in checks:
+    # Split on shell operators and check EACH segment independently.
+    # This prevents chaining bypasses (safe-cmd && evil-cmd).
+    segments = _split_shell_segments(command)
+    for segment in segments:
+        reason, category = _check_segment(
+            segment, npx_allowlist, uv_add_allowlist,
+            npm_install_allowlist, yarn_add_allowlist,
+        )
         if reason:
             _apply_decision(config, category, reason)
             return

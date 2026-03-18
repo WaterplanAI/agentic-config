@@ -55,6 +55,7 @@ destructive_bash:
     iac-destruction: deny
     permission-abuse: deny
     credential-reads: deny
+    remote-code-execution: deny
 
 write_scope:
   categories:

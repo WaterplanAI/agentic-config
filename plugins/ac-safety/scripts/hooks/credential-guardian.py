@@ -61,8 +61,11 @@ def _extract_blocked_segments_from_pattern(base_path: str, pattern: str) -> list
     known blocked directory segments and synthesising paths to check.
     """
     results: list[str] = []
-    if not pattern or not base_path:
+    if not pattern:
         return results
+    # When base_path is empty, use CWD as the effective base
+    if not base_path:
+        base_path = os.getcwd()
     # Normalise pattern separators
     norm_pattern = pattern.replace("\\", "/")
     home = os.path.expanduser("~")
@@ -206,6 +209,49 @@ def main() -> None:
     allowed_claude_files: list[str] = cg.get("allowed_claude_files", [
         "~/.claude/settings.json", "~/.claude/settings.local.json", "~/.claude/CLAUDE.md",
     ])
+
+    # Detect broad recursive scans that could reach credential directories.
+    # When base_path is HOME or an ancestor of HOME and the pattern contains **,
+    # the scan could enumerate ~/.ssh, ~/.aws, etc.
+    base_path = ""
+    pattern = ""
+    if tool_name == "Glob":
+        base_path = tool_input.get("path", "")
+        pattern = tool_input.get("pattern", "")
+    elif tool_name == "Grep":
+        base_path = tool_input.get("path", "")
+        pattern = tool_input.get("glob", "")
+
+    # When base_path is empty/falsy, the tool resolves from CWD.
+    # Substitute CWD so broad-scan and blocked-segment checks still fire.
+    if not base_path and (tool_name in ("Glob", "Grep")):
+        base_path = os.getcwd()
+        # Propagate the effective base_path into tool_input so _extract_paths
+        # also benefits from the substitution.
+        if tool_name == "Glob":
+            tool_input = {**tool_input, "path": base_path}
+        elif tool_name == "Grep":
+            tool_input = {**tool_input, "path": base_path}
+
+    if base_path and pattern and "**" in pattern:
+        resolved_base = os.path.realpath(os.path.expanduser(base_path))
+        home = os.path.realpath(os.path.expanduser("~"))
+        # Check if base_path is HOME or an ancestor of HOME
+        is_home_or_ancestor = (
+            resolved_base == home
+            or home.startswith(resolved_base.rstrip("/") + "/")
+        )
+        if is_home_or_ancestor and not is_in_prefixes(base_path, allowed_project_roots):
+            reason = f"Recursive scan from {base_path} could reach credential directories"
+            category = "broad-scan"
+            decision = get_category_decision(config, "credential_guardian", category)
+            if decision == "deny":
+                deny(f"BLOCKED: {reason}")
+            elif decision == "ask":
+                ask(f"{reason} -- confirm to proceed?")
+            else:
+                allow()
+            return
 
     paths = _extract_paths(tool_name, tool_input)
     for path in paths:

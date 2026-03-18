@@ -33,6 +33,39 @@ _OPT_QUOTE = r"""["']?"""
 _RM_RF = r"(-[^\s]*\s+)*-rf\s+(?:--\s+)?"
 _RM_RF_SPLIT = r"(-[^\s]*\s+)*(-[^\s]*[rR][^\s]*\s+(-[^\s]*\s+)*-[^\s]*f[^\s]*|-[^\s]*f[^\s]*\s+(-[^\s]*\s+)*-[^\s]*[rR][^\s]*)\s+(?:--\s+)?"
 
+# Shells (for herestring, source, eval -- contexts where only shells make sense)
+_SHELL_RE = r"(?:sh|bash|zsh|dash)"
+# Executors (for pipe-to, process substitution, download-then-execute -- any interpreter)
+_EXEC_RE = r"(?:sh|bash|zsh|dash|python[23]?|perl|ruby|node)"
+
+
+def _rce_patterns() -> list[tuple[re.Pattern[str], str, str]]:
+    """Build remote-code-execution patterns using shared shell/exec constants."""
+    return [
+        # Pipe-to-exec: curl ... | [env|exec] [/usr/bin/]<executor>
+        (re.compile(r"\bcurl\b.*\|\s*(?:env\s+|exec\s+)?" + _BIN + _EXEC_RE + r"\b"), "curl piped to shell/interpreter (remote code execution)", "remote-code-execution"),
+        # Pipe-to-exec: wget ... | [env|exec] [/usr/bin/]<executor>
+        (re.compile(r"\bwget\b.*\|\s*(?:env\s+|exec\s+)?" + _BIN + _EXEC_RE + r"\b"), "wget piped to shell/interpreter (remote code execution)", "remote-code-execution"),
+        # Reverse pattern: <executor> -c "$(curl ...)" or <executor> -c "$(wget ...)"
+        (re.compile(r"(?:env\s+|exec\s+)?" + _BIN + _EXEC_RE + r"\s+-c\s+.*\$\(\s*(?:curl|wget)\b"), "shell/interpreter -c with curl/wget subshell (remote code execution)", "remote-code-execution"),
+        # Process substitution: <executor> <(curl ...) or <executor> <(wget ...)
+        (re.compile(r"(?:env\s+|exec\s+)?" + _BIN + _EXEC_RE + r"\s+<\(\s*(?:curl|wget)\b"), "shell/interpreter with process substitution (remote code execution)", "remote-code-execution"),
+        # eval with curl/wget subshell: eval $(curl ...) or eval $(wget ...)
+        (re.compile(r"\beval\s+.*\$\(\s*(?:curl|wget)\b"), "eval with curl/wget subshell (remote code execution)", "remote-code-execution"),
+        # source / . with process substitution: source <(curl ...) or . <(curl ...)
+        (re.compile(r"(?:\bsource|\.\s)\s*<\(\s*(?:curl|wget)\b"), "source with process substitution (remote code execution)", "remote-code-execution"),
+        # HIGH-001: download-to-file-then-execute: curl -o/wget -O/> redirect, then exec
+        (re.compile(r"\b(?:curl|wget)\b.*(?:-o\s*|-O\s*|>\s*)\S+.*[;&|]+\s*(?:(?:" + _EXEC_RE + r"|source|\.)\s|chmod\s)"), "download-to-file then execute (remote code execution)", "remote-code-execution"),
+        # HIGH-002: bare command substitution with curl/wget at command position
+        (re.compile(r"\$\(\s*(?:curl|wget)\b"), "bare command substitution with curl/wget (remote code execution)", "remote-code-execution"),
+        (re.compile(r"`\s*(?:curl|wget)\b"), "bare backtick substitution with curl/wget (remote code execution)", "remote-code-execution"),
+        # MEDIUM-001: xargs laundering to shell/interpreter
+        (re.compile(r"\bxargs\s+.*" + _EXEC_RE + r"\b"), "xargs invoking shell/interpreter (remote code execution)", "remote-code-execution"),
+        # MEDIUM-002: herestring delivery to shell
+        (re.compile(_SHELL_RE + r"\s+<<<"), "shell with herestring input (remote code execution)", "remote-code-execution"),
+    ]
+
+
 # Map: (compiled_pattern, reason, category)
 # Category names match safety.yaml destructive_bash.categories keys
 PATTERNS: list[tuple[re.Pattern[str], str, str]] = [
@@ -61,7 +94,7 @@ PATTERNS: list[tuple[re.Pattern[str], str, str]] = [
     (re.compile(_BIN + r"\brm\s+" + _RM_RF_SPLIT + _OPT_QUOTE + r"\$\{HOME\}/"), "rm with split flags targeting ${HOME} subdirectory", "file-destruction"),
     # find -delete / find -exec rm (recursive deletion)
     (re.compile(r"\bfind\s+.*\s+-delete\b"), "find with -delete (recursive deletion)", "file-destruction"),
-    (re.compile(r"\bfind\s+.*\s+-exec\s+rm\b"), "find with -exec rm (recursive deletion)", "file-destruction"),
+    (re.compile(r"\bfind\s+.*\s+-exec\s+" + _BIN + r"rm\b"), "find with -exec rm (recursive deletion)", "file-destruction"),
     # xargs rm (indirect deletion)
     (re.compile(r"\bxargs\s+.*" + _BIN + r"rm\b"), "xargs rm (indirect deletion)", "file-destruction"),
     # -- aws-destructive --
@@ -141,6 +174,11 @@ PATTERNS: list[tuple[re.Pattern[str], str, str]] = [
     # -- npm-publish --
     (re.compile(r"\bnpm\s+publish\b"), "npm publish", "npm-publish"),
     (re.compile(r"\bnpm\s+unpublish\b"), "npm unpublish", "npm-publish"),
+    # -- remote-code-execution --
+    # Reusable fragments for RCE patterns:
+    #   _SHELL_RE: shells only (for eval, source, herestring -- shell-only contexts)
+    #   _EXEC_RE:  shells + interpreters (for pipe-to, process subst, download-exec)
+    *_rce_patterns(),
 ]
 
 
