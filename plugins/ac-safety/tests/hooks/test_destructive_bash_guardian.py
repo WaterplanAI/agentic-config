@@ -864,6 +864,198 @@ def test_allows_curl_download_no_execute() -> TestResult:
     return r
 
 
+# -- Git refspec force push / delete --
+
+
+def test_blocks_git_push_force_refspec() -> TestResult:
+    """git push origin +HEAD:main (force push via + refspec)"""
+    r = TestResult("Blocks git push origin +HEAD:main")
+    try:
+        out = run_hook("git push origin +HEAD:main")
+        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+    return r
+
+
+def test_blocks_git_push_delete_refspec() -> TestResult:
+    """git push origin :feature/foo (delete remote branch via empty refspec)"""
+    r = TestResult("Blocks git push origin :feature/foo")
+    try:
+        out = run_hook("git push origin :feature/foo")
+        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+    return r
+
+
+# -- Credential reads with non-cat file readers --
+
+
+def test_blocks_head_ssh_key() -> TestResult:
+    """head -n 5 ~/.ssh/id_rsa (credential read via head)"""
+    r = TestResult("Blocks head -n 5 ~/.ssh/id_rsa")
+    try:
+        out = run_hook("head -n 5 ~/.ssh/id_rsa")
+        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+    return r
+
+
+def test_blocks_tail_aws_credentials() -> TestResult:
+    """tail ~/.aws/credentials (credential read via tail)"""
+    r = TestResult("Blocks tail ~/.aws/credentials")
+    try:
+        out = run_hook("tail ~/.aws/credentials")
+        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+    return r
+
+
+def test_blocks_base64_ssh_key() -> TestResult:
+    """base64 ~/.ssh/id_rsa (credential read via base64)"""
+    r = TestResult("Blocks base64 ~/.ssh/id_rsa")
+    try:
+        out = run_hook("base64 ~/.ssh/id_rsa")
+        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+    return r
+
+
+def test_blocks_grep_aws_credentials() -> TestResult:
+    """grep secret ~/.aws/credentials (credential read via grep)"""
+    r = TestResult("Blocks grep secret ~/.aws/credentials")
+    try:
+        out = run_hook("grep secret ~/.aws/credentials")
+        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+    return r
+
+
+def test_blocks_cp_ssh_key() -> TestResult:
+    """cp ~/.ssh/id_rsa /tmp/ (credential read via cp)"""
+    r = TestResult("Blocks cp ~/.ssh/id_rsa /tmp/")
+    try:
+        out = run_hook("cp ~/.ssh/id_rsa /tmp/")
+        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+    return r
+
+
+def test_blocks_strings_kube_config() -> TestResult:
+    """strings ~/.kube/config (credential read via strings)"""
+    r = TestResult("Blocks strings ~/.kube/config")
+    try:
+        out = run_hook("strings ~/.kube/config")
+        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+    return r
+
+
+# -- Sentinel 012: HIGH-001 GnuPG credential path --
+
+
+def test_blocks_strings_gnupg_secring() -> TestResult:
+    """S012 HIGH-001: strings ~/.gnupg/secring.gpg (GnuPG credential read)"""
+    r = TestResult("Blocks strings ~/.gnupg/secring.gpg")
+    try:
+        out = run_hook("strings ~/.gnupg/secring.gpg")
+        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+    return r
+
+
+def test_blocks_grep_gnupg() -> TestResult:
+    """S012 HIGH-001: grep -r password ~/.gnupg/ (GnuPG credential read)"""
+    r = TestResult("Blocks grep -r password ~/.gnupg/")
+    try:
+        out = run_hook("grep -r password ~/.gnupg/")
+        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+    return r
+
+
+# -- Sentinel 012: MEDIUM-002 missing file readers (tar, rsync) --
+
+
+def test_blocks_tar_ssh() -> TestResult:
+    """S012 MEDIUM-002: tar czf /tmp/creds.tar.gz ~/.ssh/ (tar credential exfil)"""
+    r = TestResult("Blocks tar czf /tmp/creds.tar.gz ~/.ssh/")
+    try:
+        out = run_hook("tar czf /tmp/creds.tar.gz ~/.ssh/")
+        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+    return r
+
+
+def test_blocks_rsync_aws() -> TestResult:
+    """S012 MEDIUM-002: rsync ~/.aws/ /tmp/ (rsync credential exfil)"""
+    r = TestResult("Blocks rsync ~/.aws/ /tmp/")
+    try:
+        out = run_hook("rsync ~/.aws/ /tmp/")
+        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+    return r
+
+
+def test_blocks_mv_ssh_key() -> TestResult:
+    """S012 MEDIUM-002: mv ~/.ssh/id_rsa /tmp/ (mv credential exfil)"""
+    r = TestResult("Blocks mv ~/.ssh/id_rsa /tmp/")
+    try:
+        out = run_hook("mv ~/.ssh/id_rsa /tmp/")
+        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+    return r
+
+
+def test_blocks_ln_docker_config() -> TestResult:
+    """S012 MEDIUM-002: ln -s ~/.docker/config.json /tmp/ (ln credential exfil)"""
+    r = TestResult("Blocks ln -s ~/.docker/config.json /tmp/")
+    try:
+        out = run_hook("ln -s ~/.docker/config.json /tmp/")
+        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+    return r
+
+
+def test_blocks_zip_gnupg() -> TestResult:
+    """S012 MEDIUM-002: zip /tmp/creds.zip ~/.gnupg/ (zip credential exfil)"""
+    r = TestResult("Blocks zip /tmp/creds.zip ~/.gnupg/")
+    try:
+        out = run_hook("zip /tmp/creds.zip ~/.gnupg/keys")
+        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+    return r
+
+
 def main() -> None:
     from ac_safety_test_support import run_tests  # pyright: ignore[reportMissingImports]
     run_tests("destructive-bash-guardian unit tests", [
@@ -952,6 +1144,25 @@ def main() -> None:
         test_blocks_bash_herestring_curl,
         # Sentinel 009: safe download without execute
         test_allows_curl_download_no_execute,
+        # Git refspec force push / delete
+        test_blocks_git_push_force_refspec,
+        test_blocks_git_push_delete_refspec,
+        # Credential reads with non-cat file readers
+        test_blocks_head_ssh_key,
+        test_blocks_tail_aws_credentials,
+        test_blocks_base64_ssh_key,
+        test_blocks_grep_aws_credentials,
+        test_blocks_cp_ssh_key,
+        test_blocks_strings_kube_config,
+        # Sentinel 012: HIGH-001 GnuPG credential path
+        test_blocks_strings_gnupg_secring,
+        test_blocks_grep_gnupg,
+        # Sentinel 012: MEDIUM-002 missing file readers
+        test_blocks_tar_ssh,
+        test_blocks_rsync_aws,
+        test_blocks_mv_ssh_key,
+        test_blocks_ln_docker_config,
+        test_blocks_zip_gnupg,
     ])
 
 

@@ -86,18 +86,25 @@ def main() -> None:
         allow()
         return
 
-    # Navigation: check domain
+    # Domain check: applied to browser_navigate and any action with a url param.
+    # NOTE (architectural limitation): actions like browser_click, browser_type
+    # operate on the current page but do NOT include a URL parameter. PreToolUse
+    # hooks have no visibility into what page is currently open, so domain
+    # enforcement is limited to actions that explicitly carry a URL. This is a
+    # known limitation of stateless PreToolUse hooks.
+    url = tool_input.get("url", "")
+    if url and not _is_domain_allowed(url, allowed_domains):
+        decision = get_category_decision(config, "playwright", "navigate-blocked-domain")
+        if decision == "deny":
+            deny(f"BLOCKED: Action '{action}' on '{url}' denied (domain not in allowlist)")
+        elif decision == "ask":
+            ask(f"Action '{action}' targeting '{url}' -- domain not in allowlist. Allow?")
+        else:
+            allow()
+        return
+
+    # Navigation with allowed domain (or no url param)
     if action == "browser_navigate":
-        url = tool_input.get("url", "")
-        if not _is_domain_allowed(url, allowed_domains):
-            decision = get_category_decision(config, "playwright", "navigate-blocked-domain")
-            if decision == "deny":
-                deny(f"BLOCKED: Navigation to '{url}' denied (domain not in allowlist)")
-            elif decision == "ask":
-                ask(f"Navigation to '{url}' -- domain not in allowlist. Allow?")
-            else:
-                allow()
-            return
         allow()
         return
 

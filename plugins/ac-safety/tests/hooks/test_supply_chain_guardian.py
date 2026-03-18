@@ -301,6 +301,109 @@ def test_asks_pipe_chained_npm_install() -> TestResult:
     return r
 
 
+def test_asks_npm_install_multi_first_allowlisted() -> TestResult:
+    """Multi-package: npm install trusted evil (first allowlisted, second not)."""
+    r = TestResult("Asks for npm install trusted evil (multi-pkg, evil not allowlisted)")
+    try:
+        # 'trusted' is not in the default allowlist either, but to test the
+        # multi-package logic we set CLAUDE_PROJECT_DIR to a non-existent dir
+        # so defaults apply. Both packages should trigger ask since neither is
+        # allowlisted by default.
+        out = run_hook("npm install trusted evil")
+        assert out["decision"] == "ask", f"Expected ask, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+    return r
+
+
+def test_asks_uv_add_multi_first_allowlisted() -> TestResult:
+    """Multi-package: uv add trusted evil (first allowlisted, second not)."""
+    r = TestResult("Asks for uv add trusted evil (multi-pkg, evil not allowlisted)")
+    try:
+        out = run_hook("uv add trusted evil")
+        assert out["decision"] == "ask", f"Expected ask, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+    return r
+
+
+def test_asks_yarn_add_multi_packages() -> TestResult:
+    """Multi-package: yarn add trusted evil."""
+    r = TestResult("Asks for yarn add trusted evil (multi-pkg)")
+    try:
+        out = run_hook("yarn add trusted evil")
+        assert out["decision"] == "ask", f"Expected ask, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+    return r
+
+
+def test_asks_pnpm_add_multi_packages() -> TestResult:
+    """Multi-package: pnpm add trusted evil."""
+    r = TestResult("Asks for pnpm add trusted evil (multi-pkg)")
+    try:
+        out = run_hook("pnpm add trusted evil")
+        assert out["decision"] == "ask", f"Expected ask, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+    return r
+
+
+def test_asks_bun_add_multi_packages() -> TestResult:
+    """Multi-package: bun add trusted evil."""
+    r = TestResult("Asks for bun add trusted evil (multi-pkg)")
+    try:
+        out = run_hook("bun add trusted evil")
+        assert out["decision"] == "ask", f"Expected ask, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+    return r
+
+
+# -- Sentinel 012: MEDIUM-001 xargs laundering to package manager --
+
+
+def test_asks_xargs_npm_install() -> TestResult:
+    """S012 MEDIUM-001: echo evil | xargs npm install (xargs laundering)"""
+    r = TestResult("Asks for echo evil | xargs npm install")
+    try:
+        out = run_hook("echo evil | xargs npm install")
+        assert out["decision"] == "ask", f"Expected ask, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+    return r
+
+
+def test_asks_xargs_pip_install() -> TestResult:
+    """S012 MEDIUM-001: echo evil | xargs pip install (xargs laundering)"""
+    r = TestResult("Asks for echo evil | xargs pip install")
+    try:
+        out = run_hook("echo evil | xargs pip install")
+        assert out["decision"] == "ask", f"Expected ask, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+    return r
+
+
+def test_asks_xargs_uv_add() -> TestResult:
+    """S012 MEDIUM-001: echo evil | xargs uv add (xargs laundering)"""
+    r = TestResult("Asks for echo evil | xargs uv add")
+    try:
+        out = run_hook("echo evil | xargs uv add")
+        assert out["decision"] == "ask", f"Expected ask, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+    return r
+
+
 def main() -> None:
     from ac_safety_test_support import run_tests  # pyright: ignore[reportMissingImports]
     run_tests("supply-chain-guardian unit tests", [
@@ -333,6 +436,16 @@ def main() -> None:
         test_allows_npm_i_bare,
         test_asks_semicolon_chained_pip,
         test_asks_pipe_chained_npm_install,
+        # Multi-package install validation
+        test_asks_npm_install_multi_first_allowlisted,
+        test_asks_uv_add_multi_first_allowlisted,
+        test_asks_yarn_add_multi_packages,
+        test_asks_pnpm_add_multi_packages,
+        test_asks_bun_add_multi_packages,
+        # Sentinel 012: MEDIUM-001 xargs laundering to package manager
+        test_asks_xargs_npm_install,
+        test_asks_xargs_pip_install,
+        test_asks_xargs_uv_add,
     ])
 
 

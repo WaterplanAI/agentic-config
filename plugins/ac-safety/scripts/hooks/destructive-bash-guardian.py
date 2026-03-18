@@ -66,6 +66,50 @@ def _rce_patterns() -> list[tuple[re.Pattern[str], str, str]]:
     ]
 
 
+# File-reading commands that can expose credential file contents
+_FILE_READERS = r"(?:cat|head|tail|less|more|od|xxd|hexdump|strings|base64|openssl|sed|awk|grep|sort|tee|cp|scp|tar|zip|rsync|mv|ln)"
+
+# Credential paths: (regex_suffix, description)
+# Kept in sync with safety.default.yaml credential_guardian.blocked_prefixes
+_CREDENTIAL_PATHS: list[tuple[str, str]] = [
+    (r"~/.ssh/", "SSH directory"),
+    (r"~/.aws/", "AWS directory"),
+    (r"/\.ssh/", "SSH directory (absolute)"),
+    (r"/\.aws/", "AWS directory (absolute)"),
+    (r"~/.config/gh/", "GitHub CLI config"),
+    (r"/\.config/gh/", "GitHub CLI config (absolute)"),
+    (r"~/.config/gcloud/", "GCP credentials"),
+    (r"/\.config/gcloud/", "GCP credentials (absolute)"),
+    (r"~/.azure/", "Azure credentials"),
+    (r"/\.azure/", "Azure credentials (absolute)"),
+    (r"~/.kube/", "Kubernetes config"),
+    (r"/\.kube/", "Kubernetes config (absolute)"),
+    (r"~/.gnupg/", "GnuPG directory"),
+    (r"/\.gnupg/", "GnuPG directory (absolute)"),
+    (r"~/.terraform\.d/", "Terraform credentials"),
+    (r"/\.terraform\.d/", "Terraform credentials (absolute)"),
+    (r"~/.npmrc\b", "npmrc"),
+    (r"~/.netrc\b", "netrc"),
+    (r"~/.docker/", "Docker config"),
+    (r"/\.docker/", "Docker config (absolute)"),
+    (r"~/Library/", "macOS Library directory"),
+    (r"~/.claude/debug/", "Claude debug directory"),
+    (r"~/.claude/\.claude\.json\b", "Claude API tokens"),
+]
+
+
+def _credential_read_patterns() -> list[tuple[re.Pattern[str], str, str]]:
+    """Build credential-read patterns for all file-reading commands."""
+    patterns: list[tuple[re.Pattern[str], str, str]] = []
+    for path_re, description in _CREDENTIAL_PATHS:
+        patterns.append((
+            re.compile(r"\b" + _FILE_READERS + r"\s+.*" + path_re),
+            f"file reader accessing {description}",
+            "credential-reads",
+        ))
+    return patterns
+
+
 # Map: (compiled_pattern, reason, category)
 # Category names match safety.yaml destructive_bash.categories keys
 PATTERNS: list[tuple[re.Pattern[str], str, str]] = [
@@ -115,6 +159,10 @@ PATTERNS: list[tuple[re.Pattern[str], str, str]] = [
     (re.compile(r"\bgit\s+push\s+.*--force(?!-with-lease)\b"), "git push --force (use --force-with-lease)", "git-destructive"),
     (re.compile(r"\bgit\s+push\s+(-[^\s]*\s+)*-[a-eg-zA-Z]*f\b"), "git push -f (force push, combined flags)", "git-destructive"),
     (re.compile(r"\bgit\s+push\s+.+\s+-[a-eg-zA-Z]*f\b"), "git push <args> -f (force push, trailing)", "git-destructive"),
+    # Force push via refspec: git push <remote> +<ref>:<ref>
+    (re.compile(r"\bgit\s+push\s+\S+\s+\+"), "git push with + refspec (force push via refspec)", "git-destructive"),
+    # Delete remote branch via empty refspec: git push <remote> :<branch>
+    (re.compile(r"\bgit\s+push\s+\S+\s+:"), "git push with : refspec (delete remote branch)", "git-destructive"),
     (re.compile(r"\bgit\s+reset\s+--hard\b"), "git reset --hard", "git-destructive"),
     (re.compile(r"\bgit\s+clean\s+(-[^\s]*)*-[fd]"), "git clean -f/-d", "git-destructive"),
     (re.compile(r"\bgit\s+stash\s+clear\b"), "git stash clear", "git-destructive"),
@@ -125,22 +173,10 @@ PATTERNS: list[tuple[re.Pattern[str], str, str]] = [
     (re.compile(r"\bgit\s+checkout\s+\.\s*$"), "git checkout . (discard all changes)", "git-destructive"),
     (re.compile(r"\bgit\s+restore\s+\.\s*$"), "git restore . (discard all changes)", "git-destructive"),
     # -- credential-reads --
-    (re.compile(r"\bcat\s+.*~/.ssh/"), "cat reading SSH directory", "credential-reads"),
-    (re.compile(r"\bcat\s+.*~/.aws/"), "cat reading AWS directory", "credential-reads"),
-    (re.compile(r"\bcat\s+.*/\.ssh/"), "cat reading SSH directory (absolute)", "credential-reads"),
-    (re.compile(r"\bcat\s+.*/\.aws/"), "cat reading AWS directory (absolute)", "credential-reads"),
-    (re.compile(r"\bcat\s+.*~/.config/gh/"), "cat reading GitHub CLI config", "credential-reads"),
-    (re.compile(r"\bcat\s+.*~/.config/gcloud/"), "cat reading GCP credentials", "credential-reads"),
-    (re.compile(r"\bcat\s+.*/\.config/gcloud/"), "cat reading GCP credentials (absolute)", "credential-reads"),
-    (re.compile(r"\bcat\s+.*~/.azure/"), "cat reading Azure credentials", "credential-reads"),
-    (re.compile(r"\bcat\s+.*/\.azure/"), "cat reading Azure credentials (absolute)", "credential-reads"),
-    (re.compile(r"\bcat\s+.*~/.kube/"), "cat reading Kubernetes config", "credential-reads"),
-    (re.compile(r"\bcat\s+.*/\.kube/"), "cat reading Kubernetes config (absolute)", "credential-reads"),
-    (re.compile(r"\bcat\s+.*~/.terraform\.d/"), "cat reading Terraform credentials", "credential-reads"),
-    (re.compile(r"\bcat\s+.*~/.npmrc\b"), "cat reading npmrc", "credential-reads"),
-    (re.compile(r"\bcat\s+.*~/.netrc\b"), "cat reading netrc", "credential-reads"),
-    (re.compile(r"\bcat\s+.*~/.docker/"), "cat reading Docker config", "credential-reads"),
-    (re.compile(r"\bcat\s+.*~/.claude/\.claude\.json\b"), "cat reading Claude API tokens", "credential-reads"),
+    # Any file-reading command accessing credential paths is blocked.
+    # _FILE_READERS covers: cat, head, tail, less, more, od, xxd, hexdump,
+    # strings, base64, openssl, sed, awk, grep, sort, tee, cp, scp
+    *_credential_read_patterns(),
     (re.compile(r"\bsecurity\s+(find|dump)-.*keychain"), "macOS Keychain access", "credential-reads"),
     # -- data-exfiltration --
     (re.compile(r"\bcurl\s+.*-X\s*POST\b"), "curl POST (potential exfiltration)", "data-exfiltration"),

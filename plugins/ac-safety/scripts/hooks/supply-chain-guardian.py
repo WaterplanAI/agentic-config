@@ -201,6 +201,7 @@ def _is_pip_blocked(command: str) -> str | None:
 
 
 def _is_uv_add_blocked(command: str, uv_add_allowlist: set[str]) -> str | None:
+    """Validates ALL package arguments -- if ANY is not allowlisted, block."""
     match = re.search(r"\buv\s+add\s+(.*)", command)
     if not match:
         return None
@@ -211,20 +212,18 @@ def _is_uv_add_blocked(command: str, uv_add_allowlist: set[str]) -> str | None:
     _UV_ADD_VALUE_FLAGS = {"--group", "--optional", "--extra", "--tag", "--branch", "--rev"}
 
     args = _split_args(match.group(1))
+    packages: list[str] = []
     idx = 0
     while idx < len(args):
         arg = args[idx]
         if arg == "--":
-            # POSIX end-of-options: remaining args are all packages
+            # POSIX end-of-options: remaining non-flag args are all packages
             idx += 1
             while idx < len(args):
-                pkg = args[idx]
-                if not pkg.startswith("-"):
-                    if pkg in uv_add_allowlist:
-                        return None
-                    return f"uv add with unapproved package '{pkg}' (not in allowlist)"
+                if not args[idx].startswith("-"):
+                    packages.append(args[idx])
                 idx += 1
-            return None
+            break
         if arg in _UV_ADD_BARE_FLAGS:
             idx += 1
             continue
@@ -240,11 +239,15 @@ def _is_uv_add_blocked(command: str, uv_add_allowlist: set[str]) -> str | None:
             if arg.startswith("-"):
                 idx += 1
                 continue
-            # First positional arg is the package
-            if arg in uv_add_allowlist:
-                return None
-            return f"uv add with unapproved package '{arg}' (not in allowlist)"
+            # Positional arg is a package
+            packages.append(arg)
         idx += 1
+
+    if not packages:
+        return None
+    for pkg in packages:
+        if pkg not in uv_add_allowlist:
+            return f"uv add with unapproved package '{pkg}' (not in allowlist)"
     return None
 
 
@@ -268,54 +271,71 @@ def _is_uv_run_with_blocked(command: str) -> str | None:
     return f"uv run --with introduces transient package '{package}'"
 
 
-def _extract_first_package_arg(args: list[str]) -> str | None:
-    """Return the first non-flag argument from a command tail."""
-    for arg in args:
-        if not arg.startswith("-"):
-            return arg
-    return None
+def _extract_all_package_args(args: list[str]) -> list[str]:
+    """Return all non-flag arguments from a command tail."""
+    return [arg for arg in args if not arg.startswith("-")]
 
 
 def _is_npm_install_blocked(command: str, npm_install_allowlist: set[str]) -> str | None:
-    """Check for npm install/i <package> (not bare npm install / npm ci)."""
+    """Check for npm install/i <package> (not bare npm install / npm ci).
+
+    Validates ALL package arguments -- if ANY is not allowlisted, block.
+    """
     match = re.search(r"\bnpm\s+(?:install|i)\s+(.*)", command)
     if not match:
         return None
-    package = _extract_first_package_arg(_split_args(match.group(1)))
-    if not package or _is_allowlisted(package, npm_install_allowlist):
+    packages = _extract_all_package_args(_split_args(match.group(1)))
+    if not packages:
         return None
-    return f"npm install with unapproved package '{package}' (not in allowlist)"
+    for pkg in packages:
+        if not _is_allowlisted(pkg, npm_install_allowlist):
+            return f"npm install with unapproved package '{pkg}' (not in allowlist)"
+    return None
 
 
 def _is_pnpm_add_blocked(command: str, npm_install_allowlist: set[str]) -> str | None:
+    """Validates ALL package arguments -- if ANY is not allowlisted, block."""
     match = re.search(r"\bpnpm\s+add\s+(.*)", command)
     if not match:
         return None
-    package = _extract_first_package_arg(_split_args(match.group(1)))
-    if not package or _is_allowlisted(package, npm_install_allowlist):
+    packages = _extract_all_package_args(_split_args(match.group(1)))
+    if not packages:
         return None
-    return f"pnpm add with unapproved package '{package}' (not in allowlist)"
+    for pkg in packages:
+        if not _is_allowlisted(pkg, npm_install_allowlist):
+            return f"pnpm add with unapproved package '{pkg}' (not in allowlist)"
+    return None
 
 
 def _is_yarn_add_blocked(command: str, yarn_add_allowlist: set[str]) -> str | None:
-    """Check for yarn add <package>."""
+    """Check for yarn add <package>.
+
+    Validates ALL package arguments -- if ANY is not allowlisted, block.
+    """
     match = re.search(r"\byarn\s+add\s+(.*)", command)
     if not match:
         return None
-    package = _extract_first_package_arg(_split_args(match.group(1)))
-    if not package or _is_allowlisted(package, yarn_add_allowlist):
+    packages = _extract_all_package_args(_split_args(match.group(1)))
+    if not packages:
         return None
-    return f"yarn add with unapproved package '{package}' (not in allowlist)"
+    for pkg in packages:
+        if not _is_allowlisted(pkg, yarn_add_allowlist):
+            return f"yarn add with unapproved package '{pkg}' (not in allowlist)"
+    return None
 
 
 def _is_bun_add_blocked(command: str, npm_install_allowlist: set[str]) -> str | None:
+    """Validates ALL package arguments -- if ANY is not allowlisted, block."""
     match = re.search(r"\bbun\s+add\s+(.*)", command)
     if not match:
         return None
-    package = _extract_first_package_arg(_split_args(match.group(1)))
-    if not package or _is_allowlisted(package, npm_install_allowlist):
+    packages = _extract_all_package_args(_split_args(match.group(1)))
+    if not packages:
         return None
-    return f"bun add with unapproved package '{package}' (not in allowlist)"
+    for pkg in packages:
+        if not _is_allowlisted(pkg, npm_install_allowlist):
+            return f"bun add with unapproved package '{pkg}' (not in allowlist)"
+    return None
 
 
 def _split_shell_segments(command: str) -> list[str]:
@@ -331,6 +351,12 @@ def _split_shell_segments(command: str) -> list[str]:
     return [s.strip() for s in segments if s.strip()]
 
 
+# xargs laundering: xargs piped to a package manager install command
+_XARGS_PKG_MANAGER_RE = re.compile(
+    r"\bxargs\s+.*(?:npm\s+(?:install|i)|pip3?\s+install|uv\s+add|yarn\s+add|pnpm\s+add|bun\s+add)\b"
+)
+
+
 def _check_segment(
     segment: str,
     npx_allowlist: set[str],
@@ -342,6 +368,12 @@ def _check_segment(
 
     Returns (reason, category) or (None, '') if safe.
     """
+    # xargs laundering to package managers (e.g. echo evil | xargs npm install)
+    # Must run BEFORE safe-pattern fast-path: safe patterns use \b not ^,
+    # so "xargs npm install" matches the safe pattern for bare "npm install".
+    if _XARGS_PKG_MANAGER_RE.search(segment):
+        return "xargs piped to package manager install (supply chain risk)", "npm-install"
+
     # Safe pattern fast-path: only safe if the ENTIRE segment matches
     for safe in SAFE_PATTERNS:
         if safe.search(segment):
