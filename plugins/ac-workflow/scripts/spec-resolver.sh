@@ -3,22 +3,9 @@
 # Provides path resolution and commit routing for external/local specs storage
 # Plugin-aware version: uses ${CLAUDE_PLUGIN_ROOT} for all paths
 
-# CLAUDE_PLUGIN_ROOT is set by Claude Code plugin runtime
-# Fallback for direct execution: use script directory's parent
-: "${CLAUDE_PLUGIN_ROOT:="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"}"
-
-# Source shared config loader
-_source_config_loader() {
-  local config_loader="${CLAUDE_PLUGIN_ROOT}/scripts/lib/config-loader.sh"
-
-  if [[ -f "$config_loader" ]]; then
-    # shellcheck source=lib/config-loader.sh
-    source "$config_loader"
-  else
-    echo "ERROR: config-loader.sh not found at $config_loader" >&2
-    return 1
-  fi
-}
+# Source shared bootstrap helpers (CLAUDE_PLUGIN_ROOT resolution + config loader)
+# shellcheck source=lib/source-helpers.sh
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/source-helpers.sh"
 
 # Validate spec path against directory traversal attacks
 # Usage: _validate_spec_path <path>
@@ -154,12 +141,13 @@ commit_spec_changes() {
   if [[ -n "${EXT_SPECS_REPO_URL:-}" && -n "$ext_specs_path" && "$spec_path" == "$project_root/$ext_specs_path/specs/"* ]]; then
     # External specs repository - use ext_specs_commit
     if [[ "$dry_run" == true ]]; then
-      echo "DRY RUN: commit_spec_changes (external)"
-      echo "  Spec: $spec_path"
-      echo "  Message: $commit_message"
-      echo "  Target: external specs repository"
+      echo "DRY RUN: commit_spec_changes (external)" >&2
+      echo "  Spec: $spec_path" >&2
+      echo "  Message: $commit_message" >&2
+      echo "  Target: external specs repository" >&2
       # Source and call ext_specs_commit with dry-run
       local ext_specs_script="${CLAUDE_PLUGIN_ROOT}/scripts/external-specs.sh"
+      # shellcheck source=external-specs.sh
       [[ -f "$ext_specs_script" ]] && source "$ext_specs_script"
       ext_specs_commit "$commit_message" --dry-run 2>/dev/null || true
       return 0
@@ -176,7 +164,7 @@ commit_spec_changes() {
         return 1
       }
 
-      echo "Committed to external specs repository: $commit_message"
+      echo "Committed to external specs repository: $commit_message" >&2
     else
       echo "ERROR: external-specs.sh not found at $ext_specs_script" >&2
       return 1
@@ -184,17 +172,17 @@ commit_spec_changes() {
   else
     # Local specs directory - use standard git operations in PROJECT
     if [[ "$dry_run" == true ]]; then
-      echo "DRY RUN: commit_spec_changes (local)"
-      echo "  Spec: $spec_path"
-      echo "  Message: $commit_message"
-      echo "  Target: main repository at $project_root"
+      echo "DRY RUN: commit_spec_changes (local)" >&2
+      echo "  Spec: $spec_path" >&2
+      echo "  Message: $commit_message" >&2
+      echo "  Target: main repository at $project_root" >&2
       return 0
     fi
 
-    (cd "$project_root" && git add "$spec_path" && git commit -m "$commit_message") || {
+    (cd "$project_root" && git add "$spec_path" && git commit -m "$commit_message" >&2) || {
       local rel_spec_path="$spec_path"
       if [[ "$rel_spec_path" == "$project_root/"* ]]; then
-        rel_spec_path="${rel_spec_path#$project_root/}"
+        rel_spec_path="${rel_spec_path#"$project_root"/}"
       fi
 
       echo "ERROR: Failed to commit to main repository" >&2
@@ -203,7 +191,7 @@ commit_spec_changes() {
       return 1
     }
 
-    echo "Committed to main repository: $commit_message"
+    echo "Committed to main repository: $commit_message" >&2
   fi
 
   return 0
