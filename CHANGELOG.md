@@ -4,6 +4,8 @@ All notable changes to agentic-config.
 
 ## [Unreleased]
 
+## [0.2.4] - 2026-03-18
+
 ### Fixed
 
 - `ac-git`, `ac-workflow`: resolve stdout pollution in `resolve_spec_path` -- all informational echo statements redirected to stderr so `$(resolve_spec_path ...)` captures only the resolved path (#58, #59)
