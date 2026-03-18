@@ -22,17 +22,35 @@ from _lib import allow, ask, deny, fail_close, get_category_decision, load_confi
 # Patterns that are SAFE (skip blocking).
 # These are applied per-segment (after splitting on shell operators).
 # Patterns must be tight -- they should not match when extra package args follow.
+#
+# Path restrictions for -r/--requirement and -e/--editable:
+#   - Requirement files: relative paths only (no :// schemes, no absolute paths starting
+#     with / or ~). Safe examples: requirements.txt, requirements/dev.txt, ./req.txt
+#   - Editable installs: only . or .[extras] (current directory editable install)
+_SAFE_REQ_PATH = r"(?![/~]|\.\.|\S*://)[^\s]+"  # relative path, no URL scheme, no absolute, no ../
+_SAFE_EDITABLE = r"\.(?:\[\S+\])?"  # . or .[extras]
+
 SAFE_PATTERNS = [
     re.compile(r"\bnpm\s+(install|ci|i)\s*$"),
     re.compile(
         r"\bnpm\s+(install|ci|i)\s+--(legacy-peer-deps|prefer-offline|no-audit"
         r"|ignore-scripts|frozen-lockfile|no-optional|no-save|production)\s*$"
     ),
-    # pip install from requirements/editable/current-dir only (no trailing package args)
-    re.compile(r"\bpip3?\s+install\s+(-r\s+\S+|--requirement\s+\S+|-e\s+\S+|--editable\s+\S+|\.)\s*$"),
+    # pip install from requirements (relative path) / editable (. only) / current-dir only
+    re.compile(
+        r"\bpip3?\s+install\s+"
+        r"((?:-r|--requirement)[=\s]" + _SAFE_REQ_PATH +
+        r"|(?:-e|--editable)[=\s]" + _SAFE_EDITABLE +
+        r"|\.)\s*$"
+    ),
     re.compile(r"\buv\s+sync\s*$"),
-    # uv pip install from requirements/editable/current-dir only
-    re.compile(r"\buv\s+pip\s+install\s+(-r\s+\S+|--requirement\s+\S+|-e\s+\S+|--editable\s+\S+|\.)\s*$"),
+    # uv pip install from requirements (relative path) / editable (. only) / current-dir only
+    re.compile(
+        r"\buv\s+pip\s+install\s+"
+        r"((?:-r|--requirement)[=\s]" + _SAFE_REQ_PATH +
+        r"|(?:-e|--editable)[=\s]" + _SAFE_EDITABLE +
+        r"|\.)\s*$"
+    ),
     re.compile(r"\buv\s+pip\s+compile\b"),
 ]
 

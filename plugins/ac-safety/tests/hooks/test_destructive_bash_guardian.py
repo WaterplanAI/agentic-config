@@ -1056,6 +1056,45 @@ def test_blocks_zip_gnupg() -> TestResult:
     return r
 
 
+# -- Issue 2: rm in allowed project roots should be allowed --
+
+
+def test_allows_rm_rf_in_project_dir() -> TestResult:
+    """Issue 2: rm -rf ~/projects/myapp/dist should be allowed (within project roots)"""
+    r = TestResult("Allows rm -rf ~/projects/myapp/dist (in project root)")
+    try:
+        out = run_hook("rm -rf ~/projects/myapp/dist")
+        assert out["decision"] == "allow", f"Expected allow, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+    return r
+
+
+def test_blocks_rm_rf_outside_project() -> TestResult:
+    """Issue 2: rm -rf ~/Documents should still be blocked"""
+    r = TestResult("Blocks rm -rf ~/Documents (outside project root)")
+    try:
+        out = run_hook("rm -rf ~/Documents")
+        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+    return r
+
+
+def test_blocks_rm_rf_tmp() -> TestResult:
+    """Issue 2: rm -rf /tmp/evil should be blocked (absolute path outside project)"""
+    r = TestResult("Blocks rm -rf /tmp/evil (outside project root)")
+    try:
+        out = run_hook("rm -rf /tmp/evil")
+        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+    return r
+
+
 def main() -> None:
     from ac_safety_test_support import run_tests  # pyright: ignore[reportMissingImports]
     run_tests("destructive-bash-guardian unit tests", [
@@ -1163,6 +1202,10 @@ def main() -> None:
         test_blocks_mv_ssh_key,
         test_blocks_ln_docker_config,
         test_blocks_zip_gnupg,
+        # Issue 2: configurable project roots for rm
+        test_allows_rm_rf_in_project_dir,
+        test_blocks_rm_rf_outside_project,
+        test_blocks_rm_rf_tmp,
     ])
 
 

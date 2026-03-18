@@ -16,7 +16,7 @@ import re
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from _lib import allow, ask, deny, fail_close, get_category_decision, load_config
+from _lib import allow, ask, deny, fail_close, get_category_decision, load_config, resolve_path
 
 # Optional path prefix for system binaries (covers /bin/rm, /usr/bin/rm,
 # /usr/local/bin/rm, /usr/local/sbin/rm, etc.)
@@ -114,9 +114,11 @@ def _credential_read_patterns() -> list[tuple[re.Pattern[str], str, str]]:
 # Category names match safety.yaml destructive_bash.categories keys
 PATTERNS: list[tuple[re.Pattern[str], str, str]] = [
     # -- file-destruction --
-    (re.compile(_BIN + r"\brm\s+(-[^\s]*)*\s*-[rR].*(" + re.escape(os.path.expanduser("~")) + r"[/\s]|~/|/Users/\w+/(?!projects/))"), "rm -r targeting home or outside project", "file-destruction"),
-    (re.compile(_BIN + r"\brm\s+" + _RM_RF + r"/(?!Users/\w+/projects/)"), "rm -rf targeting system or non-project path", "file-destruction"),
-    (re.compile(_BIN + r"\brm\s+" + _RM_RF + r"~/(?!projects/)"), "rm -rf targeting home subdirectory outside project", "file-destruction"),
+    # NOTE: rm patterns match broadly (no hard-coded project exclusions).
+    # Post-match filtering in main() checks allowed_project_roots from config.
+    (re.compile(_BIN + r"\brm\s+(-[^\s]*)*\s*-[rR].*(" + re.escape(os.path.expanduser("~")) + r"[/\s]|~/|/Users/\w+/)"), "rm -r targeting home or user directory", "file-destruction"),
+    (re.compile(_BIN + r"\brm\s+" + _RM_RF + r"/\S"), "rm -rf targeting absolute path", "file-destruction"),
+    (re.compile(_BIN + r"\brm\s+" + _RM_RF + r"~/"), "rm -rf targeting home subdirectory", "file-destruction"),
     (re.compile(_BIN + r"\brm\s+" + _RM_RF + r"~" + _END), "rm -rf targeting entire home directory", "file-destruction"),
     (re.compile(_BIN + r"\brm\s+" + _RM_RF + r"\.\." + _END), "rm -rf targeting parent directory", "file-destruction"),
     (re.compile(_BIN + r"\brm\s+" + _RM_RF + r"\.\./"), "rm -rf targeting parent-relative path", "file-destruction"),
@@ -126,8 +128,8 @@ PATTERNS: list[tuple[re.Pattern[str], str, str]] = [
     (re.compile(_BIN + r"\brm\s+" + _RM_RF + _OPT_QUOTE + r"\$HOME/"), "rm -rf targeting $HOME subdirectory", "file-destruction"),
     (re.compile(_BIN + r"\brm\s+" + _RM_RF + _OPT_QUOTE + r"\$\{HOME\}/"), "rm -rf targeting ${HOME} subdirectory", "file-destruction"),
     # Split flags: rm -r -f ~ / rm -f -r ~
-    (re.compile(_BIN + r"\brm\s+" + _RM_RF_SPLIT + r"/(?!Users/\w+/projects/)"), "rm with split flags targeting system path", "file-destruction"),
-    (re.compile(_BIN + r"\brm\s+" + _RM_RF_SPLIT + r"~/(?!projects/)"), "rm with split flags targeting home subdirectory", "file-destruction"),
+    (re.compile(_BIN + r"\brm\s+" + _RM_RF_SPLIT + r"/\S"), "rm with split flags targeting absolute path", "file-destruction"),
+    (re.compile(_BIN + r"\brm\s+" + _RM_RF_SPLIT + r"~/"), "rm with split flags targeting home subdirectory", "file-destruction"),
     (re.compile(_BIN + r"\brm\s+" + _RM_RF_SPLIT + r"~" + _END), "rm with split flags targeting entire home directory", "file-destruction"),
     (re.compile(_BIN + r"\brm\s+" + _RM_RF_SPLIT + r"\.\." + _END), "rm with split flags targeting parent directory", "file-destruction"),
     (re.compile(_BIN + r"\brm\s+" + _RM_RF_SPLIT + r"\.\./"), "rm with split flags targeting parent-relative path", "file-destruction"),
@@ -218,6 +220,53 @@ PATTERNS: list[tuple[re.Pattern[str], str, str]] = [
 ]
 
 
+def _extract_rm_targets(command: str) -> list[str]:
+    """Extract target paths from an rm command for project-root checks.
+
+    Returns resolved absolute paths found after rm flags.
+    Only extracts paths that start with /, ~, $HOME, or ${HOME}.
+    """
+    targets: list[str] = []
+    # Find everything after 'rm' and its flags
+    match = re.search(r"\brm\s+(.*)", command)
+    if not match:
+        return targets
+    rest = match.group(1)
+    # Strip flags and -- separator
+    parts = rest.split()
+    past_flags = False
+    for part in parts:
+        if part == "--":
+            past_flags = True
+            continue
+        if not past_flags and part.startswith("-"):
+            continue
+        # Remove surrounding quotes
+        cleaned = part.strip("\"'")
+        # Expand $HOME / ${HOME}
+        cleaned = cleaned.replace("${HOME}", os.path.expanduser("~"))
+        cleaned = cleaned.replace("$HOME", os.path.expanduser("~"))
+        if cleaned.startswith(("/", "~")):
+            targets.append(resolve_path(cleaned))
+    return targets
+
+
+def _is_within_allowed_roots(targets: list[str], allowed_roots: list[str]) -> bool:
+    """Check if ALL extracted targets are within allowed project roots."""
+    if not targets:
+        return False
+    for target in targets:
+        in_root = False
+        for root in allowed_roots:
+            resolved_root = resolve_path(root.rstrip("/"))
+            if target.startswith(resolved_root + "/") or target == resolved_root:
+                in_root = True
+                break
+        if not in_root:
+            return False
+    return True
+
+
 @fail_close
 def main() -> None:
     input_data = json.load(sys.stdin)
@@ -230,9 +279,18 @@ def main() -> None:
 
     command = tool_input.get("command", "")
     config = load_config()
+    allowed_project_roots: list[str] = config.get("allowed_project_roots", ["~/projects/"])
 
     for pattern, reason, category in PATTERNS:
         if pattern.search(command):
+            # For file-destruction patterns (rm commands), check if the target
+            # is within allowed project roots. If so, allow it.
+            if category == "file-destruction" and "rm" in reason.lower():
+                targets = _extract_rm_targets(command)
+                if targets and _is_within_allowed_roots(targets, allowed_project_roots):
+                    allow()
+                    return
+
             decision = get_category_decision(config, "destructive_bash", category)
             if decision == "deny":
                 deny(f"BLOCKED: {reason}. Command denied by destructive-bash-guardian.")

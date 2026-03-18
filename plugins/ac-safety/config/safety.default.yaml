@@ -12,6 +12,7 @@ credential_guardian:
     env-files: deny
     app-tokens: deny
     browser-credentials: deny
+    broad-scan: deny
   blocked_prefixes:
     - "~/.aws/"
     - "~/.ssh/"

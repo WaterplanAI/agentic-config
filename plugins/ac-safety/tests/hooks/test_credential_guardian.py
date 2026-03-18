@@ -288,11 +288,11 @@ def test_blocks_var_traversal_aws() -> TestResult:
 
 
 def test_blocks_broad_glob_from_home() -> TestResult:
-    """Issue 1: Glob(path='~', pattern='**/*') broad recursive scan from HOME."""
-    r = TestResult("Blocks Glob(path='~', pattern='**/*') broad scan")
+    """Issue 1: Glob(path='~', pattern='**/*') broad recursive scan from HOME -> DENY."""
+    r = TestResult("Denies Glob(path='~', pattern='**/*') broad scan")
     try:
         out = run_hook("Glob", {"path": os.path.expanduser("~"), "pattern": "**/*"})
-        assert out["decision"] != "allow", f"Expected deny/ask, got {out['decision']}"
+        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
@@ -300,11 +300,11 @@ def test_blocks_broad_glob_from_home() -> TestResult:
 
 
 def test_blocks_broad_grep_from_root() -> TestResult:
-    """Issue 1: Grep(path='/', glob='**/*', pattern='PRIVATE KEY') broad scan from root."""
-    r = TestResult("Blocks Grep(path='/', pattern='PRIVATE KEY') broad scan")
+    """Issue 1: Grep(path='/', glob='**/*', pattern='PRIVATE KEY') broad scan -> DENY."""
+    r = TestResult("Denies Grep(path='/', pattern='PRIVATE KEY') broad scan")
     try:
         out = run_hook("Grep", {"path": "/", "glob": "**/*", "pattern": "PRIVATE KEY"})
-        assert out["decision"] != "allow", f"Expected deny/ask, got {out['decision']}"
+        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
@@ -312,11 +312,23 @@ def test_blocks_broad_grep_from_root() -> TestResult:
 
 
 def test_blocks_broad_glob_tilde_str() -> TestResult:
-    """Issue 1: Glob(path='~/', pattern='**/*.pem') from HOME with tilde."""
-    r = TestResult("Blocks Glob(path='~/', pattern='**/*.pem') broad scan")
+    """Issue 1: Glob(path='~/', pattern='**/*.pem') from HOME -> DENY."""
+    r = TestResult("Denies Glob(path='~/', pattern='**/*.pem') broad scan")
     try:
         out = run_hook("Glob", {"path": "~/", "pattern": "**/*.pem"})
-        assert out["decision"] != "allow", f"Expected deny/ask, got {out['decision']}"
+        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+    return r
+
+
+def test_denies_broad_glob_from_root() -> TestResult:
+    """Issue 3: Glob(path='/', pattern='**/*') broad scan -> DENY (not ask)."""
+    r = TestResult("Denies Glob(path='/', pattern='**/*') with broad-scan: deny")
+    try:
+        out = run_hook("Glob", {"path": "/", "pattern": "**/*"})
+        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
@@ -444,6 +456,8 @@ def main() -> None:
         test_blocks_empty_path_glob_ssh,
         test_blocks_empty_path_grep_aws,
         test_allows_empty_path_safe_pattern,
+        # Issue 3: broad-scan category now defaults to deny
+        test_denies_broad_glob_from_root,
     ])
 
 
