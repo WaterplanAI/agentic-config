@@ -6,12 +6,23 @@ All notable changes to agentic-config.
 
 ### Fixed
 
+- `ac-git`, `ac-workflow`: resolve stdout pollution in `resolve_spec_path` -- all informational echo statements redirected to stderr so `$(resolve_spec_path ...)` captures only the resolved path (#58, #59)
+- `ac-git`, `ac-workflow`: make `_source_config_loader` resilient to misconfigured `CLAUDE_PLUGIN_ROOT` (e.g. in worktrees) via `BASH_SOURCE` fallback (#59)
 - `ac-git`, `ac-workflow`: redirect `git push` and `git add -A` output to stderr in `ext_specs_commit` for consistent stdout cleanliness
 - `ac-git`, `ac-workflow`: remove `2>/dev/null` on `ext_specs_commit --dry-run` that silenced entire dry-run report after stderr migration
 - `ac-git`, `ac-workflow`: repair `_source_config_loader` to validate and fix `CLAUDE_PLUGIN_ROOT` before idempotent early return
   - Prevents stale root when config-loader functions are already in memory but `CLAUDE_PLUGIN_ROOT` points to wrong directory
   - Early return now requires both `load_agentic_config` and `get_project_root` to be defined
   - Post-source validation fails explicitly if required functions are missing
+
+### Changed
+
+- `ac-git`, `ac-workflow`: extract duplicated `_source_config_loader` and `CLAUDE_PLUGIN_ROOT` bootstrap into shared `scripts/lib/source-helpers.sh` per plugin (#59)
+- `ac-git`, `ac-workflow`: fix SC2295 unquoted expansion in `spec-resolver.sh` parameter substitution (#59)
+
+### Added
+
+- Tests: 7-case test suite for issue #58 covering config-loader discovery, stdout cleanliness, stderr routing, and idempotent loading (#59)
 - Tests: regression coverage for preloaded config-loader with bad `CLAUDE_PLUGIN_ROOT` across both plugins
 
 ## [0.2.3] - 2026-03-16
