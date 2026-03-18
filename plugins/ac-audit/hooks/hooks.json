@@ -1,0 +1,14 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [{
+          "type": "command",
+          "command": "uv run --no-project --script ${CLAUDE_PLUGIN_ROOT}/scripts/hooks/tool-audit.py",
+          "timeout": 5000
+        }]
+      }
+    ]
+  }
+}

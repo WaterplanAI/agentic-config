@@ -1,0 +1,162 @@
+# ac-safety default configuration
+# Override at: project safety.yaml > ~/.claude/safety.yaml > this file
+# Resolution: deep-merge with most-restrictive-wins for category decisions
+
+allowed_project_roots:
+  - "~/projects/"
+
+credential_guardian:
+  categories:
+    ssh-keys: deny
+    cloud-credentials: deny
+    env-files: deny
+    app-tokens: deny
+    browser-credentials: deny
+  blocked_prefixes:
+    - "~/.aws/"
+    - "~/.ssh/"
+    - "~/.config/gh/"
+    - "~/.docker/"
+    - "~/.gnupg/"
+    - "~/Library/"
+    - "~/.claude/debug/"
+    - "~/.claude/.claude.json"
+  blocked_filenames:
+    - ".npmrc"
+    - ".netrc"
+    - ".pypirc"
+    - ".git-credentials"
+  blocked_extensions:
+    - ".pem"
+    - ".key"
+    - ".p12"
+    - ".pfx"
+  allowed_claude_files:
+    - "~/.claude/settings.json"
+    - "~/.claude/settings.local.json"
+    - "~/.claude/CLAUDE.md"
+
+destructive_bash:
+  categories:
+    git-destructive: deny
+    file-destruction: deny
+    aws-destructive: deny
+    data-exfiltration: deny
+    process-destruction: deny
+    persistence: deny
+    system-level: deny
+    docker-destruction: deny
+    npm-publish: deny
+    iac-destruction: deny
+    permission-abuse: deny
+    credential-reads: deny
+
+write_scope:
+  allowed_write_prefixes:
+    - "~/projects/"
+    - "~/.claude/"
+    - "~/.claude-secondary/"
+    - "/private/tmp/"
+    - "/tmp/"
+  blocked_write_prefixes:
+    - "~/.ssh/"
+    - "~/.aws/"
+    - "~/.config/gh/"
+    - "~/.docker/"
+    - "~/.gnupg/"
+    - "~/Library/LaunchAgents/"
+    - "~/Library/LaunchDaemons/"
+    - "/etc/"
+    - "/usr/"
+    - "/bin/"
+    - "/sbin/"
+    # Belt-and-suspenders: settings files also in blocked_write_files,
+    # but listed here so removing them from blocked_write_files alone
+    # does not silently make them writable.
+    - "~/.claude/settings.json"
+    - "~/.claude/settings.local.json"
+  blocked_write_files:
+    - "~/.claude/settings.json"
+    - "~/.claude/settings.local.json"
+    - "~/.claude-secondary/settings.json"
+    - "~/.bashrc"
+    - "~/.zshrc"
+    - "~/.zprofile"
+    - "~/.profile"
+    - "~/.bash_profile"
+    - "~/.npmrc"
+    - "~/.netrc"
+    - "~/.gitconfig"
+    - "~/.pypirc"
+    - "~/.pythonrc"
+    - "~/.ssh/authorized_keys"
+  ask_user_prefixes:
+    - "~/.claude/hooks/"
+    - "~/.claude-secondary/hooks/"
+  git_hooks_segment: "/.git/hooks/"
+
+supply_chain:
+  categories:
+    npx-packages: ask
+    pip-direct: ask
+    uv-add: ask
+    uv-pip-direct: ask
+    npm-install: ask
+    yarn-add: ask
+  npx_allowlist:
+    - "@playwright/mcp"
+    - "ts-node"
+    - "cdk"
+    - "aws-cdk"
+    - "jest"
+    - "tsx"
+    - "tsc"
+    - "prettier"
+    - "eslint"
+  uv_add_allowlist: []
+  npm_install_allowlist: []
+  yarn_add_allowlist: []
+
+playwright:
+  categories:
+    navigate-blocked-domain: ask
+    browser-evaluate: ask
+    browser-fill-form: ask
+    browser-file-upload: ask
+    unknown-mcp-action: ask
+  allowed_domains:
+    - "localhost"
+    - "127.0.0.1"
+    - "github.com"
+    - "gitlab.com"
+    - "pypi.org"
+    - "www.npmjs.com"
+    - "docs.aws.amazon.com"
+    - "docs.python.org"
+    - "stackoverflow.com"
+    - "developer.mozilla.org"
+    - "www.google.com"
+    - "serper.dev"
+    - "serpapi.com"
+  always_blocked_tools:
+    - "browser_evaluate"
+    - "browser_fill_form"
+    - "browser_run_code"
+  always_allowed_tools:
+    - "browser_snapshot"
+    - "browser_take_screenshot"
+    - "browser_click"
+    - "browser_close"
+    - "browser_resize"
+    - "browser_tabs"
+    - "browser_console_messages"
+    - "browser_network_requests"
+    - "browser_press_key"
+    - "browser_hover"
+    - "browser_wait_for"
+    - "browser_navigate_back"
+    - "browser_install"
+    - "browser_handle_dialog"
+    - "browser_select_option"
+    - "browser_drag"
+    - "browser_type"

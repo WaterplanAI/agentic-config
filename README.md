@@ -42,6 +42,8 @@ Core principles:
 | `ac-qa` | QA, E2E testing, browser automation | 7 |
 | `ac-tools` | Utilities, integrations, bootstrap | 16 |
 | `ac-meta` | Meta-prompting, self-improvement | 2 |
+| `ac-safety` | Security guardrails (credential, write-scope, destructive-bash, supply-chain, playwright) | 1 |
+| `ac-audit` | Tool audit logging (JSONL append-only log) | 0 |
 
 ## Documentation
 
