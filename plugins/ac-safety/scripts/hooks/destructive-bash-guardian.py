@@ -13,6 +13,7 @@ Default decision: DENY. Fail-close on errors.
 import json
 import os
 import re
+import shlex
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -67,7 +68,14 @@ def _rce_patterns() -> list[tuple[re.Pattern[str], str, str]]:
 
 
 # File-reading commands that can expose credential file contents
-_FILE_READERS = r"(?:cat|head|tail|less|more|od|xxd|hexdump|strings|base64|openssl|sed|awk|grep|sort|tee|cp|scp|tar|zip|rsync|mv|ln|diff|nl|cut|paste|fold|fmt|rev|pr)"
+_FILE_READER_COMMANDS: tuple[str, ...] = (
+    "cat", "head", "tail", "less", "more", "od", "xxd", "hexdump",
+    "strings", "base64", "openssl", "sed", "awk", "grep", "sort",
+    "tee", "cp", "scp", "tar", "zip", "rsync", "mv", "ln", "diff",
+    "nl", "cut", "paste", "fold", "fmt", "rev", "pr",
+)
+_FILE_READER_COMMAND_SET = set(_FILE_READER_COMMANDS)
+_FILE_READERS = r"(?:" + "|".join(re.escape(command) for command in _FILE_READER_COMMANDS) + r")"
 
 # Credential paths: (regex_suffix, description)
 # Kept in sync with safety.default.yaml credential_guardian.blocked_prefixes
@@ -113,6 +121,63 @@ def _credential_read_patterns() -> list[tuple[re.Pattern[str], str, str]]:
             "credential-reads",
         ))
     return patterns
+
+
+def _split_args(command: str) -> list[str]:
+    """Split a shell command into argv, falling back on whitespace."""
+    try:
+        return shlex.split(command)
+    except ValueError:
+        return command.split()
+
+
+def _extract_command_name(args: list[str]) -> tuple[str, list[str]]:
+    """Return the invoked command name and its trailing args.
+
+    Skips common shell wrappers such as ``env`` and leading environment
+    assignments so ``env FOO=1 cat ~/.*/id_rsa`` still resolves to ``cat``.
+    """
+    idx = 0
+    while idx < len(args):
+        arg = args[idx]
+        if re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*=.*", arg):
+            idx += 1
+            continue
+        if arg in {"env", "command", "builtin", "exec", "sudo"}:
+            idx += 1
+            continue
+        return arg, args[idx + 1:]
+    return "", []
+
+
+def _is_hidden_dir_wildcard_arg(arg: str) -> bool:
+    """Return True for HOME-relative wildcard scans over hidden directories.
+
+    Examples: ``~/.*/id_rsa``, ``$HOME/.[a-z]*/config``, ``/home/u/.*/``.
+    These shell globs can expand into credential directories such as ``~/.ssh``
+    and ``~/.aws`` even without naming them explicitly.
+    """
+    home = os.path.expanduser("~")
+    prefixes = ("~/", "$HOME/", "${HOME}/", home.rstrip("/") + "/")
+    normalized = arg.rstrip("/")
+    for prefix in prefixes:
+        if not normalized.startswith(prefix):
+            continue
+        relative = normalized[len(prefix):]
+        first_segment = relative.split("/", 1)[0]
+        return first_segment.startswith(".") and any(token in first_segment for token in ("*", "?", "[", "{"))
+    return False
+
+
+def _has_hidden_dir_glob_credential_read(command: str) -> bool:
+    """Return True when a file-reader scans wildcard hidden dirs under HOME."""
+    args = _split_args(command)
+    if not args:
+        return False
+    command_name, trailing_args = _extract_command_name(args)
+    if command_name not in _FILE_READER_COMMAND_SET:
+        return False
+    return any(_is_hidden_dir_wildcard_arg(arg) for arg in trailing_args)
 
 
 # Map: (compiled_pattern, reason, category)
@@ -286,6 +351,17 @@ def main() -> None:
     command = tool_input.get("command", "")
     config = load_config()
     allowed_project_roots: list[str] = config.get("allowed_project_roots", ["~/projects/"])
+
+    if _has_hidden_dir_glob_credential_read(command):
+        decision = get_category_decision(config, "destructive_bash", "credential-reads")
+        reason = "file reader scanning wildcard hidden directory under home"
+        if decision == "deny":
+            deny(f"BLOCKED: {reason}. Command denied by destructive-bash-guardian.")
+        elif decision == "ask":
+            ask(f"{reason} -- confirm to proceed?")
+        else:
+            allow()
+        return
 
     for pattern, reason, category in PATTERNS:
         if pattern.search(command):

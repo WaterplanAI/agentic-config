@@ -1030,6 +1030,45 @@ def test_blocks_cp_ssh_key() -> TestResult:
     return r
 
 
+def test_blocks_cat_hidden_dir_wildcard_ssh() -> TestResult:
+    """Issue 2: cat ~/.*/id_rsa should be denied."""
+    r = TestResult("Blocks cat ~/.*/id_rsa (hidden-dir wildcard credential read)")
+    try:
+        out = run_hook("cat ~/.*/id_rsa")
+        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+        raise
+    return r
+
+
+def test_blocks_grep_hidden_dir_wildcard_config() -> TestResult:
+    """Issue 2: grep foo ~/.*/config should be denied."""
+    r = TestResult("Blocks grep foo ~/.*/config (hidden-dir wildcard credential read)")
+    try:
+        out = run_hook("grep foo ~/.*/config")
+        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+        raise
+    return r
+
+
+def test_blocks_tar_hidden_dir_wildcard_home() -> TestResult:
+    """Issue 2: tar czf /tmp/creds.tgz ~/.*/ should be denied."""
+    r = TestResult("Blocks tar czf /tmp/creds.tgz ~/.*/ (hidden-dir wildcard credential read)")
+    try:
+        out = run_hook("tar czf /tmp/creds.tgz ~/.*/")
+        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+        raise
+    return r
+
+
 def test_blocks_strings_kube_config() -> TestResult:
     """strings ~/.kube/config (credential read via strings)"""
     r = TestResult("Blocks strings ~/.kube/config")
@@ -1340,6 +1379,9 @@ def main() -> None:
         test_blocks_base64_ssh_key,
         test_blocks_grep_aws_credentials,
         test_blocks_cp_ssh_key,
+        test_blocks_cat_hidden_dir_wildcard_ssh,
+        test_blocks_grep_hidden_dir_wildcard_config,
+        test_blocks_tar_hidden_dir_wildcard_home,
         test_blocks_strings_kube_config,
         # Sentinel 012: HIGH-001 GnuPG credential path
         test_blocks_strings_gnupg_secring,

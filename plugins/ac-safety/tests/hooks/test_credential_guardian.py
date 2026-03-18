@@ -387,6 +387,45 @@ def test_allows_non_recursive_glob_from_home() -> TestResult:
     return r
 
 
+def test_blocks_hidden_dir_wildcard_glob_from_home() -> TestResult:
+    """Issue 1: Glob(path='~', pattern='.*/id_rsa') should DENY."""
+    r = TestResult("Denies Glob(path='~', pattern='.*/id_rsa') hidden-dir wildcard scan")
+    try:
+        out = run_hook("Glob", {"path": os.path.expanduser("~"), "pattern": ".*/id_rsa"})
+        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+        raise
+    return r
+
+
+def test_blocks_hidden_dir_wildcard_grep_from_root() -> TestResult:
+    """Issue 1: Grep(path='/', glob='.[a-z]*/config') should DENY."""
+    r = TestResult("Denies Grep(path='/', glob='.[a-z]*/config') hidden-dir wildcard scan")
+    try:
+        out = run_hook("Grep", {"path": "/", "glob": ".[a-z]*/config", "pattern": "key"})
+        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+        raise
+    return r
+
+
+def test_allows_hidden_dir_wildcard_glob_in_project() -> TestResult:
+    """Regression: hidden-dir wildcard under allowed project root stays allowed."""
+    r = TestResult("Allows hidden-dir wildcard Glob under project root")
+    try:
+        out = run_hook("Glob", {"path": os.path.expanduser("~/projects/myapp"), "pattern": ".*/id_rsa"})
+        assert out["decision"] == "allow", f"Expected allow, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+        raise
+    return r
+
+
 def test_blocks_empty_path_glob_ssh() -> TestResult:
     """MEDIUM-002: Glob(path='', pattern='**/.ssh/*') from HOME should DENY."""
     r = TestResult("Blocks Glob(path='', pattern='**/.ssh/*') empty base_path")
@@ -493,6 +532,9 @@ def main() -> None:
         test_blocks_broad_glob_tilde_str,
         test_allows_broad_glob_in_project,
         test_allows_non_recursive_glob_from_home,
+        test_blocks_hidden_dir_wildcard_glob_from_home,
+        test_blocks_hidden_dir_wildcard_grep_from_root,
+        test_allows_hidden_dir_wildcard_glob_in_project,
         # MEDIUM-002: empty base_path bypass
         test_blocks_empty_path_glob_ssh,
         test_blocks_empty_path_grep_aws,

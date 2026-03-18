@@ -85,6 +85,30 @@ def _extract_blocked_segments_from_pattern(base_path: str, pattern: str) -> list
     return results
 
 
+def _pattern_has_hidden_dir_wildcard(pattern: str) -> bool:
+    """Return True when the glob pattern can enumerate hidden home directories.
+
+    Examples: ``.*/id_rsa``, ``.[a-z]*/config``, ``.{ssh,aws}/*``.
+    These scans can reach credential directories such as ``~/.ssh`` and ``~/.aws``
+    even without an explicit ``**`` recursive wildcard.
+    """
+    if not pattern:
+        return False
+    for segment in pattern.replace("\\", "/").split("/"):
+        if segment in {"", ".", "..", "**"}:
+            continue
+        if segment.startswith(".") and any(token in segment for token in ("*", "?", "[", "{")):
+            return True
+    return False
+
+
+def _is_home_or_ancestor(path: str) -> bool:
+    """Return True when path resolves to HOME or an ancestor of HOME."""
+    resolved = resolve_path(path)
+    home = resolve_path("~")
+    return resolved == home or home.startswith(resolved.rstrip("/") + "/")
+
+
 def _extract_paths(tool_name: str, tool_input: dict) -> list[str]:
     """Extract file-system path candidates from tool input."""
     raw_paths: list[str] = []
@@ -213,9 +237,10 @@ def main() -> None:
         "~/.claude/settings.json", "~/.claude/settings.local.json", "~/.claude/CLAUDE.md",
     ])
 
-    # Detect broad recursive scans that could reach credential directories.
-    # When base_path is HOME or an ancestor of HOME and the pattern contains **,
-    # the scan could enumerate ~/.ssh, ~/.aws, etc.
+    # Detect broad scans that could reach credential directories.
+    # Two dangerous classes are blocked outside allowed project roots:
+    #   1. Recursive scans with ** from HOME or an ancestor of HOME
+    #   2. Hidden-directory wildcard scans like .*/id_rsa from HOME/root
     base_path = ""
     pattern = ""
     if tool_name == "Glob":
@@ -236,16 +261,14 @@ def main() -> None:
         elif tool_name == "Grep":
             tool_input = {**tool_input, "path": base_path}
 
-    if base_path and pattern and "**" in pattern:
-        resolved_base = os.path.realpath(os.path.expanduser(base_path))
-        home = os.path.realpath(os.path.expanduser("~"))
-        # Check if base_path is HOME or an ancestor of HOME
-        is_home_or_ancestor = (
-            resolved_base == home
-            or home.startswith(resolved_base.rstrip("/") + "/")
-        )
-        if is_home_or_ancestor and not is_in_prefixes(base_path, allowed_project_roots):
+    if base_path and pattern and _is_home_or_ancestor(base_path) and not is_in_prefixes(base_path, allowed_project_roots):
+        reason: str | None = None
+        if "**" in pattern:
             reason = f"Recursive scan from {base_path} could reach credential directories"
+        elif _pattern_has_hidden_dir_wildcard(pattern):
+            reason = f"Wildcard hidden-directory scan from {base_path} could reach credential directories"
+
+        if reason:
             category = "broad-scan"
             decision = get_category_decision(config, "credential_guardian", category)
             if decision == "deny":

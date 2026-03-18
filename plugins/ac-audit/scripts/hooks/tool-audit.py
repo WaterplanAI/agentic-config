@@ -119,7 +119,10 @@ def _format_simple(data: dict, indent: int = 0) -> str:
 
 # Patterns for redacting secrets from audit log entries
 _SECRET_PATTERNS: list[tuple[re.Pattern[str], str]] = [
-    (re.compile(r"(?i)(api[_-]?key|token|secret|password|passwd|authorization|bearer)\s*[=:]\s*\S+"), r"\1=***REDACTED***"),
+    # Redact inline Authorization headers as a whole so values like
+    # "Authorization: Bearer abc123" do not leave the token behind.
+    (re.compile(r"(?i)(authorization\s*[=:]\s*)([^\s\"';&|]+(?:\s+[^\s\"';&|]+)?)"), r"\1***REDACTED***"),
+    (re.compile(r"(?i)(api[_-]?key|token|secret|password|passwd|bearer)\s*[=:]\s*\S+"), r"\1=***REDACTED***"),
     (re.compile(r"\b(sk-[A-Za-z0-9]{20,})\b"), "***REDACTED_KEY***"),
     (re.compile(r"\b(ghp_[A-Za-z0-9]{36,})\b"), "***REDACTED_KEY***"),
     (re.compile(r"\b(gho_[A-Za-z0-9]{36,})\b"), "***REDACTED_KEY***"),
