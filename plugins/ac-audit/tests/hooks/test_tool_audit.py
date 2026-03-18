@@ -14,6 +14,10 @@ from ac_audit_test_support import TestResult, run_tests  # noqa: E402  # pyright
 
 HOOK_PATH = Path(__file__).parent.parent.parent / "scripts" / "hooks" / "tool-audit.py"
 
+# Import the hook module directly for unit-testing internal functions
+HOOKS_DIR = Path(__file__).parent.parent.parent / "scripts" / "hooks"
+sys.path.insert(0, str(HOOKS_DIR))
+
 
 def run_hook(tool_name: str, tool_input: dict, env_override: dict | None = None) -> dict:
     env = dict(os.environ)
@@ -173,6 +177,119 @@ def test_fail_close_when_log_path_is_unusable() -> TestResult:
     return r
 
 
+def test_redact_secrets_api_key() -> TestResult:
+    r = TestResult("_redact_secrets: redacts API key patterns")
+    try:
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location("tool_audit", str(HOOK_PATH))
+        assert spec and spec.loader
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)  # type: ignore[union-attr]
+        _redact_secrets = mod._redact_secrets
+
+        # sk- key
+        result = _redact_secrets({"command": "export TOKEN=sk-abc123defghijklmnopqrst"})
+        assert "sk-abc123" not in str(result), f"sk- key not redacted: {result}"
+
+        # ghp_ token
+        result = _redact_secrets({"msg": "ghp_" + "A" * 36})
+        assert ("ghp_" + "A" * 36) not in str(result), f"ghp_ token not redacted: {result}"
+
+        # AKIA AWS key
+        result = _redact_secrets({"data": "AKIAIOSFODNN7EXAMPLE"})
+        assert "AKIAIOSFODNN7EXAMPLE" not in str(result), f"AKIA key not redacted: {result}"
+
+        # api_key=value pattern
+        result = _redact_secrets("api_key=mysecretvalue123")
+        assert "mysecretvalue123" not in str(result), f"api_key not redacted: {result}"
+
+        # Nested structure
+        result = _redact_secrets({"outer": {"inner": "token=sk-abcdefghijklmnopqrstuv"}})
+        assert "sk-abcdef" not in str(result), f"Nested secret not redacted: {result}"
+
+        # Safe content untouched
+        result = _redact_secrets({"command": "echo hello"})
+        assert result == {"command": "echo hello"}, f"Safe content modified: {result}"
+
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+    return r
+
+
+def test_validate_log_permissions_valid() -> TestResult:
+    r = TestResult("_validate_log_permissions: accepts valid permissions")
+    try:
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location("tool_audit", str(HOOK_PATH))
+        assert spec and spec.loader
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)  # type: ignore[union-attr]
+        _validate = mod._validate_log_permissions
+
+        # 0o600 is valid and should pass through
+        assert _validate(0o600) == 0o600, "0o600 should be accepted"
+        # 0o400 has no group/other bits, should pass
+        assert _validate(0o400) == 0o400, "0o400 should be accepted"
+
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+    return r
+
+
+def test_validate_log_permissions_clamps() -> TestResult:
+    r = TestResult("_validate_log_permissions: clamps overly permissive values")
+    try:
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location("tool_audit", str(HOOK_PATH))
+        assert spec and spec.loader
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)  # type: ignore[union-attr]
+        _validate = mod._validate_log_permissions
+
+        # 0o644 has group/other bits -> clamped to 0o600
+        assert _validate(0o644) == 0o600, "0o644 should be clamped to 0o600"
+        # 0o777 has group/other bits -> clamped
+        assert _validate(0o777) == 0o600, "0o777 should be clamped to 0o600"
+        # Non-int -> default 0o600
+        assert _validate("bad") == 0o600, "Non-int should default to 0o600"  # type: ignore[arg-type]
+        # Negative -> default 0o600
+        assert _validate(-1) == 0o600, "Negative should default to 0o600"
+        # > 0o777 -> default 0o600
+        assert _validate(0o1000) == 0o600, ">0o777 should default to 0o600"
+
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+    return r
+
+
+def test_redact_secrets_list() -> TestResult:
+    r = TestResult("_redact_secrets: handles list inputs")
+    try:
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location("tool_audit", str(HOOK_PATH))
+        assert spec and spec.loader
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)  # type: ignore[union-attr]
+        _redact_secrets = mod._redact_secrets
+
+        result = _redact_secrets(["normal", "secret=sk-abcdefghijklmnopqrstuv", 42])
+        assert "sk-abcdef" not in str(result), f"List secret not redacted: {result}"
+        assert result[0] == "normal"
+        assert result[2] == 42
+
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+    return r
+
+
 def test_fail_close_on_empty_input() -> TestResult:
     r = TestResult("Fail-close: denies on empty stdin")
     try:
@@ -200,6 +317,10 @@ def main() -> None:
         test_config_override_precedence,
         test_fail_close_when_log_path_is_unusable,
         test_fail_close_on_empty_input,
+        test_redact_secrets_api_key,
+        test_validate_log_permissions_valid,
+        test_validate_log_permissions_clamps,
+        test_redact_secrets_list,
     ])
 
 

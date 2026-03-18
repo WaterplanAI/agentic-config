@@ -13,8 +13,10 @@ sys.path.insert(0, str(HOOKS_DIR))
 
 from ac_safety_test_support import TestResult  # noqa: E402  # pyright: ignore[reportMissingImports]
 from _lib import (  # noqa: E402  # pyright: ignore[reportMissingImports]
+    _UNION_MERGE_SUFFIXES,
     _deep_merge,
     _most_restrictive,
+    _strip_broad_entries,
     allow,
     ask,
     deny,
@@ -199,6 +201,120 @@ def test_decision_helpers_output() -> TestResult:
     return r
 
 
+def test_strip_broad_entries_removes_root() -> TestResult:
+    r = TestResult("_strip_broad_entries: strips / from security lists")
+    try:
+        config = {"allowed_project_roots": ["/", "~/projects/"]}
+        result = _strip_broad_entries(config)
+        resolved_roots = [os.path.realpath(os.path.expanduser(p)) for p in result["allowed_project_roots"]]
+        assert os.path.realpath("/") not in resolved_roots, "/ should be stripped"
+        assert any("projects" in p for p in resolved_roots), "~/projects/ should remain"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+    return r
+
+
+def test_strip_broad_entries_removes_home() -> TestResult:
+    r = TestResult("_strip_broad_entries: strips ~/ from security lists")
+    try:
+        home = os.path.expanduser("~")
+        config = {"blocked_prefixes": ["~/", "~/.ssh/", home]}
+        result = _strip_broad_entries(config)
+        resolved = [os.path.realpath(os.path.expanduser(p)) for p in result["blocked_prefixes"]]
+        assert os.path.realpath(home) not in resolved, "~/ should be stripped"
+        assert any(".ssh" in p for p in resolved), "~/.ssh/ should remain"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+    return r
+
+
+def test_strip_broad_entries_ignores_non_security_lists() -> TestResult:
+    r = TestResult("_strip_broad_entries: ignores non-security-suffix lists")
+    try:
+        config = {"random_list": ["/", "~/"], "allowed_project_roots": ["~/projects/"]}
+        result = _strip_broad_entries(config)
+        # Non-security list should be untouched
+        assert "/" in result["random_list"]
+        assert "~/" in result["random_list"]
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+    return r
+
+
+def test_strip_broad_entries_nested() -> TestResult:
+    r = TestResult("_strip_broad_entries: recurses into nested dicts")
+    try:
+        config = {"credential_guardian": {"blocked_prefixes": ["/", "~/.ssh/"]}}
+        result = _strip_broad_entries(config)
+        resolved = [os.path.realpath(os.path.expanduser(p)) for p in result["credential_guardian"]["blocked_prefixes"]]
+        assert os.path.realpath("/") not in resolved, "/ should be stripped from nested list"
+        assert any(".ssh" in p for p in resolved), "~/.ssh/ should remain"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+    return r
+
+
+def test_resolve_path_private_normalization() -> TestResult:
+    r = TestResult("resolve_path: normalizes /private/Users/... to /Users/... on macOS")
+    try:
+        import platform
+        if platform.system() != "Darwin":
+            # Only relevant on macOS; skip on other platforms
+            r.mark_pass()
+            return r
+        home = os.path.expanduser("~")
+        # Simulate: /tmp/../Users/foo -> realpath -> /private/Users/foo
+        # resolve_path should strip /private prefix since /private/Users doesn't
+        # really exist on macOS (the real dirs are /private/tmp, /private/var, /private/etc)
+        crafted = f"/tmp/../{home.lstrip('/')}"
+        resolved = resolve_path(crafted)
+        assert not resolved.startswith("/private/Users"), (
+            f"Expected /private prefix stripped, got {resolved}"
+        )
+        assert resolved.startswith(home), f"Expected prefix {home}, got {resolved}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+    return r
+
+
+def test_resolve_path_private_preserves_real_dirs() -> TestResult:
+    r = TestResult("resolve_path: preserves /private/tmp and /private/var on macOS")
+    try:
+        import platform
+        if platform.system() != "Darwin":
+            r.mark_pass()
+            return r
+        # /tmp resolves to /private/tmp on macOS -- should stay as-is
+        resolved_tmp = resolve_path("/tmp")
+        assert resolved_tmp == "/private/tmp", f"Expected /private/tmp, got {resolved_tmp}"
+        resolved_var = resolve_path("/var")
+        assert resolved_var == "/private/var", f"Expected /private/var, got {resolved_var}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+    return r
+
+
+def test_union_merge_roots_suffix() -> TestResult:
+    r = TestResult("_deep_merge: _roots suffix is union-merged (not replaced)")
+    try:
+        assert "_roots" in _UNION_MERGE_SUFFIXES, "_roots not in _UNION_MERGE_SUFFIXES"
+        base = {"allowed_project_roots": ["~/projects/", "~/work/"]}
+        overlay = {"allowed_project_roots": ["~/projects/", "~/extra/"]}
+        result = _deep_merge(base, overlay)
+        roots = set(result["allowed_project_roots"])
+        assert roots == {"~/projects/", "~/work/", "~/extra/"}, f"Expected union-merge, got {roots}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+    return r
+
+
 def main() -> None:
     from ac_safety_test_support import run_tests  # pyright: ignore[reportMissingImports]
     run_tests("_lib.py unit tests", [
@@ -207,6 +323,13 @@ def main() -> None:
         test_deep_merge_list_replacement, test_get_category_decision_defaults,
         test_resolve_path, test_is_in_prefixes,
         test_fail_close_decorator, test_decision_helpers_output,
+        test_strip_broad_entries_removes_root,
+        test_strip_broad_entries_removes_home,
+        test_strip_broad_entries_ignores_non_security_lists,
+        test_strip_broad_entries_nested,
+        test_resolve_path_private_normalization,
+        test_resolve_path_private_preserves_real_dirs,
+        test_union_merge_roots_suffix,
     ])
 
 

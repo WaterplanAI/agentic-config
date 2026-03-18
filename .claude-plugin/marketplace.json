@@ -44,6 +44,20 @@
       "description": "Meta-prompting and self-improvement - skill writer, hook writer",
       "category": "meta",
       "tags": ["meta", "skill-writer", "hook-writer", "self-improvement"]
+    },
+    {
+      "name": "ac-safety",
+      "source": "./plugins/ac-safety",
+      "description": "Security guardrails - credential protection, destructive command blocking, write scope enforcement, supply chain control, browser restrictions",
+      "category": "security",
+      "tags": ["safety", "security", "guardian", "hooks", "credentials", "destructive"]
+    },
+    {
+      "name": "ac-audit",
+      "source": "./plugins/ac-audit",
+      "description": "Tool audit logging - JSONL audit trail and real-time systemMessage display",
+      "category": "observability",
+      "tags": ["audit", "logging", "tools", "jsonl", "compliance"]
     }
   ]
 }

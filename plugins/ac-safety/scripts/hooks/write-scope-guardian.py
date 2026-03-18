@@ -15,7 +15,7 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from _lib import allow, ask, deny, fail_close, is_in_prefixes, load_config, resolve_path
+from _lib import allow, ask, deny, fail_close, get_category_decision, is_in_prefixes, load_config, resolve_path
 
 WRITE_TOOLS = {"Write", "Edit", "NotebookEdit"}
 
@@ -35,36 +35,36 @@ def _check_write(
     blocked_write_prefixes: list[str],
     allowed_write_prefixes: list[str],
     git_hooks_segment: str,
-) -> tuple[str, str | None]:
-    """Returns (decision, reason). decision: 'allow', 'deny', or 'ask'."""
+) -> tuple[str, str | None, str]:
+    """Returns (decision, reason, category). decision: 'allow', 'deny', or 'ask'."""
     resolved = resolve_path(path)
 
     # Block specific files
     for blocked_file in blocked_write_files:
         if resolved == os.path.realpath(os.path.expanduser(blocked_file)):
-            return "deny", f"Write to {blocked_file} is blocked (tamper protection)"
+            return "deny", f"Write to {blocked_file} is blocked (tamper protection)", "tamper-protected-file"
 
     # Ask user for sensitive directories
     for prefix in ask_user_prefixes:
         real_prefix = os.path.realpath(os.path.expanduser(prefix.rstrip("/")))
         if resolved.startswith(real_prefix + "/") or resolved == real_prefix:
-            return "ask", f"Write to {path} targets sensitive directory -- confirm?"
+            return "ask", f"Write to {path} targets sensitive directory -- confirm?", "sensitive-directory"
 
     # Block specific prefixes
     for prefix in blocked_write_prefixes:
         real_prefix = os.path.realpath(os.path.expanduser(prefix.rstrip("/")))
         if resolved.startswith(real_prefix + "/") or resolved == real_prefix:
-            return "deny", f"Write to {prefix} is blocked (protected directory)"
+            return "deny", f"Write to {prefix} is blocked (protected directory)", "protected-directory"
 
     # Block .git/hooks/ injection
     if git_hooks_segment in resolved:
-        return "deny", "Write to .git/hooks/ is blocked (hook injection prevention)"
+        return "deny", "Write to .git/hooks/ is blocked (hook injection prevention)", "git-hooks-injection"
 
     # If in allowed prefixes, allow
     if is_in_prefixes(path, allowed_write_prefixes):
-        return "allow", None
+        return "allow", None, ""
 
-    return "deny", f"Write to {path} is blocked (outside allowed project directories)"
+    return "deny", f"Write to {path} is blocked (outside allowed project directories)", "outside-allowed-paths"
 
 
 @fail_close
@@ -107,13 +107,23 @@ def main() -> None:
     ])
     git_hooks_segment: str = ws.get("git_hooks_segment", "/.git/hooks/")
 
-    result, reason = _check_write(
+    default_decision, reason, category = _check_write(
         path, blocked_write_files, ask_user_prefixes,
         blocked_write_prefixes, allowed_write_prefixes, git_hooks_segment,
     )
-    if result == "deny":
+    if default_decision == "allow":
+        allow()
+        return
+
+    # Apply category-based decision override (most-restrictive-wins via config)
+    decision = get_category_decision(config, "write_scope", category) if category else default_decision
+    # Never weaken beyond the guardian's own determination
+    if default_decision == "deny" and decision == "allow":
+        decision = "deny"
+
+    if decision == "deny":
         deny(f"BLOCKED: {reason}")
-    elif result == "ask":
+    elif decision == "ask":
         ask(reason or "")
     else:
         allow()

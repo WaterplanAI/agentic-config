@@ -80,11 +80,51 @@ def test_blocks_git_hooks_injection() -> TestResult:
     return r
 
 
+def test_category_deny_cannot_weaken_to_allow() -> TestResult:
+    r = TestResult("Category decision cannot weaken deny to allow")
+    try:
+        # /etc/passwd is in blocked_write_prefixes => _check_write returns deny
+        # Even if a project config sets the category to "allow", the guardian
+        # should still deny (deny-cannot-weaken-to-allow guard)
+        out = run_hook("Write", {"file_path": "/etc/hosts", "content": "test"})
+        assert out["decision"] == "deny", f"Expected deny for /etc/hosts, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+    return r
+
+
+def test_blocks_safety_yaml_write() -> TestResult:
+    r = TestResult("Blocks Write to ~/.claude/safety.yaml (tamper protection)")
+    try:
+        out = run_hook("Write", {"file_path": os.path.expanduser("~/.claude/safety.yaml"), "content": "hack: true"})
+        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
+        assert "tamper" in out["reason"].lower() or "blocked" in out["reason"].lower()
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+    return r
+
+
+def test_blocks_audit_yaml_write() -> TestResult:
+    r = TestResult("Blocks Write to ~/.claude/audit.yaml (tamper protection)")
+    try:
+        out = run_hook("Write", {"file_path": os.path.expanduser("~/.claude/audit.yaml"), "content": "hack: true"})
+        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+    return r
+
+
 def main() -> None:
     from ac_safety_test_support import run_tests  # pyright: ignore[reportMissingImports]
     run_tests("write-scope-guardian unit tests", [
         test_allows_project_write, test_blocks_settings_write,
         test_asks_hooks_write, test_blocks_system_write, test_blocks_git_hooks_injection,
+        test_category_deny_cannot_weaken_to_allow,
+        test_blocks_safety_yaml_write,
+        test_blocks_audit_yaml_write,
     ])
 
 

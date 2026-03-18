@@ -22,15 +22,48 @@ from _lib import allow, ask, deny, fail_close, get_category_decision, load_confi
 # /usr/local/bin/rm, /usr/local/sbin/rm, etc.)
 _BIN = r"(?:(?:/usr(?:/local)?)?/s?bin/)?"
 
+# End-of-target anchor: whitespace, EOL, or shell metacharacters
+_END = r"""(\s|$|[);\x60|&"'])"""
+
+# Optional quote prefix: matches 0 or 1 leading quote (single or double)
+_OPT_QUOTE = r"""["']?"""
+
+# rm flags pattern: matches combined flags like -rf or split flags like -r -f / -f -r
+# Also handles POSIX -- end-of-options separator
+_RM_RF = r"(-[^\s]*\s+)*-rf\s+(?:--\s+)?"
+_RM_RF_SPLIT = r"(-[^\s]*\s+)*(-[^\s]*[rR][^\s]*\s+(-[^\s]*\s+)*-[^\s]*f[^\s]*|-[^\s]*f[^\s]*\s+(-[^\s]*\s+)*-[^\s]*[rR][^\s]*)\s+(?:--\s+)?"
+
 # Map: (compiled_pattern, reason, category)
 # Category names match safety.yaml destructive_bash.categories keys
 PATTERNS: list[tuple[re.Pattern[str], str, str]] = [
     # -- file-destruction --
     (re.compile(_BIN + r"\brm\s+(-[^\s]*)*\s*-[rR].*(" + re.escape(os.path.expanduser("~")) + r"[/\s]|~/|/Users/\w+/(?!projects/))"), "rm -r targeting home or outside project", "file-destruction"),
-    (re.compile(_BIN + r"\brm\s+(-[^\s]*\s+)*-rf\s+/(?!Users/\w+/projects/)"), "rm -rf targeting system or non-project path", "file-destruction"),
-    (re.compile(_BIN + r"\brm\s+(-[^\s]*\s+)*-rf\s+~/(?!projects/)"), "rm -rf targeting home subdirectory outside project", "file-destruction"),
-    (re.compile(_BIN + r"\brm\s+(-[^\s]*\s+)*-rf\s+~\s"), "rm -rf targeting entire home directory", "file-destruction"),
-    (re.compile(_BIN + r"\brm\s+(-[^\s]*\s+)*-rf\s+\.\.\s"), "rm -rf targeting parent directory", "file-destruction"),
+    (re.compile(_BIN + r"\brm\s+" + _RM_RF + r"/(?!Users/\w+/projects/)"), "rm -rf targeting system or non-project path", "file-destruction"),
+    (re.compile(_BIN + r"\brm\s+" + _RM_RF + r"~/(?!projects/)"), "rm -rf targeting home subdirectory outside project", "file-destruction"),
+    (re.compile(_BIN + r"\brm\s+" + _RM_RF + r"~" + _END), "rm -rf targeting entire home directory", "file-destruction"),
+    (re.compile(_BIN + r"\brm\s+" + _RM_RF + r"\.\." + _END), "rm -rf targeting parent directory", "file-destruction"),
+    (re.compile(_BIN + r"\brm\s+" + _RM_RF + r"\.\./"), "rm -rf targeting parent-relative path", "file-destruction"),
+    # $HOME / ${HOME} variable expansion (combined -rf flags)
+    (re.compile(_BIN + r"\brm\s+" + _RM_RF + _OPT_QUOTE + r"\$HOME" + _END), "rm -rf targeting $HOME", "file-destruction"),
+    (re.compile(_BIN + r"\brm\s+" + _RM_RF + _OPT_QUOTE + r"\$\{HOME\}" + _END), "rm -rf targeting ${HOME}", "file-destruction"),
+    (re.compile(_BIN + r"\brm\s+" + _RM_RF + _OPT_QUOTE + r"\$HOME/"), "rm -rf targeting $HOME subdirectory", "file-destruction"),
+    (re.compile(_BIN + r"\brm\s+" + _RM_RF + _OPT_QUOTE + r"\$\{HOME\}/"), "rm -rf targeting ${HOME} subdirectory", "file-destruction"),
+    # Split flags: rm -r -f ~ / rm -f -r ~
+    (re.compile(_BIN + r"\brm\s+" + _RM_RF_SPLIT + r"/(?!Users/\w+/projects/)"), "rm with split flags targeting system path", "file-destruction"),
+    (re.compile(_BIN + r"\brm\s+" + _RM_RF_SPLIT + r"~/(?!projects/)"), "rm with split flags targeting home subdirectory", "file-destruction"),
+    (re.compile(_BIN + r"\brm\s+" + _RM_RF_SPLIT + r"~" + _END), "rm with split flags targeting entire home directory", "file-destruction"),
+    (re.compile(_BIN + r"\brm\s+" + _RM_RF_SPLIT + r"\.\." + _END), "rm with split flags targeting parent directory", "file-destruction"),
+    (re.compile(_BIN + r"\brm\s+" + _RM_RF_SPLIT + r"\.\./"), "rm with split flags targeting parent-relative path", "file-destruction"),
+    # $HOME / ${HOME} variable expansion (split flags)
+    (re.compile(_BIN + r"\brm\s+" + _RM_RF_SPLIT + _OPT_QUOTE + r"\$HOME" + _END), "rm with split flags targeting $HOME", "file-destruction"),
+    (re.compile(_BIN + r"\brm\s+" + _RM_RF_SPLIT + _OPT_QUOTE + r"\$\{HOME\}" + _END), "rm with split flags targeting ${HOME}", "file-destruction"),
+    (re.compile(_BIN + r"\brm\s+" + _RM_RF_SPLIT + _OPT_QUOTE + r"\$HOME/"), "rm with split flags targeting $HOME subdirectory", "file-destruction"),
+    (re.compile(_BIN + r"\brm\s+" + _RM_RF_SPLIT + _OPT_QUOTE + r"\$\{HOME\}/"), "rm with split flags targeting ${HOME} subdirectory", "file-destruction"),
+    # find -delete / find -exec rm (recursive deletion)
+    (re.compile(r"\bfind\s+.*\s+-delete\b"), "find with -delete (recursive deletion)", "file-destruction"),
+    (re.compile(r"\bfind\s+.*\s+-exec\s+rm\b"), "find with -exec rm (recursive deletion)", "file-destruction"),
+    # xargs rm (indirect deletion)
+    (re.compile(r"\bxargs\s+.*" + _BIN + r"rm\b"), "xargs rm (indirect deletion)", "file-destruction"),
     # -- aws-destructive --
     (re.compile(r"\baws\s+s3\s+rb\b"), "aws s3 rb (bucket removal)", "aws-destructive"),
     (re.compile(r"\baws\s+s3\s+rm\s+.*--recursive\b"), "aws s3 rm --recursive", "aws-destructive"),
@@ -47,7 +80,8 @@ PATTERNS: list[tuple[re.Pattern[str], str, str]] = [
     (re.compile(r"\baws\s+ecr\s+delete-repository\b"), "aws ecr delete-repository", "aws-destructive"),
     # -- git-destructive --
     (re.compile(r"\bgit\s+push\s+.*--force(?!-with-lease)\b"), "git push --force (use --force-with-lease)", "git-destructive"),
-    (re.compile(r"\bgit\s+push\s+(-[^\s]*)*-f\b"), "git push -f (force push)", "git-destructive"),
+    (re.compile(r"\bgit\s+push\s+(-[^\s]*\s+)*-[a-eg-zA-Z]*f\b"), "git push -f (force push, combined flags)", "git-destructive"),
+    (re.compile(r"\bgit\s+push\s+.+\s+-[a-eg-zA-Z]*f\b"), "git push <args> -f (force push, trailing)", "git-destructive"),
     (re.compile(r"\bgit\s+reset\s+--hard\b"), "git reset --hard", "git-destructive"),
     (re.compile(r"\bgit\s+clean\s+(-[^\s]*)*-[fd]"), "git clean -f/-d", "git-destructive"),
     (re.compile(r"\bgit\s+stash\s+clear\b"), "git stash clear", "git-destructive"),

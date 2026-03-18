@@ -52,6 +52,12 @@ destructive_bash:
     credential-reads: deny
 
 write_scope:
+  categories:
+    tamper-protected-file: deny
+    sensitive-directory: ask
+    protected-directory: deny
+    git-hooks-injection: deny
+    outside-allowed-paths: deny
   allowed_write_prefixes:
     - "~/projects/"
     - "~/.claude/"
@@ -78,6 +84,8 @@ write_scope:
   blocked_write_files:
     - "~/.claude/settings.json"
     - "~/.claude/settings.local.json"
+    - "~/.claude/safety.yaml"
+    - "~/.claude/audit.yaml"
     - "~/.claude-secondary/settings.json"
     - "~/.bashrc"
     - "~/.zshrc"

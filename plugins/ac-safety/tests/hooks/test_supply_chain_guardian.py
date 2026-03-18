@@ -124,6 +124,87 @@ def test_asks_pnpm_dlx_package() -> TestResult:
     return r
 
 
+def test_asks_uv_add_direct() -> TestResult:
+    r = TestResult("Asks for uv add requests (default: ask)")
+    try:
+        out = run_hook("uv add requests")
+        assert out["decision"] == "ask", f"Expected ask, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+    return r
+
+
+def test_asks_uv_add_dev_flag() -> TestResult:
+    r = TestResult("Asks for uv add --dev requests (flag before package)")
+    try:
+        out = run_hook("uv add --dev requests")
+        assert out["decision"] == "ask", f"Expected ask, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+    return r
+
+
+def test_asks_uv_add_group_flag() -> TestResult:
+    r = TestResult("Asks for uv add --group test pytest (value-flag before package)")
+    try:
+        out = run_hook("uv add --group test pytest")
+        assert out["decision"] == "ask", f"Expected ask, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+    return r
+
+
+def test_asks_npm_exec_double_dash() -> TestResult:
+    """NEW-03: npm exec -- evil bypasses supply-chain-guardian"""
+    r = TestResult("Asks for npm exec -- evil (-- separator)")
+    try:
+        out = run_hook("npm exec -- evil")
+        assert out["decision"] == "ask", f"Expected ask, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+    return r
+
+
+def test_asks_uv_add_double_dash() -> TestResult:
+    """NEW-04: uv add -- requests bypasses supply-chain-guardian"""
+    r = TestResult("Asks for uv add -- requests (-- separator)")
+    try:
+        out = run_hook("uv add -- requests")
+        assert out["decision"] == "ask", f"Expected ask, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+    return r
+
+
+def test_asks_pip3_install() -> TestResult:
+    """NEW-05: pip3 install requests not matched"""
+    r = TestResult("Asks for pip3 install requests")
+    try:
+        out = run_hook("pip3 install requests")
+        assert out["decision"] == "ask", f"Expected ask, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+    return r
+
+
+def test_allows_pip3_install_requirements() -> TestResult:
+    """NEW-05: pip3 install -r requirements.txt should still be safe"""
+    r = TestResult("Allows pip3 install -r requirements.txt")
+    try:
+        out = run_hook("pip3 install -r requirements.txt")
+        assert out["decision"] == "allow", f"Expected allow, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+    return r
+
+
 def main() -> None:
     from ac_safety_test_support import run_tests  # pyright: ignore[reportMissingImports]
     run_tests("supply-chain-guardian unit tests", [
@@ -136,6 +217,16 @@ def main() -> None:
         test_asks_yarn_add_package,
         test_asks_uv_run_with_package,
         test_asks_pnpm_dlx_package,
+        test_asks_uv_add_direct,
+        test_asks_uv_add_dev_flag,
+        test_asks_uv_add_group_flag,
+        # NEW-03: npm exec -- evil
+        test_asks_npm_exec_double_dash,
+        # NEW-04: uv add -- requests
+        test_asks_uv_add_double_dash,
+        # NEW-05: pip3 install
+        test_asks_pip3_install,
+        test_allows_pip3_install_requirements,
     ])
 
 

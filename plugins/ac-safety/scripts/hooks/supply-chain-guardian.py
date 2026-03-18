@@ -22,8 +22,11 @@ from _lib import allow, ask, deny, fail_close, get_category_decision, load_confi
 # Patterns that are SAFE (skip blocking)
 SAFE_PATTERNS = [
     re.compile(r"\bnpm\s+(install|ci)\s*$"),
-    re.compile(r"\bnpm\s+(install|ci)\s+--"),
-    re.compile(r"\bpip\s+install\s+(-r\s|--requirement\s|-e\s|--editable\s|\.\s*$)"),
+    re.compile(
+        r"\bnpm\s+(install|ci)\s+--(legacy-peer-deps|prefer-offline|no-audit"
+        r"|ignore-scripts|frozen-lockfile|no-optional|no-save|production)\b"
+    ),
+    re.compile(r"\bpip3?\s+install\s+(-r\s|--requirement\s|-e\s|--editable\s|\.\s*$)"),
     re.compile(r"\buv\s+sync\b"),
     re.compile(r"\buv\s+pip\s+install\s+(-r\s|--requirement\s|-e\s|--editable\s|\.\s*$)"),
     re.compile(r"\buv\s+pip\s+compile\b"),
@@ -90,6 +93,12 @@ def _extract_package_from_runner_args(args: list[str], package_flags: set[str]) 
     while idx < len(args):
         arg = args[idx]
         if arg == "--":
+            # POSIX end-of-options: next non-flag arg is the package/command
+            idx += 1
+            while idx < len(args):
+                if not args[idx].startswith("-"):
+                    return args[idx]
+                idx += 1
             return None
         if arg in package_flags and idx + 1 < len(args):
             return args[idx + 1]
@@ -179,7 +188,7 @@ def _is_uv_tool_run_blocked(command: str, npx_allowlist: set[str]) -> str | None
 
 
 def _is_pip_blocked(command: str) -> str | None:
-    if not re.search(r"\bpip\s+install\b", command):
+    if not re.search(r"\bpip3?\s+install\b", command):
         return None
     for safe in SAFE_PATTERNS:
         if safe.search(command):
@@ -188,15 +197,51 @@ def _is_pip_blocked(command: str) -> str | None:
 
 
 def _is_uv_add_blocked(command: str, uv_add_allowlist: set[str]) -> str | None:
-    match = re.search(r"\buv\s+add\s+(\S+)", command)
+    match = re.search(r"\buv\s+add\s+(.*)", command)
     if not match:
         return None
-    package = match.group(1)
-    if package.startswith("-"):
-        return None
-    if package in uv_add_allowlist:
-        return None
-    return f"uv add with unapproved package '{package}' (not in allowlist)"
+
+    # Flags that do NOT consume a following value
+    _UV_ADD_BARE_FLAGS = {"--dev", "--no-sync", "--frozen", "--locked", "--editable"}
+    # Flags that consume the next token as their value
+    _UV_ADD_VALUE_FLAGS = {"--group", "--optional", "--extra", "--tag", "--branch", "--rev"}
+
+    args = _split_args(match.group(1))
+    idx = 0
+    while idx < len(args):
+        arg = args[idx]
+        if arg == "--":
+            # POSIX end-of-options: remaining args are all packages
+            idx += 1
+            while idx < len(args):
+                pkg = args[idx]
+                if not pkg.startswith("-"):
+                    if pkg in uv_add_allowlist:
+                        return None
+                    return f"uv add with unapproved package '{pkg}' (not in allowlist)"
+                idx += 1
+            return None
+        if arg in _UV_ADD_BARE_FLAGS:
+            idx += 1
+            continue
+        if arg in _UV_ADD_VALUE_FLAGS:
+            idx += 2  # skip flag + its value
+            continue
+        # Handle --flag=value forms for value flags
+        for vf in _UV_ADD_VALUE_FLAGS:
+            if arg.startswith(f"{vf}="):
+                break
+        else:
+            # Not a known flag form; check if it's an unknown flag
+            if arg.startswith("-"):
+                idx += 1
+                continue
+            # First positional arg is the package
+            if arg in uv_add_allowlist:
+                return None
+            return f"uv add with unapproved package '{arg}' (not in allowlist)"
+        idx += 1
+    return None
 
 
 def _is_uv_pip_blocked(command: str) -> str | None:

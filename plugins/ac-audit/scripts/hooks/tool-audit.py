@@ -13,6 +13,7 @@ Fail-close on errors.
 
 import json
 import os
+import re
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -30,7 +31,7 @@ def _find_plugin_root() -> Path:
 
 
 def _deep_merge(base: dict, overlay: dict) -> dict:
-    """Deep-merge overlay into base. Consistent with ac-safety _lib._deep_merge."""
+    """Deep-merge overlay into base. Simpler than ac-safety (no union-merge or most-restrictive-wins)."""
     result = dict(base)
     for key, overlay_val in overlay.items():
         if key not in result:
@@ -47,13 +48,19 @@ MAX_CONFIG_SIZE = 1_048_576  # 1 MB
 
 def _safe_read_yaml(path: Path) -> dict:
     """Read YAML file with size guard. Returns empty dict on skip/error."""
-    if not path.is_file():
+    try:
+        content = path.read_bytes()
+    except (FileNotFoundError, IsADirectoryError, PermissionError):
         return {}
-    if path.stat().st_size > MAX_CONFIG_SIZE:
+    if len(content) > MAX_CONFIG_SIZE:
         print(f"Warning: config file {path} exceeds {MAX_CONFIG_SIZE} bytes, skipping", file=sys.stderr)
         return {}
-    with open(path) as f:
-        return yaml.safe_load(f) or {}
+    result = yaml.safe_load(content)
+    if not isinstance(result, dict):
+        if result is not None:
+            print(f"Warning: config file {path} is not a YAML mapping, skipping", file=sys.stderr)
+        return {}
+    return result
 
 
 def _load_audit_config() -> dict:
@@ -108,15 +115,63 @@ def _format_simple(data: dict, indent: int = 0) -> str:
     return "\n".join(lines)
 
 
+# Patterns for redacting secrets from audit log entries
+_SECRET_PATTERNS: list[tuple[re.Pattern[str], str]] = [
+    (re.compile(r"(?i)(api[_-]?key|token|secret|password|passwd|authorization|bearer)\s*[=:]\s*\S+"), r"\1=***REDACTED***"),
+    (re.compile(r"\b(sk-[A-Za-z0-9]{20,})\b"), "***REDACTED_KEY***"),
+    (re.compile(r"\b(ghp_[A-Za-z0-9]{36,})\b"), "***REDACTED_KEY***"),
+    (re.compile(r"\b(gho_[A-Za-z0-9]{36,})\b"), "***REDACTED_KEY***"),
+    (re.compile(r"\b(AKIA[A-Z0-9]{16})\b"), "***REDACTED_KEY***"),
+    (re.compile(r"\b(xox[bpras]-[A-Za-z0-9\-]+)\b"), "***REDACTED_KEY***"),
+]
+
+# Maximum acceptable log permissions (0o600). More permissive values are clamped.
+_MAX_LOG_PERMISSIONS = 0o600
+
+
+def _redact_secrets(obj: object) -> object:
+    """Redact common secret patterns from strings in a nested structure."""
+    if isinstance(obj, dict):
+        return {k: _redact_secrets(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [_redact_secrets(item) for item in obj]
+    elif isinstance(obj, str):
+        result = obj
+        for pattern, replacement in _SECRET_PATTERNS:
+            result = pattern.sub(replacement, result)
+        return result
+    return obj
+
+
+def _validate_log_permissions(value: object) -> int:
+    """Validate and clamp log_permissions to no more permissive than 0o600."""
+    if not isinstance(value, int):
+        return _MAX_LOG_PERMISSIONS
+    # Reject clearly bogus values (negative or > 0o777)
+    if value < 0 or value > 0o777:
+        return _MAX_LOG_PERMISSIONS
+    # Clamp: strip any bits more permissive than _MAX_LOG_PERMISSIONS
+    # Ensure group/other have no permissions beyond what _MAX_LOG_PERMISSIONS allows
+    if value & 0o177:  # any group/other bits set
+        print(
+            f"Warning: log_permissions {oct(value)} is more permissive than {oct(_MAX_LOG_PERMISSIONS)}, clamping",
+            file=sys.stderr,
+        )
+        return _MAX_LOG_PERMISSIONS
+    return value
+
+
 def _write_audit_log(tool_name: str, tool_input: dict, log_dir: str, log_permissions: int) -> None:
     log_path = Path(os.path.expanduser(log_dir))
     log_path.mkdir(parents=True, exist_ok=True)
     if not log_path.is_dir():
         raise NotADirectoryError(f"Audit log path is not a directory: {log_path}")
 
-    today = datetime.now().strftime("%Y-%m-%d")
+    now = datetime.now()
+    today = now.strftime("%Y-%m-%d")
     log_file = log_path / f"{today}.jsonl"
-    entry = {"ts": datetime.now().isoformat(), "tool": tool_name, "input": tool_input, "session": SESSION_ID}
+    redacted_input = _redact_secrets(tool_input)
+    entry = {"ts": now.isoformat(), "tool": tool_name, "input": redacted_input, "session": SESSION_ID}
     with open(log_file, "a", encoding="utf-8") as f:
         f.write(json.dumps(entry) + "\n")
 
@@ -135,7 +190,7 @@ def main() -> None:
 
         config = _load_audit_config()
         log_dir = config.get("log_dir", "~/.claude/audit-logs")
-        log_permissions = config.get("log_permissions", 0o600)
+        log_permissions = _validate_log_permissions(config.get("log_permissions", 0o600))
         display_tools = set(config.get("display_tools", ["Bash"]))
         max_words = config.get("max_words", 50)
 

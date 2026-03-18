@@ -33,6 +33,54 @@ def _candidate_path(base_path: str, candidate: str) -> str | None:
     return os.path.join(base_path, candidate)
 
 
+def _strip_glob_wildcards(path: str) -> str:
+    """Extract the concrete directory prefix from a path that may contain glob wildcards."""
+    parts: list[str] = []
+    for part in path.replace("\\", "/").split("/"):
+        if any(c in part for c in ("*", "?", "[", "{")):
+            break
+        parts.append(part)
+    return "/".join(parts) if parts else path
+
+
+# Blocked directory segments that should trigger blocking even when embedded in glob patterns.
+# These are concrete names (no wildcards) that indicate sensitive directories.
+_BLOCKED_SEGMENTS = {
+    ".ssh", ".aws", ".docker", ".gnupg", ".config/gh",
+    "Library/Keychains", "Library/LaunchAgents",
+    ".claude/debug", ".claude/.claude.json",
+}
+
+
+def _extract_blocked_segments_from_pattern(base_path: str, pattern: str) -> list[str]:
+    """Extract synthetic paths from a glob pattern that contains blocked directory segments.
+
+    When a pattern like '**/.ssh/*' is combined with base_path '~', wildcard stripping
+    loses the '.ssh' component. This function recovers it by scanning the pattern for
+    known blocked directory segments and synthesising paths to check.
+    """
+    results: list[str] = []
+    if not pattern or not base_path:
+        return results
+    # Normalise pattern separators
+    norm_pattern = pattern.replace("\\", "/")
+    home = os.path.expanduser("~")
+    real_base = os.path.realpath(os.path.expanduser(base_path))
+    for segment in _BLOCKED_SEGMENTS:
+        if segment in norm_pattern:
+            # Build a synthetic path: base_path / segment
+            candidate = os.path.join(base_path, segment)
+            results.append(candidate)
+            # If base_path is an ancestor of home (e.g. "/"), also generate
+            # a home-relative candidate so blocked-prefix checks succeed.
+            base_with_sep = real_base.rstrip("/") + "/"
+            if home.startswith(base_with_sep) or home == real_base:
+                home_candidate = os.path.join(home, segment)
+                if home_candidate != os.path.realpath(os.path.expanduser(candidate)):
+                    results.append(home_candidate)
+    return results
+
+
 def _extract_paths(tool_name: str, tool_input: dict) -> list[str]:
     """Extract file-system path candidates from tool input."""
     raw_paths: list[str] = []
@@ -47,7 +95,13 @@ def _extract_paths(tool_name: str, tool_input: dict) -> list[str]:
         glob_pattern = tool_input.get("glob", "")
         candidate_path = _candidate_path(base_path, glob_pattern)
         if candidate_path:
+            # Check both the full candidate and its concrete prefix (without wildcards)
             raw_paths.append(candidate_path)
+            concrete = _strip_glob_wildcards(candidate_path)
+            if concrete and concrete != candidate_path:
+                raw_paths.append(concrete)
+        # Also check for blocked segments hidden behind wildcards
+        raw_paths.extend(_extract_blocked_segments_from_pattern(base_path, glob_pattern))
     elif tool_name == "Glob":
         base_path = tool_input.get("path", "")
         if base_path:
@@ -56,6 +110,11 @@ def _extract_paths(tool_name: str, tool_input: dict) -> list[str]:
         candidate_path = _candidate_path(base_path, pattern)
         if candidate_path:
             raw_paths.append(candidate_path)
+            concrete = _strip_glob_wildcards(candidate_path)
+            if concrete and concrete != candidate_path:
+                raw_paths.append(concrete)
+        # Also check for blocked segments hidden behind wildcards
+        raw_paths.extend(_extract_blocked_segments_from_pattern(base_path, pattern))
 
     # Preserve order while removing duplicates.
     return list(dict.fromkeys(raw_paths))
@@ -98,11 +157,14 @@ def _is_blocked(
             category = _categorize_block(prefix)
             return f"Access to {prefix} is blocked (credential protection)", category
 
-    # Blocked filenames in home dir
+    # Blocked filenames: always block in home dir, also block outside project roots
     basename = os.path.basename(resolved)
     home = os.path.expanduser("~")
-    if basename in blocked_filenames and resolved.startswith(home + "/"):
-        return f"Access to {basename} is blocked (credential file)", "app-tokens"
+    if basename in blocked_filenames:
+        if resolved.startswith(home + "/"):
+            return f"Access to {basename} is blocked (credential file)", "app-tokens"
+        if not is_in_prefixes(path, allowed_project_roots + ["/private/tmp/", "/tmp/"]):
+            return f"Access to {basename} outside project dirs is blocked (credential file)", "app-tokens"
 
     # Outside project roots: block sensitive extensions and .env
     if not is_in_prefixes(path, allowed_project_roots + ["/private/tmp/", "/tmp/"]):

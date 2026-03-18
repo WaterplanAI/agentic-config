@@ -35,7 +35,7 @@ def _most_restrictive(a: str, b: str) -> str:
 
 # Keys whose list values are security-critical and must be union-merged
 # (overlay adds to base, never replaces). Matched by suffix.
-_UNION_MERGE_SUFFIXES = ("_prefixes", "_allowlist", "_files", "_filenames", "_extensions", "_tools")
+_UNION_MERGE_SUFFIXES = ("_prefixes", "_allowlist", "_files", "_filenames", "_extensions", "_tools", "_roots")
 
 
 def _deep_merge(base: dict, overlay: dict) -> dict:
@@ -84,6 +84,47 @@ def _deep_merge(base: dict, overlay: dict) -> dict:
     return result
 
 
+# Paths that are too broad to be allowed in security-critical lists.
+# Resolved at runtime so expanduser works correctly.
+_OVERLY_BROAD_PATHS: frozenset[str] = frozenset()
+
+
+def _resolve_broad_paths() -> frozenset[str]:
+    """Compute the set of overly broad resolved paths (cached after first call)."""
+    global _OVERLY_BROAD_PATHS  # noqa: PLW0603
+    if _OVERLY_BROAD_PATHS:
+        return _OVERLY_BROAD_PATHS
+    home = os.path.expanduser("~")
+    _OVERLY_BROAD_PATHS = frozenset({
+        os.path.realpath("/"),
+        os.path.realpath(home),
+        os.path.realpath(home + "/"),
+    })
+    return _OVERLY_BROAD_PATHS
+
+
+def _strip_broad_entries(config: dict[str, Any]) -> dict[str, Any]:
+    """Remove overly broad entries (/, ~/) from union-merged security lists."""
+    broad = _resolve_broad_paths()
+    for key, val in config.items():
+        if isinstance(val, dict):
+            config[key] = _strip_broad_entries(val)
+        elif isinstance(val, list) and any(key.endswith(s) for s in _UNION_MERGE_SUFFIXES):
+            original_len = len(val)
+            cleaned = [
+                item for item in val
+                if os.path.realpath(os.path.expanduser(str(item).rstrip("/") or "/")) not in broad
+            ]
+            if len(cleaned) < original_len:
+                print(
+                    f"Warning: removed overly broad entries from '{key}' "
+                    f"(rejected {original_len - len(cleaned)} entry/entries)",
+                    file=sys.stderr,
+                )
+            config[key] = cleaned
+    return config
+
+
 def _find_plugin_root() -> Path:
     """Find plugin root from CLAUDE_PLUGIN_ROOT env or relative to this file."""
     env_root = os.environ.get("CLAUDE_PLUGIN_ROOT")
@@ -109,13 +150,19 @@ def load_config() -> dict[str, Any]:
 
     def _safe_read_yaml(path: Path) -> dict[str, Any]:
         """Read YAML file with size guard. Returns empty dict on skip/error."""
-        if not path.is_file():
+        try:
+            content = path.read_bytes()
+        except (FileNotFoundError, IsADirectoryError, PermissionError):
             return {}
-        if path.stat().st_size > MAX_CONFIG_SIZE:
+        if len(content) > MAX_CONFIG_SIZE:
             print(f"Warning: config file {path} exceeds {MAX_CONFIG_SIZE} bytes, skipping", file=sys.stderr)
             return {}
-        with open(path) as f:
-            return yaml.safe_load(f) or {}
+        result = yaml.safe_load(content)
+        if not isinstance(result, dict):
+            if result is not None:
+                print(f"Warning: config file {path} is not a YAML mapping, skipping", file=sys.stderr)
+            return {}
+        return result
 
     # Layer 1: Plugin defaults (base)
     defaults_path = plugin_root / "config" / "safety.default.yaml"
@@ -133,6 +180,9 @@ def load_config() -> dict[str, Any]:
     proj_cfg = _safe_read_yaml(project_path)
     if proj_cfg:
         config = _deep_merge(config, proj_cfg)
+
+    # Reject overly broad entries (/, ~/) that could weaken security
+    config = _strip_broad_entries(config)
 
     return config
 
@@ -156,8 +206,19 @@ def get_category_decision(config: dict[str, Any], guardian: str, category: str) 
 
 
 def resolve_path(path: str) -> str:
-    """Resolve path: expanduser + realpath."""
-    return os.path.realpath(os.path.expanduser(path))
+    """Resolve path: expanduser + realpath, with /private normalization for macOS."""
+    resolved = os.path.realpath(os.path.expanduser(path))
+    # macOS: /tmp -> /private/tmp, /var -> /private/var, /etc -> /private/etc
+    # Traversal like /tmp/../Users/foo resolves to /private/Users/foo which
+    # doesn't match /Users/foo in prefix checks. Normalize: if resolved starts
+    # with /private/ but is NOT under the three real /private/* dirs, strip it.
+    if sys.platform == "darwin" and resolved.startswith("/private/"):
+        _REAL_PRIVATE = ("/private/tmp", "/private/var", "/private/etc")
+        if not any(resolved.startswith(p + "/") or resolved == p for p in _REAL_PRIVATE):
+            candidate = resolved[len("/private"):]
+            if os.path.exists(os.path.dirname(candidate) or "/"):
+                resolved = candidate
+    return resolved
 
 
 def is_in_prefixes(path: str, prefixes: list[str]) -> bool:

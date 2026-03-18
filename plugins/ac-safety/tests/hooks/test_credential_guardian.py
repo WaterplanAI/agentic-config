@@ -118,6 +118,175 @@ def test_fail_close_on_bad_input() -> TestResult:
     return r
 
 
+def test_blocks_npmrc_outside_project_roots() -> TestResult:
+    r = TestResult("Blocks .npmrc outside project roots")
+    try:
+        out = run_hook("Read", {"file_path": "/var/data/.npmrc"})
+        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
+        assert "credential" in out["reason"].lower() or "blocked" in out["reason"].lower()
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+    return r
+
+
+def test_allows_npmrc_in_project() -> TestResult:
+    r = TestResult("Allows .npmrc inside project roots")
+    try:
+        out = run_hook("Read", {"file_path": os.path.expanduser("~/projects/myapp/.npmrc")})
+        assert out["decision"] == "allow", f"Expected allow, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+    return r
+
+
+def test_blocks_netrc_outside_project_roots() -> TestResult:
+    r = TestResult("Blocks .netrc outside project roots and /tmp/")
+    try:
+        out = run_hook("Read", {"file_path": "/opt/config/.netrc"})
+        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+    return r
+
+
+def test_glob_wildcard_stripping() -> TestResult:
+    r = TestResult("Blocks Glob with wildcard pattern targeting blocked dir")
+    try:
+        # Pattern: ~/.ssh/**/*.pub -- the concrete prefix ~/.ssh/ should be blocked
+        out = run_hook("Glob", {"path": os.path.expanduser("~/.ssh"), "pattern": "**/*.pub"})
+        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+    return r
+
+
+def test_grep_glob_wildcard_stripping() -> TestResult:
+    r = TestResult("Blocks Grep with glob wildcard targeting blocked dir")
+    try:
+        out = run_hook("Grep", {"path": os.path.expanduser("~/.aws"), "glob": "**/*.json", "pattern": "key"})
+        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+    return r
+
+
+def test_blocks_recursive_glob_ssh_from_home() -> TestResult:
+    """NEW-06: Glob(pattern='**/.ssh/*', path='~') bypasses credential-guardian"""
+    r = TestResult("Blocks Glob(pattern='**/.ssh/*', path='~')")
+    try:
+        out = run_hook("Glob", {"path": os.path.expanduser("~"), "pattern": "**/.ssh/*"})
+        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+    return r
+
+
+def test_blocks_recursive_glob_aws_from_home() -> TestResult:
+    """NEW-06: Glob(pattern='**/.aws/*', path='~') should also be blocked"""
+    r = TestResult("Blocks Glob(pattern='**/.aws/*', path='~')")
+    try:
+        out = run_hook("Glob", {"path": os.path.expanduser("~"), "pattern": "**/.aws/*"})
+        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+    return r
+
+
+def test_blocks_recursive_grep_ssh_from_home() -> TestResult:
+    """NEW-06: Grep(path='~', glob='**/.ssh/*') should also be blocked"""
+    r = TestResult("Blocks Grep(path='~', glob='**/.ssh/*')")
+    try:
+        out = run_hook("Grep", {"path": os.path.expanduser("~"), "glob": "**/.ssh/*", "pattern": "key"})
+        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+    return r
+
+
+def test_blocks_grep_root_glob_aws() -> TestResult:
+    """H-02: Grep(path='/', glob='**/.aws/*') must be blocked"""
+    r = TestResult("Blocks Grep(path='/', glob='**/.aws/*')")
+    try:
+        out = run_hook("Grep", {"path": "/", "glob": "**/.aws/*", "pattern": "secret"})
+        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+    return r
+
+
+def test_blocks_grep_root_glob_ssh() -> TestResult:
+    """H-02: Grep(path='/', glob='**/.ssh/*') must be blocked"""
+    r = TestResult("Blocks Grep(path='/', glob='**/.ssh/*')")
+    try:
+        out = run_hook("Grep", {"path": "/", "glob": "**/.ssh/*", "pattern": "key"})
+        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+    return r
+
+
+def test_blocks_glob_root_docker() -> TestResult:
+    """H-NEW-01: Glob(path='/', pattern='**/.docker/*') must be blocked"""
+    r = TestResult("Blocks Glob(path='/', pattern='**/.docker/*')")
+    try:
+        out = run_hook("Glob", {"path": "/", "pattern": "**/.docker/*"})
+        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+    return r
+
+
+def test_blocks_glob_root_gnupg() -> TestResult:
+    """H-NEW-01: Glob(path='/', pattern='**/.gnupg/*') must be blocked"""
+    r = TestResult("Blocks Glob(path='/', pattern='**/.gnupg/*')")
+    try:
+        out = run_hook("Glob", {"path": "/", "pattern": "**/.gnupg/*"})
+        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+    return r
+
+
+def test_blocks_tmp_traversal_ssh() -> TestResult:
+    """H-005-02: /tmp/../Users/xxx/.ssh traversal on macOS"""
+    r = TestResult("Blocks /tmp/../~/.ssh traversal")
+    try:
+        home = os.path.expanduser("~")
+        crafted = f"/tmp/../{home.lstrip('/')}/.ssh/id_rsa"
+        out = run_hook("Read", {"file_path": crafted})
+        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+    return r
+
+
+def test_blocks_var_traversal_aws() -> TestResult:
+    """H-005-02: /var/../Users/xxx/.aws traversal on macOS"""
+    r = TestResult("Blocks /var/../~/.aws traversal")
+    try:
+        home = os.path.expanduser("~")
+        crafted = f"/var/../{home.lstrip('/')}/.aws/credentials"
+        out = run_hook("Read", {"file_path": crafted})
+        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+    return r
+
+
 def main() -> None:
     from ac_safety_test_support import run_tests  # pyright: ignore[reportMissingImports]
     run_tests("credential-guardian unit tests", [
@@ -129,6 +298,24 @@ def main() -> None:
         test_blocks_relative_glob_from_home,
         test_blocks_relative_grep_glob_from_home,
         test_fail_close_on_bad_input,
+        test_blocks_npmrc_outside_project_roots,
+        test_allows_npmrc_in_project,
+        test_blocks_netrc_outside_project_roots,
+        test_glob_wildcard_stripping,
+        test_grep_glob_wildcard_stripping,
+        # NEW-06: recursive glob pattern bypass
+        test_blocks_recursive_glob_ssh_from_home,
+        test_blocks_recursive_glob_aws_from_home,
+        test_blocks_recursive_grep_ssh_from_home,
+        # H-02: Grep with root base_path + blocked glob segment
+        test_blocks_grep_root_glob_aws,
+        test_blocks_grep_root_glob_ssh,
+        # H-NEW-01: root path bypass regression (path="/")
+        test_blocks_glob_root_docker,
+        test_blocks_glob_root_gnupg,
+        # H-005-02: macOS /private symlink traversal
+        test_blocks_tmp_traversal_ssh,
+        test_blocks_var_traversal_aws,
     ])
 
 
