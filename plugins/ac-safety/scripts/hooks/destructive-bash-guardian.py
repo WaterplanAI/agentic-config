@@ -67,7 +67,7 @@ def _rce_patterns() -> list[tuple[re.Pattern[str], str, str]]:
 
 
 # File-reading commands that can expose credential file contents
-_FILE_READERS = r"(?:cat|head|tail|less|more|od|xxd|hexdump|strings|base64|openssl|sed|awk|grep|sort|tee|cp|scp|tar|zip|rsync|mv|ln)"
+_FILE_READERS = r"(?:cat|head|tail|less|more|od|xxd|hexdump|strings|base64|openssl|sed|awk|grep|sort|tee|cp|scp|tar|zip|rsync|mv|ln|diff|nl|cut|paste|fold|fmt|rev|pr)"
 
 # Credential paths: (regex_suffix, description)
 # Kept in sync with safety.default.yaml credential_guardian.blocked_prefixes
@@ -89,12 +89,17 @@ _CREDENTIAL_PATHS: list[tuple[str, str]] = [
     (r"~/.terraform\.d/", "Terraform credentials"),
     (r"/\.terraform\.d/", "Terraform credentials (absolute)"),
     (r"~/.npmrc\b", "npmrc"),
+    (r"/\.npmrc\b", "npmrc (absolute)"),
     (r"~/.netrc\b", "netrc"),
+    (r"/\.netrc\b", "netrc (absolute)"),
     (r"~/.docker/", "Docker config"),
     (r"/\.docker/", "Docker config (absolute)"),
     (r"~/Library/", "macOS Library directory"),
+    (r"/Library/", "macOS Library directory (absolute)"),
     (r"~/.claude/debug/", "Claude debug directory"),
+    (r"/\.claude/debug/", "Claude debug directory (absolute)"),
     (r"~/.claude/\.claude\.json\b", "Claude API tokens"),
+    (r"/\.claude/\.claude\.json\b", "Claude API tokens (absolute)"),
 ]
 
 
@@ -177,7 +182,8 @@ PATTERNS: list[tuple[re.Pattern[str], str, str]] = [
     # -- credential-reads --
     # Any file-reading command accessing credential paths is blocked.
     # _FILE_READERS covers: cat, head, tail, less, more, od, xxd, hexdump,
-    # strings, base64, openssl, sed, awk, grep, sort, tee, cp, scp
+    # strings, base64, openssl, sed, awk, grep, sort, tee, cp, scp,
+    # diff, nl, cut, paste, fold, fmt, rev, pr
     *_credential_read_patterns(),
     (re.compile(r"\bsecurity\s+(find|dump)-.*keychain"), "macOS Keychain access", "credential-reads"),
     # -- data-exfiltration --

@@ -2,6 +2,7 @@
 """Unit tests for destructive-bash-guardian hook."""
 
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -1056,6 +1057,63 @@ def test_blocks_zip_gnupg() -> TestResult:
     return r
 
 
+# -- Sentinel 015: HIGH-001 absolute-path credential reads --
+
+
+def test_blocks_sort_absolute_npmrc() -> TestResult:
+    """S015 HIGH-001: sort /Users/$USER/.npmrc (absolute path credential read)"""
+    r = TestResult("Blocks sort <home>/.npmrc (absolute path)")
+    try:
+        home = os.path.expanduser("~")
+        out = run_hook(f"sort {home}/.npmrc")
+        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+    return r
+
+
+def test_blocks_cat_absolute_netrc() -> TestResult:
+    """S015 HIGH-001: cat /Users/$USER/.netrc (absolute path credential read)"""
+    r = TestResult("Blocks cat <home>/.netrc (absolute path)")
+    try:
+        home = os.path.expanduser("~")
+        out = run_hook(f"cat {home}/.netrc")
+        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+    return r
+
+
+def test_blocks_head_absolute_claude_debug() -> TestResult:
+    """S015 HIGH-001: head /Users/$USER/.claude/debug/trace.log (absolute path credential read)"""
+    r = TestResult("Blocks head <home>/.claude/debug/trace.log (absolute path)")
+    try:
+        home = os.path.expanduser("~")
+        out = run_hook(f"head {home}/.claude/debug/trace.log")
+        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+    return r
+
+
+# -- Sentinel 016: MEDIUM-001 missing POSIX file readers --
+
+
+def test_blocks_diff_ssh_key() -> TestResult:
+    """S016 MEDIUM-001: diff ~/.ssh/id_rsa /dev/null (POSIX diff credential read)"""
+    r = TestResult("Blocks diff ~/.ssh/id_rsa /dev/null")
+    try:
+        out = run_hook("diff ~/.ssh/id_rsa /dev/null")
+        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+    return r
+
+
 # -- Issue 2: rm in allowed project roots should be allowed --
 
 
@@ -1202,6 +1260,12 @@ def main() -> None:
         test_blocks_mv_ssh_key,
         test_blocks_ln_docker_config,
         test_blocks_zip_gnupg,
+        # Sentinel 015: HIGH-001 absolute-path credential reads
+        test_blocks_sort_absolute_npmrc,
+        test_blocks_cat_absolute_netrc,
+        test_blocks_head_absolute_claude_debug,
+        # Sentinel 016: MEDIUM-001 missing POSIX file readers
+        test_blocks_diff_ssh_key,
         # Issue 2: configurable project roots for rm
         test_allows_rm_rf_in_project_dir,
         test_blocks_rm_rf_outside_project,
