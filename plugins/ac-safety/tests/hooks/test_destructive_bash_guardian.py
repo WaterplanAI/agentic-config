@@ -1240,6 +1240,32 @@ def test_blocks_diff_ssh_key() -> TestResult:
     return r
 
 
+def test_blocks_dd_ssh_key() -> TestResult:
+    """Regression: dd if=~/.ssh/id_rsa must be treated as a credential read."""
+    r = TestResult("Blocks dd if=~/.ssh/id_rsa")
+    try:
+        out = run_hook("dd if=~/.ssh/id_rsa bs=1 count=10")
+        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+        raise
+    return r
+
+
+def test_blocks_install_ssh_key() -> TestResult:
+    """Regression: install ~/.ssh/id_rsa /tmp/out must be treated as a credential read."""
+    r = TestResult("Blocks install ~/.ssh/id_rsa /tmp/out")
+    try:
+        out = run_hook("install ~/.ssh/id_rsa /tmp/out")
+        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+        raise
+    return r
+
+
 # -- Issue 2: rm in allowed project roots should be allowed --
 
 
@@ -1248,6 +1274,32 @@ def test_allows_rm_rf_in_project_dir() -> TestResult:
     r = TestResult("Allows rm -rf ~/projects/myapp/dist (in project root)")
     try:
         out = run_hook("rm -rf ~/projects/myapp/dist")
+        assert out["decision"] == "allow", f"Expected allow, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+        raise
+    return r
+
+
+def test_allows_rm_rf_dollar_home_project_dir() -> TestResult:
+    """Issue 2: rm -rf "$HOME/projects/..." should be allowed inside project roots."""
+    r = TestResult('Allows rm -rf "$HOME/projects/myapp/dist" (in project root)')
+    try:
+        out = run_hook('rm -rf "$HOME/projects/myapp/dist"')
+        assert out["decision"] == "allow", f"Expected allow, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+        raise
+    return r
+
+
+def test_allows_rm_rf_braced_home_project_dir() -> TestResult:
+    """Issue 2: rm -rf "${HOME}/projects/..." should be allowed inside project roots."""
+    r = TestResult('Allows rm -rf "${HOME}/projects/myapp/dist" (in project root)')
+    try:
+        out = run_hook('rm -rf "${HOME}/projects/myapp/dist"')
         assert out["decision"] == "allow", f"Expected allow, got {out['decision']}"
         r.mark_pass()
     except Exception as e:
@@ -1398,8 +1450,12 @@ def main() -> None:
         test_blocks_head_absolute_claude_debug,
         # Sentinel 016: MEDIUM-001 missing POSIX file readers
         test_blocks_diff_ssh_key,
+        test_blocks_dd_ssh_key,
+        test_blocks_install_ssh_key,
         # Issue 2: configurable project roots for rm
         test_allows_rm_rf_in_project_dir,
+        test_allows_rm_rf_dollar_home_project_dir,
+        test_allows_rm_rf_braced_home_project_dir,
         test_blocks_rm_rf_outside_project,
         test_blocks_rm_rf_tmp,
     ])

@@ -118,11 +118,26 @@ def _format_simple(data: dict, indent: int = 0) -> str:
 
 
 # Patterns for redacting secrets from audit log entries
+_AUTH_HEADER_VALUE = r"(?:\"[^\"\n]*\"|'[^'\n]*'|[^\s\"';&|]+(?:\s+[^\s\"';&|]+)?)"
+_SENSITIVE_ASSIGNMENT_VALUE = r"(?:\"[^\"\n]*\"|'[^'\n]*'|\S+)"
+_SENSITIVE_ASSIGNMENT_KEY = (
+    r"(?:[A-Za-z0-9_]*"
+    r"(?:API[_\-]?KEY|ACCESS[_\-]?TOKEN|REFRESH[_\-]?TOKEN|PRIVATE[_\-]?KEY"
+    r"|CLIENT[_\-]?SECRET|AUTH[_\-]?TOKEN|TOKEN|SECRET|PASSWORD|PASSWD|BEARER))"
+)
 _SECRET_PATTERNS: list[tuple[re.Pattern[str], str]] = [
     # Redact inline Authorization headers as a whole so values like
-    # "Authorization: Bearer abc123" do not leave the token behind.
-    (re.compile(r"(?i)(authorization\s*[=:]\s*)([^\s\"';&|]+(?:\s+[^\s\"';&|]+)?)"), r"\1***REDACTED***"),
-    (re.compile(r"(?i)(api[_-]?key|token|secret|password|passwd|bearer)\s*[=:]\s*\S+"), r"\1=***REDACTED***"),
+    # "Authorization: Bearer abc123" and `Authorization:"Bearer abc123"`
+    # do not leave the token behind.
+    (re.compile(r"(?i)(authorization\s*[=:]\s*)" + _AUTH_HEADER_VALUE), r"\1***REDACTED***"),
+    # Redact secret-like assignments, including quoted values with spaces,
+    # while preserving the original key and separator.
+    (
+        re.compile(
+            r"(?i)\b(" + _SENSITIVE_ASSIGNMENT_KEY + r")\b(\s*[=:]\s*)" + _SENSITIVE_ASSIGNMENT_VALUE
+        ),
+        r"\1\2***REDACTED***",
+    ),
     (re.compile(r"\b(sk-[A-Za-z0-9]{20,})\b"), "***REDACTED_KEY***"),
     (re.compile(r"\b(ghp_[A-Za-z0-9]{36,})\b"), "***REDACTED_KEY***"),
     (re.compile(r"\b(gho_[A-Za-z0-9]{36,})\b"), "***REDACTED_KEY***"),

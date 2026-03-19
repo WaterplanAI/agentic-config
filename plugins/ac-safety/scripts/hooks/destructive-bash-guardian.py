@@ -72,7 +72,7 @@ _FILE_READER_COMMANDS: tuple[str, ...] = (
     "cat", "head", "tail", "less", "more", "od", "xxd", "hexdump",
     "strings", "base64", "openssl", "sed", "awk", "grep", "sort",
     "tee", "cp", "scp", "tar", "zip", "rsync", "mv", "ln", "diff",
-    "nl", "cut", "paste", "fold", "fmt", "rev", "pr",
+    "nl", "cut", "paste", "fold", "fmt", "rev", "pr", "dd", "install",
 )
 _FILE_READER_COMMAND_SET = set(_FILE_READER_COMMANDS)
 _FILE_READERS = r"(?:" + "|".join(re.escape(command) for command in _FILE_READER_COMMANDS) + r")"
@@ -245,10 +245,10 @@ PATTERNS: list[tuple[re.Pattern[str], str, str]] = [
     (re.compile(r"\bgit\s+checkout\s+\.\s*$"), "git checkout . (discard all changes)", "git-destructive"),
     (re.compile(r"\bgit\s+restore\s+\.\s*$"), "git restore . (discard all changes)", "git-destructive"),
     # -- credential-reads --
-    # Any file-reading command accessing credential paths is blocked.
+    # Any file-reading or file-copying command accessing credential paths is blocked.
     # _FILE_READERS covers: cat, head, tail, less, more, od, xxd, hexdump,
     # strings, base64, openssl, sed, awk, grep, sort, tee, cp, scp,
-    # diff, nl, cut, paste, fold, fmt, rev, pr
+    # diff, nl, cut, paste, fold, fmt, rev, pr, dd, install
     *_credential_read_patterns(),
     (re.compile(r"\bsecurity\s+(find|dump)-.*keychain"), "macOS Keychain access", "credential-reads"),
     # -- data-exfiltration --
@@ -291,34 +291,41 @@ PATTERNS: list[tuple[re.Pattern[str], str, str]] = [
 ]
 
 
+def _normalize_rm_target(arg: str) -> str | None:
+    """Normalize a candidate rm target into a resolved path when possible."""
+    cleaned = arg.replace('"', "").replace("'", "").strip("`()")
+    cleaned = cleaned.replace("${HOME}", os.path.expanduser("~"))
+    cleaned = cleaned.replace("$HOME", os.path.expanduser("~"))
+    if cleaned.startswith(("/", "~")):
+        return resolve_path(cleaned)
+    return None
+
+
 def _extract_rm_targets(command: str) -> list[str]:
     """Extract target paths from an rm command for project-root checks.
 
     Returns resolved absolute paths found after rm flags.
     Only extracts paths that start with /, ~, $HOME, or ${HOME}.
     """
+    args = _split_args(command)
+    if not args:
+        return []
+
+    command_name, trailing_args = _extract_command_name(args)
+    if os.path.basename(command_name) != "rm":
+        return []
+
     targets: list[str] = []
-    # Find everything after 'rm' and its flags
-    match = re.search(r"\brm\s+(.*)", command)
-    if not match:
-        return targets
-    rest = match.group(1)
-    # Strip flags and -- separator
-    parts = rest.split()
     past_flags = False
-    for part in parts:
-        if part == "--":
+    for arg in trailing_args:
+        if arg == "--":
             past_flags = True
             continue
-        if not past_flags and part.startswith("-"):
+        if not past_flags and arg.startswith("-"):
             continue
-        # Remove surrounding quotes and shell metacharacters
-        cleaned = part.strip("\"'`()$")
-        # Expand $HOME / ${HOME}
-        cleaned = cleaned.replace("${HOME}", os.path.expanduser("~"))
-        cleaned = cleaned.replace("$HOME", os.path.expanduser("~"))
-        if cleaned.startswith(("/", "~")):
-            targets.append(resolve_path(cleaned))
+        normalized = _normalize_rm_target(arg)
+        if normalized:
+            targets.append(normalized)
     return targets
 
 

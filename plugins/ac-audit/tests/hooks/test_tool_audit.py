@@ -250,6 +250,59 @@ def test_redact_inline_authorization_header() -> TestResult:
     return r
 
 
+def test_redact_compact_authorization_header() -> TestResult:
+    r = TestResult("_redact_secrets: redacts compact Authorization:\"Bearer ...\" header form")
+    try:
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location("tool_audit", str(HOOK_PATH))
+        assert spec and spec.loader
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)  # type: ignore[union-attr]
+        _redact_secrets = mod._redact_secrets
+
+        result = _redact_secrets(
+            {'command': 'curl -H Authorization:"Bearer abc123" https://example.com'}
+        )
+        rendered = str(result)
+        assert "abc123" not in rendered, f"Compact bearer token not redacted: {result}"
+        assert "REDACTED" in rendered, f"Expected REDACTED marker: {result}"
+
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+        raise
+    return r
+
+
+def test_redact_quoted_secret_assignment_values() -> TestResult:
+    r = TestResult("_redact_secrets: redacts quoted secret assignment values")
+    try:
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location("tool_audit", str(HOOK_PATH))
+        assert spec and spec.loader
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)  # type: ignore[union-attr]
+        _redact_secrets = mod._redact_secrets
+
+        result = _redact_secrets({'command': 'export OPENAI_API_KEY="abc 123"'})
+        rendered = str(result)
+        assert "abc 123" not in rendered, f"Quoted env secret not redacted: {result}"
+        assert "REDACTED" in rendered, f"Expected REDACTED marker: {result}"
+
+        result = _redact_secrets({'command': 'password: "abc 123"'})
+        rendered = str(result)
+        assert "abc 123" not in rendered, f"Quoted password not redacted: {result}"
+        assert "REDACTED" in rendered, f"Expected REDACTED marker: {result}"
+
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+        raise
+    return r
+
+
 def test_validate_log_permissions_valid() -> TestResult:
     r = TestResult("_validate_log_permissions: accepts valid permissions")
     try:
@@ -508,6 +561,38 @@ def test_audit_log_redacts_inline_authorization_header() -> TestResult:
     return r
 
 
+def test_audit_log_redacts_compact_authorization_header() -> TestResult:
+    r = TestResult("audit log and systemMessage redact compact Authorization:\"Bearer ...\" header")
+    try:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_dir = Path(tmpdir) / "plugin" / "config"
+            config_dir.mkdir(parents=True)
+            (config_dir / "audit.default.yaml").write_text(
+                f'log_dir: "{tmpdir}/logs"\nmax_words: 50\ndisplay_tools:\n  - "Bash"\n'
+            )
+
+            env = {"CLAUDE_PLUGIN_ROOT": str(Path(tmpdir) / "plugin")}
+            output = run_hook(
+                "Bash",
+                {"command": 'curl -H Authorization:"Bearer abc123" https://example.com'},
+                env_override=env,
+            )
+
+            msg = output.get("systemMessage", "")
+            assert "abc123" not in msg, f"Compact bearer token leaked in systemMessage: {msg}"
+            assert "REDACTED" in msg, f"Expected REDACTED marker in systemMessage: {msg}"
+
+            log_file = next((Path(tmpdir) / "logs").glob("*.jsonl"))
+            content = log_file.read_text()
+            assert "abc123" not in content, f"Compact bearer token leaked in audit log: {content}"
+            assert "REDACTED" in content, f"Expected REDACTED marker in audit log: {content}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+        raise
+    return r
+
+
 def test_sensitive_keys_no_false_positives() -> TestResult:
     r = TestResult("_SENSITIVE_KEYS: no false-positive on monkey/keyboard/author/token_count (MEDIUM-3)")
     try:
@@ -602,6 +687,8 @@ def main() -> None:
         test_fail_close_on_empty_input,
         test_redact_secrets_api_key,
         test_redact_inline_authorization_header,
+        test_redact_compact_authorization_header,
+        test_redact_quoted_secret_assignment_values,
         test_validate_log_permissions_valid,
         test_validate_log_permissions_clamps,
         test_redact_secrets_list,
@@ -611,6 +698,7 @@ def main() -> None:
         test_redact_secrets_mixed_keys,
         test_system_message_redacts_secrets,
         test_audit_log_redacts_inline_authorization_header,
+        test_audit_log_redacts_compact_authorization_header,
         test_sensitive_keys_no_false_positives,
         test_deep_merge_skips_yaml_null,
     ])
