@@ -1069,6 +1069,19 @@ def test_blocks_tar_hidden_dir_wildcard_home() -> TestResult:
     return r
 
 
+def test_blocks_dd_hidden_dir_wildcard_ssh() -> TestResult:
+    """Regression: dd if=~/.*/id_rsa should be denied."""
+    r = TestResult("Blocks dd if=~/.*/id_rsa (hidden-dir wildcard credential read)")
+    try:
+        out = run_hook("dd if=~/.*/id_rsa bs=1 count=10")
+        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+        raise
+    return r
+
+
 def test_blocks_strings_kube_config() -> TestResult:
     """strings ~/.kube/config (credential read via strings)"""
     r = TestResult("Blocks strings ~/.kube/config")
@@ -1434,6 +1447,7 @@ def main() -> None:
         test_blocks_cat_hidden_dir_wildcard_ssh,
         test_blocks_grep_hidden_dir_wildcard_config,
         test_blocks_tar_hidden_dir_wildcard_home,
+        test_blocks_dd_hidden_dir_wildcard_ssh,
         test_blocks_strings_kube_config,
         # Sentinel 012: HIGH-001 GnuPG credential path
         test_blocks_strings_gnupg_secring,

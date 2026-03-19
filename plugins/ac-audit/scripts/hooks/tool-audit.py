@@ -123,13 +123,21 @@ _SENSITIVE_ASSIGNMENT_VALUE = r"(?:\"[^\"\n]*\"|'[^'\n]*'|\S+)"
 _SENSITIVE_ASSIGNMENT_KEY = (
     r"(?:[A-Za-z0-9_]*"
     r"(?:API[_\-]?KEY|ACCESS[_\-]?TOKEN|REFRESH[_\-]?TOKEN|PRIVATE[_\-]?KEY"
-    r"|CLIENT[_\-]?SECRET|AUTH[_\-]?TOKEN|TOKEN|SECRET|PASSWORD|PASSWD|BEARER))"
+    r"|CLIENT[_\-]?SECRET|AUTH[_\-]?TOKEN|AUTHORIZATION|CREDENTIALS?"
+    r"|TOKEN|SECRET|PASSWORD|PASSWD|BEARER))"
 )
 _SECRET_PATTERNS: list[tuple[re.Pattern[str], str]] = [
     # Redact inline Authorization headers as a whole so values like
     # "Authorization: Bearer abc123" and `Authorization:"Bearer abc123"`
     # do not leave the token behind.
     (re.compile(r"(?i)(authorization\s*[=:]\s*)" + _AUTH_HEADER_VALUE), r"\1***REDACTED***"),
+    # Redact JSON-like secret fields such as {"api_key":"abc123"}.
+    (
+        re.compile(
+            r"(?i)([\"'])(" + _SENSITIVE_ASSIGNMENT_KEY + r")\1(\s*:\s*)" + _SENSITIVE_ASSIGNMENT_VALUE
+        ),
+        r"\1\2\1\3***REDACTED***",
+    ),
     # Redact secret-like assignments, including quoted values with spaces,
     # while preserving the original key and separator.
     (

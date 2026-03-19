@@ -150,16 +150,25 @@ def _extract_command_name(args: list[str]) -> tuple[str, list[str]]:
     return "", []
 
 
+def _strip_assignment_prefix(arg: str) -> str:
+    """Strip option-style assignment prefixes such as ``if=`` from an arg."""
+    if "=" not in arg:
+        return arg
+    _, value = arg.split("=", 1)
+    return value or arg
+
+
 def _is_hidden_dir_wildcard_arg(arg: str) -> bool:
     """Return True for HOME-relative wildcard scans over hidden directories.
 
-    Examples: ``~/.*/id_rsa``, ``$HOME/.[a-z]*/config``, ``/home/u/.*/``.
+    Examples: ``~/.*/id_rsa``, ``$HOME/.[a-z]*/config``, ``/home/u/.*/``,
+    and option forms such as ``if=~/.*/id_rsa``.
     These shell globs can expand into credential directories such as ``~/.ssh``
     and ``~/.aws`` even without naming them explicitly.
     """
     home = os.path.expanduser("~")
     prefixes = ("~/", "$HOME/", "${HOME}/", home.rstrip("/") + "/")
-    normalized = arg.rstrip("/")
+    normalized = _strip_assignment_prefix(arg).rstrip("/")
     for prefix in prefixes:
         if not normalized.startswith(prefix):
             continue
