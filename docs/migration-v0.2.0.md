@@ -11,7 +11,7 @@ v0.2.0 is a **breaking release** that replaces symlink-based installation with C
 | Installation | `setup-config.sh` creates symlinks | `claude plugin install` |
 | Plugin loading | `.claude/skills/` symlinks to `plugins/` | CC auto-discovers from plugin cache |
 | Update | `update-config.sh` recreates symlinks | `claude plugin install` (reinstall) |
-| Plugin names | `agentic-*` (6 plugins) | `ac-*` (5 plugins) |
+| Plugin names | `agentic-*` (6 plugins) | `ac-*` (7 plugins) |
 | Asset types | Commands + Skills | Skills only |
 | Hook wiring | Manual `settings.json` | Auto-registered from plugin declarations (`hooks/hooks.json` and skill frontmatter `hooks`) |
 
@@ -26,6 +26,8 @@ v0.2.0 is a **breaking release** that replaces symlink-based installation with C
 | `agentic-review` | `ac-qa` | Renamed |
 | `agentic-tools` | `ac-tools` | Renamed |
 | -- | `ac-meta` | New (skill-writer, hook-writer from `agentic`) |
+| -- | `ac-safety` | New (security guardrails) |
+| -- | `ac-audit` | New (tool audit logging) |
 
 ## Prerequisites
 
@@ -99,6 +101,8 @@ claude plugin install ac-git@agentic-plugins
 claude plugin install ac-qa@agentic-plugins
 claude plugin install ac-tools@agentic-plugins
 claude plugin install ac-meta@agentic-plugins
+claude plugin install ac-safety@agentic-plugins
+claude plugin install ac-audit@agentic-plugins
 ```
 
 ### Step 4: Verify Installation
@@ -125,7 +129,9 @@ claude \
   --plugin-dir ./plugins/ac-git \
   --plugin-dir ./plugins/ac-qa \
   --plugin-dir ./plugins/ac-tools \
-  --plugin-dir ./plugins/ac-meta
+  --plugin-dir ./plugins/ac-meta \
+  --plugin-dir ./plugins/ac-safety \
+  --plugin-dir ./plugins/ac-audit
 ```
 
 This reads plugin source directly -- changes are picked up on restart without reinstalling.
@@ -161,7 +167,9 @@ For team-wide adoption, commit a `.claude/settings.json`:
     "ac-git@agentic-plugins": true,
     "ac-qa@agentic-plugins": true,
     "ac-tools@agentic-plugins": true,
-    "ac-meta@agentic-plugins": true
+    "ac-meta@agentic-plugins": true,
+    "ac-safety@agentic-plugins": true,
+    "ac-audit@agentic-plugins": true
   }
 }
 ```

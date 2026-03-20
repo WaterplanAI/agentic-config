@@ -19,6 +19,8 @@ claude plugin install ac-git@agentic-plugins
 claude plugin install ac-qa@agentic-plugins
 claude plugin install ac-tools@agentic-plugins
 claude plugin install ac-meta@agentic-plugins
+claude plugin install ac-safety@agentic-plugins
+claude plugin install ac-audit@agentic-plugins
 ```
 
 ## Enable Auto-Updates (Recommended)
@@ -91,7 +93,7 @@ Checks AGENTS.md is up-to-date with current template and validates project type 
 | `/spec STAGE path` | Execute single workflow stage |
 | `/mux "prompt"` | Parallel research-to-deliverable orchestration |
 
-See [Plugin Catalog](plugin-catalog.md) for all skills across 5 plugins.
+See [Plugin Catalog](plugin-catalog.md) for all skills across 7 plugins.
 
 ## Customization
 
@@ -106,7 +108,7 @@ Add project-specific customizations directly to AGENTS.md.
 ## What Gets Installed
 
 **Plugins (via `claude plugin install`):**
-- `ac-workflow`, `ac-git`, `ac-qa`, `ac-tools`, `ac-meta`
+- `ac-workflow`, `ac-git`, `ac-qa`, `ac-tools`, `ac-meta`, `ac-safety`, `ac-audit`
 - No symlinks -- plugins load from `~/.claude/plugins/cache/`
 
 **Copied (project-customizable):**
@@ -118,7 +120,7 @@ Add project-specific customizations directly to AGENTS.md.
 For active development on agentic-config itself:
 
 ```bash
-./dev.sh    # launches claude with all 5 --plugin-dir flags
+./dev.sh    # launches claude with all 7 --plugin-dir flags
 ```
 
 ## Troubleshooting
@@ -130,6 +132,8 @@ claude plugin install ac-git@agentic-plugins
 claude plugin install ac-qa@agentic-plugins
 claude plugin install ac-tools@agentic-plugins
 claude plugin install ac-meta@agentic-plugins
+claude plugin install ac-safety@agentic-plugins
+claude plugin install ac-audit@agentic-plugins
 ```
 
 **Skill not responding:**

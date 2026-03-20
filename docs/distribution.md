@@ -50,7 +50,9 @@ Add to your project `.claude/settings.json`:
     "ac-git@agentic-plugins": true,
     "ac-qa@agentic-plugins": true,
     "ac-tools@agentic-plugins": true,
-    "ac-meta@agentic-plugins": true
+    "ac-meta@agentic-plugins": true,
+    "ac-safety@agentic-plugins": true,
+    "ac-audit@agentic-plugins": true
   }
 }
 ```

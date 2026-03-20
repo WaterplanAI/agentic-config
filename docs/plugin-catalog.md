@@ -11,6 +11,8 @@ Complete catalog of agentic-config skills organized by plugin.
 | `ac-qa` | QA, E2E testing, browser automation | 7 |
 | `ac-tools` | Utilities, integrations, prototyping, bootstrap | 16 |
 | `ac-meta` | Meta-prompting, self-improvement | 2 |
+| `ac-safety` | Security guardrails (credential, write-scope, destructive-bash, supply-chain, playwright) | 1 |
+| `ac-audit` | Tool audit logging (JSONL append-only log) | 1 |
 
 ## ac-workflow (6 skills)
 
@@ -74,6 +76,18 @@ Complete catalog of agentic-config skills organized by plugin.
 |-------|-------------|
 | `skill-writer` | Expert assistant for authoring Claude Code skills |
 | `hook-writer` | Expert assistant for authoring Claude Code hooks |
+
+## ac-safety (1 skill)
+
+| Skill | Description |
+|-------|-------------|
+| `configure-safety` | Interactive safety.yaml customization |
+
+## ac-audit (1 skill)
+
+| Skill | Description |
+|-------|-------------|
+| `configure-audit` | Interactive audit.yaml configuration (3-tier config resolution) |
 
 ---
 
