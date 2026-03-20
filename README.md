@@ -13,6 +13,8 @@ claude plugin install ac-git@agentic-plugins
 claude plugin install ac-qa@agentic-plugins
 claude plugin install ac-tools@agentic-plugins
 claude plugin install ac-meta@agentic-plugins
+claude plugin install ac-safety@agentic-plugins
+claude plugin install ac-audit@agentic-plugins
 ```
 
 > **Note:** Auto-updates are disabled by default for third-party marketplaces.
