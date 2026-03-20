@@ -45,7 +45,7 @@ Core principles:
 | `ac-tools` | Utilities, integrations, bootstrap | 16 |
 | `ac-meta` | Meta-prompting, self-improvement | 2 |
 | `ac-safety` | Security guardrails (credential, write-scope, destructive-bash, supply-chain, playwright) | 1 |
-| `ac-audit` | Tool audit logging (JSONL append-only log) | 0 |
+| `ac-audit` | Tool audit logging (JSONL append-only log) | 1 |
 
 ## Documentation
 

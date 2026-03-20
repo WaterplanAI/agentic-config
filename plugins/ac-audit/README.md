@@ -27,6 +27,12 @@ claude plugin install ac-audit@agentic-plugins --scope local
 
 Fail-close: errors deny the operation.
 
+## Skills
+
+| Skill | Trigger | Description |
+|-------|---------|-------------|
+| `configure-audit` | `/configure-audit` | Interactive audit.yaml configuration (3-tier config resolution) |
+
 ## Configuration
 
 Three-tier config resolution: project `audit.yaml` > `~/.claude/audit.yaml` > plugin defaults. Higher-priority tiers override lower ones.
