@@ -4,6 +4,8 @@ All notable changes to agentic-config.
 
 ## [Unreleased]
 
+## [0.2.5] - 2026-03-20
+
 ### Added
 
 - `ac-safety` plugin: security guardrails for Claude Code with 5 guardian hooks
