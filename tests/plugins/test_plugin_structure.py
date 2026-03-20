@@ -20,6 +20,8 @@ EXPECTED_PLUGINS = {
     "ac-qa",
     "ac-tools",
     "ac-meta",
+    "ac-safety",
+    "ac-audit",
 }
 
 EXPECTED_COMMANDS: dict[str, set[str]] = {
@@ -28,6 +30,8 @@ EXPECTED_COMMANDS: dict[str, set[str]] = {
     "ac-qa": set(),
     "ac-tools": set(),
     "ac-meta": set(),
+    "ac-safety": set(),
+    "ac-audit": set(),
 }
 
 EXPECTED_SKILLS = {
@@ -41,8 +45,10 @@ EXPECTED_SKILLS = {
                  "dry-run", "single-file-uv-scripter", "ac-issue", "adr",
                  "agentic-export", "agentic-import", "agentic-share",
                  "milestone", "setup-voice-mode", "video-query",
-                 "improve-agents-md"},
+                 "improve-agents-md", "gcp-setup"},
     "ac-meta": {"skill-writer", "hook-writer"},
+    "ac-safety": {"configure-safety"},
+    "ac-audit": set(),
 }
 
 # Patterns that indicate internal library dependencies (strictly forbidden)
@@ -242,7 +248,7 @@ class TestHooksDistribution(unittest.TestCase):
         self.assertEqual(len(hooks), 2, "ac-tools should have 2 hooks")
 
     def test_hooks_use_plugin_root(self) -> None:
-        for plugin in ["ac-tools", "ac-git"]:
+        for plugin in ["ac-tools", "ac-git", "ac-safety", "ac-audit"]:
             hj = PLUGINS_DIR / plugin / "hooks" / "hooks.json"
             if hj.exists():
                 content = hj.read_text()
@@ -320,7 +326,7 @@ class TestMarketplaceJson(unittest.TestCase):
         self.assertIn("plugins", data)
         self.assertIsInstance(data["plugins"], list)
 
-    def test_marketplace_declares_all_5_plugins(self) -> None:
+    def test_marketplace_declares_all_plugins(self) -> None:
         data = json.loads(self.MP_PATH.read_text())
         names = {p["name"] for p in data["plugins"]}
         self.assertEqual(names, EXPECTED_PLUGINS)

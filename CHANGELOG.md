@@ -4,6 +4,21 @@ All notable changes to agentic-config.
 
 ## [Unreleased]
 
+### Added
+
+- `ac-safety` plugin: security guardrails for Claude Code with 5 guardian hooks
+  - `credential-guardian`: blocks Read/Grep/Glob access to credential files (SSH keys, AWS, Docker, etc.)
+  - `destructive-bash-guardian`: blocks destructive Bash commands by category (rm -rf, git force push, terraform destroy, etc.)
+  - `write-scope-guardian`: restricts Write/Edit to allowed project paths with tamper protection for settings files
+  - `supply-chain-guardian`: blocks unapproved package installations (npx, pip, uv add)
+  - `playwright-guardian`: restricts Playwright/MCP tool usage with domain allowlist
+  - Shared library (`_lib.py`) with 3-tier YAML config resolution and most-restrictive-wins merging
+  - `configure-safety` skill for guided config customization
+- `ac-audit` plugin: tool audit logging for Claude Code
+  - Append-only JSONL audit log of all tool invocations
+  - Real-time Bash command display via systemMessage
+  - Config-driven log directory, truncation, and display filtering
+
 ## [0.2.4] - 2026-03-18
 
 ### Fixed

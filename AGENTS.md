@@ -54,6 +54,11 @@ Use tier-based names in core assets, not specific model names:
 | Medium-tier | sonnet | flash | codex |
 | High-tier | opus | pro | codex max |
 
+## Specs
+- Specs MUST be created in `.specs/` (external specs repo), NEVER in `specs/` (gitignored local dir)
+- `/spec CREATE` must target `.specs/` path convention: `.specs/<YYYY>/<MM>/<bundle>/<NNN>-<short-title>.md`
+- `specs/` is for local scratch only — never commit, never use as spec destination
+
 ## Session Resume
 READ @RESUME.md only when user asks "where we left off" / "what's next" / "resume"
 

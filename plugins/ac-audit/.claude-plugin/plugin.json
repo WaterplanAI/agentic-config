@@ -1,0 +1,12 @@
+{
+  "name": "ac-audit",
+  "description": "Tool audit logging - JSONL audit trail and real-time systemMessage display",
+  "version": "0.2.2",
+  "author": {
+    "name": "Agentic Config Contributors"
+  },
+  "homepage": "https://github.com/WaterplanAI/agentic-config",
+  "repository": "https://github.com/WaterplanAI/agentic-config",
+  "license": "MIT",
+  "keywords": ["audit", "logging", "tools", "jsonl", "compliance"]
+}

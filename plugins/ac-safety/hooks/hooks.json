@@ -1,0 +1,45 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Read|Grep|Glob",
+        "hooks": [{
+          "type": "command",
+          "command": "uv run --no-project --script ${CLAUDE_PLUGIN_ROOT}/scripts/hooks/credential-guardian.py",
+          "timeout": 5000
+        }]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "uv run --no-project --script ${CLAUDE_PLUGIN_ROOT}/scripts/hooks/destructive-bash-guardian.py",
+            "timeout": 5000
+          },
+          {
+            "type": "command",
+            "command": "uv run --no-project --script ${CLAUDE_PLUGIN_ROOT}/scripts/hooks/supply-chain-guardian.py",
+            "timeout": 5000
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit|NotebookEdit",
+        "hooks": [{
+          "type": "command",
+          "command": "uv run --no-project --script ${CLAUDE_PLUGIN_ROOT}/scripts/hooks/write-scope-guardian.py",
+          "timeout": 5000
+        }]
+      },
+      {
+        "matcher": "mcp__playwright__*|mcp__plugin_playwright_playwright__*",
+        "hooks": [{
+          "type": "command",
+          "command": "uv run --no-project --script ${CLAUDE_PLUGIN_ROOT}/scripts/hooks/playwright-guardian.py",
+          "timeout": 5000
+        }]
+      }
+    ]
+  }
+}
