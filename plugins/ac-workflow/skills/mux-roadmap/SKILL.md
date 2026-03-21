@@ -374,6 +374,21 @@ Orchestrator -> Task(Phase Agent) -> Skill(mux-ospec) -> Task(stage workers)
 
 At depth 3, Skill() invocation fails or the phase agent implements directly instead of invoking the skill.
 
+## WATCHDOG HEALTH CHECK
+
+All subagent dispatches from this orchestrator (Strategy Analyst, High-tier Fixer, Sentinel S1/S1.5/S2/S3/S4, CONTINUE.md writer) follow the MUX watchdog protocol.
+
+Full specification: `${CLAUDE_PLUGIN_ROOT}/skills/mux/SKILL.md` > WATCHDOG HEALTH CHECK section.
+
+**Quick reference:**
+- After dispatching any background Task(), wait for task-notification as usual
+- If ~10 min pass with no notification: call TaskOutput as liveness probe
+- Agent alive → do nothing, check again later
+- Agent dead → relaunch FRESH (max 2 retries per task)
+- Max retries exhausted → escalate to user via AskUserQuestion
+
+**Note:** For mux-ospec stages (PLAN, IMPLEMENT, REVIEW, etc.), the watchdog is handled by mux-ospec's own WATCHDOG section. This roadmap-level watchdog applies ONLY to agents dispatched directly by the roadmap orchestrator.
+
 ## MANDATORY VERIFICATION (after mux-ospec stages complete)
 
 Run these checks IN ORDER. If ANY fails, escalate via refinement:

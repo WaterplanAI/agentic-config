@@ -15,7 +15,7 @@ ENFORCEMENT LAYERS:
 2. Write/Edit/NotebookEdit - DENY (delegate via Task)
 3. Grep/Glob - DENY with allowlist (plugin skills/, .claude/hooks/)
 4. WebSearch/WebFetch - DENY (delegate to researcher)
-5. TaskOutput - DENY (use signals)
+5. TaskOutput - ALLOW for watchdog health checks only (instruction-enforced)
 6. Skill - Allowlisted direct call (only mux-ospec), otherwise DENY
 7. Bash - Whitelist (mkdir -p, uv run tools/*)
 8. Task - Validate run_in_background=True
@@ -96,8 +96,10 @@ FORBIDDEN_TOOLS = {
     "NotebookEdit",
     "WebSearch",
     "WebFetch",
-    "TaskOutput",
 }
+
+# Tools allowed ONLY for watchdog health checks (instruction-enforced, not hook-enforced)
+WATCHDOG_TOOLS = {"TaskOutput"}
 
 # Direct Skill() invocations allowed for orchestrator
 ALLOWED_DIRECT_SKILLS = {"mux-ospec"}
@@ -204,7 +206,14 @@ def main() -> None:
                 )))
             return
 
-        # === LAYER 4: Forbidden tools - DENY ===
+        # === LAYER 4a: Watchdog tools - ALLOW (liveness probes only, instruction-enforced) ===
+        if tool_name in WATCHDOG_TOOLS:
+            print(json.dumps(make_decision(
+                "allow",
+            )))
+            return
+
+        # === LAYER 4b: Forbidden tools - DENY ===
         if tool_name in FORBIDDEN_TOOLS:
             print(json.dumps(make_decision(
                 "deny",

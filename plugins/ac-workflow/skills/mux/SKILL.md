@@ -96,14 +96,14 @@ Everything else = DELEGATE via Task()
 
 ## FORBIDDEN (ZERO TOLERANCE -- HARD-BLOCKED by skill-scoped hooks)
 
-- **TaskOutput()** - NEVER block on agent completion (hook DENY)
+- **TaskOutput()** - FORBIDDEN for blocking on agent completion. **EXCEPTION: Watchdog health checks** (see WATCHDOG HEALTH CHECK section below). When used for watchdog, TaskOutput is a non-blocking liveness probe -- it checks if the agent process is still alive, NOT to read its output.
 - **run_in_background=False** - ALWAYS use True (hook DENY)
 - **Read/Write/Edit/Grep/Glob** - HARD-BLOCKED by skill-scoped hook. Delegate via Task()
 - **WebSearch/WebFetch** - HARD-BLOCKED. Delegate to researcher via Task()
 - **Skill()** - HARD-BLOCKED. Executes IN your context = context suicide
   - **EXCEPTION:** `Skill(skill="mux-ospec")` is allowed ONLY when the orchestrator IS the mux-roadmap orchestrator running phase execution. This is the ONLY sanctioned Skill() call. The orchestrator invokes mux-ospec directly per phase, then delegates stages via Task() as mux-ospec instructs.
 - **Blocking on agents** - Continue immediately after launch; runtime task-notification signals completion
-- **Polling agent output** - NEVER use Read/Bash/tail to check agent progress files. Wait for task-notification, then run verify.py once
+- **Polling agent output** - NEVER use Read/Bash/tail to check agent progress files. Wait for task-notification, then run verify.py once. (Watchdog health checks via TaskOutput are NOT polling -- they are one-shot probes triggered by timeout)
 - **Filesystem polling loops** - NEVER poll .signals/ directory in a loop. Use one-shot check-signals.py or verify.py after notification
 - **Fabricating notifications** - NEVER pretend a task-notification arrived. If no `[notification: task ... completed]` message exists in the conversation, the agent has NOT completed. You are an EVENT LOOP, not a SCRIPT -- you HALT and wait for external input, you do NOT predict or pre-fill what comes next
 
@@ -281,6 +281,76 @@ for item in items:
 
 Signal files are **structured result metadata** (path, size, status, timestamp) that workers write as output. They are NOT the completion detection mechanism. Orchestrator reads them AFTER receiving task-notification, not via polling.
 
+## WATCHDOG HEALTH CHECK (SUBAGENT LIVENESS MONITORING)
+
+### Purpose
+
+Detect silently-dead subagents that terminated without writing a signal file or triggering a task-notification. This prevents the orchestrator from waiting indefinitely for a dead agent.
+
+### Constants
+
+| Constant | Value | Description |
+|----------|-------|-------------|
+| WATCHDOG_TIMEOUT | ~10 minutes | Time to wait after launch before first health check |
+| MAX_RELAUNCH_ATTEMPTS | 2 | Maximum times to relaunch a dead subagent per task |
+
+### Protocol
+
+The watchdog is a HEALTH CHECK TRIGGER, never a kill signal. The orchestrator NEVER forcefully kills a running agent.
+
+**After dispatching each subagent via Task(run_in_background=True):**
+
+1. **Continue normally** — end your turn, wait for task-notification as usual
+2. **If ~10 minutes pass with no task-notification AND no signal file:**
+   - Call `TaskOutput` on the background task ID as a **liveness probe**
+   - This is a ONE-SHOT check, not a polling loop
+3. **Interpret TaskOutput result:**
+   - **Agent still running** (TaskOutput returns partial output / no exit code) → Agent is alive. Do NOTHING. Wait for the next task-notification. Check again after another ~10 minutes if still no signal.
+   - **Agent terminated** (TaskOutput shows exit code, empty output, or error) → Agent is DEAD. Proceed to relaunch.
+4. **Relaunch (if agent is dead):**
+   - Increment relaunch counter for this task
+   - If relaunch counter <= MAX_RELAUNCH_ATTEMPTS:
+     - Launch a FRESH agent with the same Task() prompt (NEVER resume a dead agent)
+     - Announce: "Watchdog: Subagent for [task] terminated without signal. Relaunching (attempt {N}/{MAX})."
+   - If relaunch counter > MAX_RELAUNCH_ATTEMPTS:
+     - Mark task as STAGE_FAILED
+     - Escalate to user via AskUserQuestion: "Subagent for [task] has died {MAX} times without completing. Options: retry with different model, skip, or abort."
+
+### Watchdog State Tracking
+
+For each dispatched subagent, track:
+```
+task_id: <background task identifier>
+task_description: <short label, e.g., "phase-1-plan">
+launched_at: <timestamp or turn number>
+relaunch_count: 0
+status: PENDING | COMPLETED | FAILED
+```
+
+This tracking is in-memory (orchestrator's working memory during the session). It does NOT require file persistence.
+
+### Integration with Existing Flow
+
+The watchdog augments, not replaces, the existing completion tracking:
+
+```
+1. Launch subagent (Task, run_in_background=True)
+2. End turn, wait for task-notification          ← EXISTING
+3. [task-notification arrives] → proceed          ← EXISTING
+   OR
+3. [~10 min, no notification] → TaskOutput probe  ← NEW (watchdog)
+   3a. Agent alive → wait more                    ← NEW
+   3b. Agent dead → relaunch                      ← NEW
+```
+
+### Anti-Patterns (NEVER do these)
+
+- **Preemptive health checks** — Do NOT call TaskOutput before ~10 minutes have elapsed. Let the agent work.
+- **Polling loop** — Do NOT call TaskOutput repeatedly in a loop. One check per timeout window.
+- **Killing running agents** — If TaskOutput shows the agent is alive and producing output, do NOTHING. The agent may be slow, not stuck.
+- **Skipping relaunch** — If the agent is dead and retries remain, you MUST relaunch. Do not mark STAGE_FAILED prematurely.
+- **Reusing dead agent context** — Always launch FRESH. Never try to resume or recover a dead agent's partial state.
+
 ## PHASES
 
 1. Decomposition - Parse TASK, extract subjects/output-type
@@ -342,6 +412,7 @@ This cleans up the session marker. Skill-scoped hooks are automatically cleaned 
 | **Report Access** | Only via `extract-summary.py` -- Read is BLOCKED |
 | **Subagent Protocol** | All subagents load mux-subagent skill, return `0` only |
 | **Fail-Closed** | Hook errors -> BLOCK (not allow) |
+| **Watchdog** | TaskOutput allowed ONLY as liveness probe after ~10min timeout. Dead agents relaunched (max 2x). Running agents left alone. |
 
 ## BEHAVIOR DEFAULTS
 

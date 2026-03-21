@@ -17,7 +17,13 @@ Handling failures in the o_spec workflow via MUX orchestration.
 
 ### Detection
 
-Check signals after task-notification.
+**Primary detection: Watchdog health check** (see MUX SKILL.md > WATCHDOG HEALTH CHECK).
+
+After ~10 minutes with no task-notification, call TaskOutput on the background task:
+- Agent still running → do nothing, check again after another ~10 min
+- Agent terminated → relaunch FRESH agent with same prompt (max 2 retries)
+
+**Fallback detection:** Check signals after task-notification.
 
 ```bash
 uv run tools/verify.py "$SESSION_DIR" --action missing --expected 5
@@ -263,7 +269,12 @@ if state["error_context"]:
 
 ### Never Poll for Completion
 
-If task-notification is delayed, use verify.py one-shot check - never poll in a loop.
+If task-notification is delayed, use the **watchdog health check** protocol:
+1. After ~10 min timeout: call TaskOutput as liveness probe
+2. Agent alive → wait for next notification
+3. Agent dead → relaunch FRESH agent (max 2 retries)
+
+For signal verification after task-notification, use verify.py one-shot check - never poll in a loop.
 
 ```python
 # WRONG - polling loop

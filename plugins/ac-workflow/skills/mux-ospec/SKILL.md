@@ -484,7 +484,7 @@ uv run ${CLAUDE_PLUGIN_ROOT}/skills/mux/tools/check-signals.py $DIR --expected N
 | Scenario | Action |
 |----------|--------|
 | CREATE fails | Escalate to user - spec path or prompt may need adjustment |
-| Stage agent timeout | If no task-notification after extended time, run verify.py to check signals. If worker truly stuck, mark STAGE_FAILED, launch fresh agent |
+| Stage agent timeout | **Watchdog protocol**: after ~10min with no task-notification, call TaskOutput on the background task as a liveness probe. If agent alive, wait. If agent dead, relaunch fresh (max 2 retries). See MUX SKILL.md WATCHDOG HEALTH CHECK section. |
 | Skill(spec) internal failure | Stage agent returns STAGE_FAILED with error details |
 | Type check fails 3x | STAGE_FAILED with error details, escalate to user |
 | Tests fail 3x | STAGE_FAILED with failure analysis, escalate to user |
@@ -492,6 +492,23 @@ uv run ${CLAUDE_PLUGIN_ROOT}/skills/mux/tools/check-signals.py $DIR --expected N
 | Review cycle WARN/FAIL after max cycles | STAGE_FAILED. Escalate to user - ONLY PASS proceeds |
 | Signal file missing after "done" | Treat as STAGE_FAILED, relaunch fresh agent |
 | Skill permission denied | Subagent returns PERMISSION_DENIED. Escalate to user: "Background agents cannot surface permission prompts. Run Claude Code with `--dangerously-skip-permissions` or add `Skill` to allowed tools in `.claude/settings.json`" |
+
+## WATCHDOG HEALTH CHECK
+
+This skill inherits the MUX watchdog protocol. Full specification: `${CLAUDE_PLUGIN_ROOT}/skills/mux/SKILL.md` > WATCHDOG HEALTH CHECK section.
+
+**Quick reference for stage agents:**
+
+After dispatching ANY stage agent (CREATE, GATHER, CONSOLIDATE, PLAN, IMPLEMENT, REVIEW, FIX, TEST, DOCUMENT, SENTINEL):
+
+1. End your turn and wait for task-notification (normal flow)
+2. If ~10 minutes pass with no task-notification AND no signal file:
+   - Call `TaskOutput` on the background task as a liveness probe
+   - Agent still running → do nothing, check again after another ~10 min
+   - Agent terminated/dead → relaunch FRESH agent with same prompt (max 2 retries)
+3. If max retries exhausted → STAGE_FAILED, escalate to user
+
+**CRITICAL**: The timeout is a health check trigger, NEVER a kill signal. The orchestrator NEVER forcefully terminates a running agent.
 
 ## SESSION CLEANUP
 
