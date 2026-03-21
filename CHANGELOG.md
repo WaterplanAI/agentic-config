@@ -4,6 +4,15 @@ All notable changes to agentic-config.
 
 ## [Unreleased]
 
+### Added
+
+- `ac-workflow` (mux): watchdog health check for subagent liveness monitoring
+  - ~10-minute timeout triggers TaskOutput liveness probe on silent subagents
+  - Dead agents automatically relaunched fresh (max 2 retries per task)
+  - Running agents are never forcefully killed — health check only
+  - Applied to `mux`, `mux-ospec`, and `mux-roadmap` skills
+  - `mux-orchestrator-guard.py` updated to allow TaskOutput for watchdog (previously unconditionally blocked)
+
 ## [0.2.5] - 2026-03-20
 
 ### Added

@@ -15,6 +15,7 @@ Parallel research-to-deliverable orchestration via multi-agent multiplexer.
   - [Completion Tracking](#completion-tracking)
   - [Output Format Protocol](#output-format-protocol)
   - [Async Constraints](#async-constraints)
+  - [Watchdog Health Check](#watchdog-health-check)
 - [Session Directory Structure](#session-directory-structure)
 - [Tools Reference](#tools-reference)
 - [Execution Modes](#execution-modes)
@@ -266,6 +267,22 @@ Task(
 **Violations** (blocked by code):
 - `run_in_background=False` or omitted
 - Any synchronous waiting loop
+
+### Watchdog Health Check
+
+**Purpose**: Detect silently-dead subagents that terminated without writing a signal file or triggering a task-notification.
+
+**Protocol** (after dispatching any background Task()):
+
+1. End turn, wait for task-notification as usual
+2. If ~10 minutes pass with no task-notification AND no signal file: call TaskOutput on the background task as a **one-shot liveness probe**
+3. **Agent still running** → do nothing, check again after another ~10 min
+4. **Agent terminated/dead** → relaunch FRESH agent with same prompt (max 2 retries per task)
+5. Max retries exhausted → STAGE_FAILED, escalate to user
+
+**Key constraint**: The watchdog is a health check trigger ONLY — the orchestrator NEVER forcefully kills a running agent.
+
+**Hook change**: `mux-orchestrator-guard.py` now allows `TaskOutput` for watchdog use (previously unconditionally blocked). Instruction-level constraints in SKILL.md limit its use to liveness probes only.
 
 ## Session Directory Structure
 
