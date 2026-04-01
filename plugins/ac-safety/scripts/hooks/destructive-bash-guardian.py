@@ -344,35 +344,6 @@ PATTERNS: list[tuple[re.Pattern[str], str, str]] = [
 ]
 
 
-def _validate_pattern_ordering() -> None:
-    """Verify that security-critical ordering invariants hold in PATTERNS.
-
-    First-match semantics mean that more-restrictive categories must appear
-    before less-restrictive ones for overlapping patterns. This function
-    raises AssertionError at import time if invariants are violated.
-    """
-    last_category_index: dict[str, int] = {}
-    for i, (_, _, category) in enumerate(PATTERNS):
-        last_category_index[category] = i
-    # git-destructive must finish before external-visibility starts
-    if "git-destructive" in last_category_index and "external-visibility" in last_category_index:
-        first_ext = next(i for i, (_, _, c) in enumerate(PATTERNS) if c == "external-visibility")
-        assert last_category_index["git-destructive"] < first_ext, (
-            "ORDERING VIOLATION: all git-destructive patterns must precede "
-            "external-visibility patterns (first-match semantics)"
-        )
-    # credential-reads must precede external-visibility
-    if "credential-reads" in last_category_index and "external-visibility" in last_category_index:
-        first_ext = next(i for i, (_, _, c) in enumerate(PATTERNS) if c == "external-visibility")
-        last_cred = last_category_index["credential-reads"]
-        assert last_cred < first_ext, (
-            "ORDERING VIOLATION: all credential-reads patterns must precede "
-            "external-visibility patterns (first-match semantics)"
-        )
-
-
-_validate_pattern_ordering()
-
 
 def _normalize_rm_target(arg: str) -> str | None:
     """Normalize a candidate rm target into a resolved path when possible."""

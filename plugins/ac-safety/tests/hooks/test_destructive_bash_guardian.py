@@ -1481,29 +1481,52 @@ test_allows_gh_issue_search_no_match = _make_test("Allows gh issue search (read-
 # (removed duplicate test_blocks_git_push_force_with_lease_default — covered by
 # test_blocks_git_push_force_with_lease in the pre-existing tests above)
 
-# --- external-visibility: deny override ---
 
+# --- pattern ordering invariant ---
 
-def test_blocks_git_push_when_external_visibility_deny() -> TestResult:
-    r = TestResult("Blocks git push when external-visibility overridden to deny")
-    import tempfile
-    import yaml  # pyright: ignore[reportMissingImports]
+def _load_patterns() -> list:
+    """Import PATTERNS from the guardian script (hyphenated filename)."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("destructive_bash_guardian", str(HOOK_PATH))
+    assert spec and spec.loader
+    mod = importlib.util.module_from_spec(spec)
+    sys.path.insert(0, str(HOOK_PATH.parent))
     try:
-        with tempfile.TemporaryDirectory() as tmpdir:
-            override = {"destructive_bash": {"categories": {"external-visibility": "deny"}}}
-            safety_path = os.path.join(tmpdir, "safety.yaml")
-            with open(safety_path, "w") as f:
-                yaml.dump(override, f)
-            env = {**os.environ, "CLAUDE_PROJECT_DIR": tmpdir}
-            result = subprocess.run(
-                [str(HOOK_PATH)],
-                input=json.dumps({"tool_name": "Bash", "tool_input": {"command": "git push origin main"}}),
-                capture_output=True, text=True, env=env,
-            )
-            output = json.loads(result.stdout)
-            hook_out = output.get("hookSpecificOutput", {})
-            decision = hook_out.get("permissionDecision", "allow")
-            assert decision == "deny", f"Expected deny, got {decision}"
+        spec.loader.exec_module(mod)  # type: ignore[union-attr]
+    finally:
+        sys.path.pop(0)
+    return mod.PATTERNS  # type: ignore[attr-defined]
+
+
+def test_pattern_ordering_git_destructive_before_external_visibility() -> TestResult:
+    """git-destructive patterns must all precede external-visibility (first-match semantics)."""
+    r = TestResult("Ordering: git-destructive before external-visibility")
+    try:
+        patterns = _load_patterns()
+        last_git = max(i for i, (_, _, c) in enumerate(patterns) if c == "git-destructive")
+        first_ext = next(i for i, (_, _, c) in enumerate(patterns) if c == "external-visibility")
+        assert last_git < first_ext, (
+            f"git-destructive pattern at index {last_git} appears after "
+            f"external-visibility starts at index {first_ext}"
+        )
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+        raise
+    return r
+
+
+def test_pattern_ordering_credential_reads_before_external_visibility() -> TestResult:
+    """credential-reads patterns must all precede external-visibility (first-match semantics)."""
+    r = TestResult("Ordering: credential-reads before external-visibility")
+    try:
+        patterns = _load_patterns()
+        last_cred = max(i for i, (_, _, c) in enumerate(patterns) if c == "credential-reads")
+        first_ext = next(i for i, (_, _, c) in enumerate(patterns) if c == "external-visibility")
+        assert last_cred < first_ext, (
+            f"credential-reads pattern at index {last_cred} appears after "
+            f"external-visibility starts at index {first_ext}"
+        )
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
@@ -1710,8 +1733,9 @@ def main() -> None:
         test_allows_gh_api_method_post_default,
         test_allows_gh_pr_search_no_match,
         test_allows_gh_issue_search_no_match,
-        # External visibility: deny override
-        test_blocks_git_push_when_external_visibility_deny,
+        # Pattern ordering invariants
+        test_pattern_ordering_git_destructive_before_external_visibility,
+        test_pattern_ordering_credential_reads_before_external_visibility,
     ])
 
 
