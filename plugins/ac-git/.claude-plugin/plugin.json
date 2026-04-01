@@ -1,7 +1,7 @@
 {
   "name": "ac-git",
   "description": "Git automation - PRs, releases, branches, worktrees",
-  "version": "0.2.5",
+  "version": "0.2.6",
   "author": {
     "name": "Agentic Config Contributors"
   },
