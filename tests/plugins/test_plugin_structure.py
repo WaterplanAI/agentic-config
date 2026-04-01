@@ -47,8 +47,8 @@ EXPECTED_SKILLS = {
                  "milestone", "setup-voice-mode", "video-query",
                  "improve-agents-md", "gcp-setup"},
     "ac-meta": {"skill-writer", "hook-writer"},
-    "ac-safety": {"configure-safety"},
-    "ac-audit": set(),
+    "ac-safety": {"configure-safety", "harden-supply-chain-sec"},
+    "ac-audit": {"configure-audit"},
 }
 
 # Patterns that indicate internal library dependencies (strictly forbidden)

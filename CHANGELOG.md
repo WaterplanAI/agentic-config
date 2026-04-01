@@ -4,6 +4,21 @@ All notable changes to agentic-config.
 
 ## [Unreleased]
 
+### Added
+
+- `ac-safety`: `harden-supply-chain-sec` skill for supply chain hardening across package managers (pnpm, yarn, bun, npm, uv)
+  - Configures minimum release age per manager with auto-detection
+  - Detects frozen-lockfile and CI-install patterns in CI configs, Dockerfiles, Makefiles
+  - Dry-run preview with unified diffs, version checks, and confirmation gates
+  - Guided mode (`--guided`) with interactive prompts at each decision point
+  - Post-config hardening (`--harden`): dependency policies, security review agents, permanent security protocols
+  - Warns for unsupported managers (cargo, pip, Go) with actionable guidance
+  - Empirical verification of global `exclude-newer`/`minimumReleaseAge` across uv, bun, npm, pnpm, yarn (see SKILL.md Section 17)
+
+### Fixed
+
+- `ac-audit`: correct `configure-audit` expected skills in `test_plugin_structure.py` (was missing from test assertion)
+
 ## [0.2.5] - 2026-03-20
 
 ### Added
