@@ -127,8 +127,7 @@ supply_chain:
   npx_allowlist:
     - "@playwright/mcp"
     - "ts-node"
-    - "cdk"
-    - "aws-cdk"
+    # cdk / aws-cdk removed: deploy/destroy are blocked by destructive-bash-guardian (iac-destruction category)
     - "jest"
     - "tsx"
     - "tsc"

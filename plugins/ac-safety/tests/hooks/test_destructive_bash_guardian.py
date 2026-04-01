@@ -1410,6 +1410,18 @@ def test_blocks_terraform_apply() -> TestResult:
     return r
 
 
+def test_blocks_pulumi_up() -> TestResult:
+    r = TestResult("Blocks pulumi up")
+    try:
+        out = run_hook("pulumi up --yes")
+        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+        raise
+    return r
+
+
 def test_allows_cdk_synth() -> TestResult:
     r = TestResult("Allows cdk synth (no side effects)")
     try:
@@ -1441,6 +1453,18 @@ def test_blocks_su() -> TestResult:
     r = TestResult("Blocks su -")
     try:
         out = run_hook("su - root")
+        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+        raise
+    return r
+
+
+def test_blocks_su_root_no_dash() -> TestResult:
+    r = TestResult("Blocks su root (no dash)")
+    try:
+        out = run_hook("su root")
         assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
         r.mark_pass()
     except Exception as e:
@@ -1492,6 +1516,18 @@ def test_allows_gh_issue_create_default() -> TestResult:
     r = TestResult("Allows gh issue create (default: allow)")
     try:
         out = run_hook('gh issue create --title "bug" --body "details"')
+        assert out["decision"] == "allow", f"Expected allow, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+        raise
+    return r
+
+
+def test_allows_gh_secret_set_default() -> TestResult:
+    r = TestResult("Allows gh secret set (default: allow for external-visibility)")
+    try:
+        out = run_hook("gh secret set MY_SECRET --body secret_value")
         assert out["decision"] == "allow", f"Expected allow, got {out['decision']}"
         r.mark_pass()
     except Exception as e:
@@ -1631,15 +1667,18 @@ def main() -> None:
         test_blocks_npx_cdk_deploy,
         test_blocks_npx_cdk_destroy,
         test_blocks_terraform_apply,
+        test_blocks_pulumi_up,
         test_allows_cdk_synth,
         # Privilege escalation
         test_blocks_sudo,
         test_blocks_su,
+        test_blocks_su_root_no_dash,
         test_blocks_doas,
         # External visibility (default: allow)
         test_allows_git_push_default,
         test_allows_gh_pr_create_default,
         test_allows_gh_issue_create_default,
+        test_allows_gh_secret_set_default,
     ])
 
 
