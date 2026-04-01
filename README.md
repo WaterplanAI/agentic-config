@@ -42,15 +42,15 @@ Core principles:
 | `ac-workflow` | Spec workflow, MUX orchestration | 6 |
 | `ac-git` | Git automation, PRs, releases | 7 |
 | `ac-qa` | QA, E2E testing, browser automation | 7 |
-| `ac-tools` | Utilities, integrations, bootstrap | 16 |
+| `ac-tools` | Utilities, integrations, bootstrap | 17 |
 | `ac-meta` | Meta-prompting, self-improvement | 2 |
-| `ac-safety` | Security guardrails (credential, write-scope, destructive-bash, supply-chain, playwright) | 1 |
+| `ac-safety` | Security guardrails (credential, write-scope, destructive-bash, supply-chain, playwright) | 2 |
 | `ac-audit` | Tool audit logging (JSONL append-only log) | 1 |
 
 ## Documentation
 
 - [Getting Started](docs/getting-started.md) -- Install, setup, first use
-- [Plugin Catalog](docs/plugin-catalog.md) -- All 40 skills with composition patterns
+- [Plugin Catalog](docs/plugin-catalog.md) -- All 42 skills with composition patterns
 - [Distribution Guide](docs/distribution.md) -- Team adoption and private marketplace
 - [Migration Guide v0.2.0](docs/migration-v0.2.0.md) -- Migrate from v0.1.x
 - [Uninstall Legacy (v0.1.x)](docs/migration-v0.2.0.md#step-1-remove-old-symlinks) -- Remove legacy symlink wiring

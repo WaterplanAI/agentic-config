@@ -36,6 +36,7 @@ All hooks use **fail-close**: errors deny the operation.
 | Skill | Description |
 |-------|-------------|
 | `configure-safety` | Interactive safety.yaml customization |
+| `harden-supply-chain-sec` | Harden supply chain security: configure minimum release age, detect frozen-lockfile patterns, apply dependency policies across package managers |
 
 ## Configuration
 
@@ -70,9 +71,32 @@ supply_chain:
 # Customize safety settings interactively
 /configure-safety
 
+# Harden supply chain security (dry-run preview first)
+/harden-supply-chain-sec
+
+# Harden with guided mode (interactive prompts at each step)
+/harden-supply-chain-sec --guided
+
+# Harden with post-config hardening (dependency policies, security agents)
+/harden-supply-chain-sec --harden
+
 # Override a category at project level
 echo 'supply_chain:\n  categories:\n    pip-direct: allow' > safety.yaml
 ```
+
+## Verified Behavior
+
+Global minimum release age configuration has been empirically verified on macOS (2026-04-01):
+
+| Manager | Version | Global config | Verification method | Result |
+|---------|---------|---------------|---------------------|--------|
+| uv | 0.9.21 | `~/.config/uv/uv.toml` | `uvx ruff@latest` resolved 0.15.7 (skipped 0.15.8, 6d old); PEP 723 inline override and global fallback confirmed | Pass |
+| Bun | 1.3.3 | `~/.bunfig.toml` | `bun install --dry-run` blocked npm@11.12.1 (5d old) with explicit age gate error | Pass |
+| npm | 11.12.0 | `~/.nvm/.../etc/npmrc` | `npm config get before --global` returns dynamic `now - 7d` timestamp; shifts with wall clock | Pass |
+| pnpm | 10.19.0 | `~/Library/Preferences/pnpm/rc` | `pnpm config get minimum-release-age` returns 10080 | Pass |
+| Yarn | 4.13.0 | `~/.yarnrc.yml` | `npmMinimalAgeGate` read and enforced from home `.yarnrc.yml` | Pass |
+
+Details in `skills/harden-supply-chain-sec/SKILL.md` Section 17.
 
 ## License
 
