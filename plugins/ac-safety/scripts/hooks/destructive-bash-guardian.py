@@ -261,6 +261,9 @@ PATTERNS: list[tuple[re.Pattern[str], str, str]] = [
     (re.compile(r"\bgit\s+restore\s+\.\s*$"), "git restore . (discard all changes)", "git-destructive"),
     # gh repo delete is irreversible — categorized as git-destructive, not external-visibility
     (re.compile(r"\bgh\s+repo\s+delete\b"), "gh repo delete (irreversible repository deletion)", "git-destructive"),
+    # gh secret write/delete is a destructive operation on secrets — categorized as
+    # git-destructive (not external-visibility) so it defaults to deny.
+    (re.compile(r"\bgh\s+secret\s+(?!list\b)\w+"), "gh secret write/delete (destructive operation)", "git-destructive"),
     # -- credential-reads --
     # Any file-reading or file-copying command accessing credential paths is blocked.
     # _FILE_READERS covers: cat, head, tail, less, more, od, xxd, hexdump,
@@ -309,8 +312,6 @@ PATTERNS: list[tuple[re.Pattern[str], str, str]] = [
     (re.compile(_BIN + r"\bsudo(\s|$)"), "sudo (privilege escalation)", "privilege-escalation"),
     (re.compile(_BIN + r"\bsu(\s|$)"), "su (privilege escalation)", "privilege-escalation"),
     (re.compile(_BIN + r"\bdoas(\s|$)"), "doas (privilege escalation)", "privilege-escalation"),
-    # gh secret write/delete is destructive, not a credential read
-    (re.compile(r"\bgh\s+secret\s+(?!list\b)\w+"), "gh secret write/delete (destructive operation)", "git-destructive"),
     # -- external-visibility --
     # ORDERING INVARIANT: git-destructive patterns must precede external-visibility
     # to ensure force-push detection fires first. Negative lookahead covers both

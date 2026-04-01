@@ -3,10 +3,14 @@
 
 import json
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
-from typing import Callable
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from typing import Callable
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from ac_safety_test_support import TestResult  # noqa: E402  # pyright: ignore[reportMissingImports]
@@ -1365,7 +1369,9 @@ def _make_test(name: str, command: str, expected: str) -> "Callable[[], TestResu
             r.mark_fail(str(e))
             raise
         return r
-    test_fn.__name__ = f"test_{'blocks' if expected == 'deny' else 'allows'}_{name.lower().replace(' ', '_')}"
+    # Strip leading "Blocks "/"Allows " so __name__ doesn't double up (e.g. test_blocks_blocks_...)
+    slug = re.sub(r"^(?:Blocks|Allows)\s+", "", name).lower().replace(" ", "_")
+    test_fn.__name__ = f"test_{'blocks' if expected == 'deny' else 'allows'}_{slug}"
     return test_fn
 
 
