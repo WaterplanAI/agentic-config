@@ -39,6 +39,9 @@ _SHELL_RE = r"(?:sh|bash|zsh|dash)"
 # Executors (for pipe-to, process substitution, download-then-execute -- any interpreter)
 _EXEC_RE = r"(?:sh|bash|zsh|dash|python[23]?|perl|ruby|node)"
 
+# gh CLI read-only subcommands: excluded from external-visibility blocking
+_GH_READ_ONLY = r"(?:list|view|status|checks|diff|download)\b"
+
 
 def _rce_patterns() -> list[tuple[re.Pattern[str], str, str]]:
     """Build remote-code-execution patterns using shared shell/exec constants."""
@@ -288,19 +291,25 @@ PATTERNS: list[tuple[re.Pattern[str], str, str]] = [
     (re.compile(_BIN + r"\bterraform\s+apply\b"), "terraform apply (can implicitly destroy resources)", "iac-destruction"),
     (re.compile(_BIN + r"\bpulumi\s+destroy\b"), "pulumi destroy", "iac-destruction"),
     (re.compile(_BIN + r"\bpulumi\s+up\b"), "pulumi up (can implicitly destroy resources)", "iac-destruction"),
-    (re.compile(r"\b(?:npx\s+)?cdk\s+deploy\b"), "cdk deploy (can implicitly destroy resources)", "iac-destruction"),
-    (re.compile(r"\b(?:npx\s+)?cdk\s+destroy\b"), "cdk destroy", "iac-destruction"),
+    # npx pattern handles optional flags between npx and cdk (e.g. npx --yes cdk deploy)
+    (re.compile(r"\bnpx\s+(?:--?\S+\s+)*cdk\s+(deploy|destroy|bootstrap)\b"), "cdk \1 via npx (can implicitly destroy resources)", "iac-destruction"),
+    (re.compile(_BIN + r"\bcdk\s+(deploy|destroy|bootstrap)\b"), "cdk \1 (can implicitly destroy resources)", "iac-destruction"),
     # -- privilege-escalation --
-    (re.compile(_BIN + r"\bsudo\s"), "sudo (privilege escalation)", "privilege-escalation"),
-    (re.compile(_BIN + r"\bsu\b"), "su (privilege escalation)", "privilege-escalation"),
-    (re.compile(_BIN + r"\bdoas\s"), "doas (privilege escalation)", "privilege-escalation"),
+    (re.compile(_BIN + r"\bsudo(\s|$)"), "sudo (privilege escalation)", "privilege-escalation"),
+    (re.compile(_BIN + r"\bsu(\s|$)"), "su (privilege escalation)", "privilege-escalation"),
+    (re.compile(_BIN + r"\bdoas(\s|$)"), "doas (privilege escalation)", "privilege-escalation"),
+    # -- credential-reads (gh secrets — more restrictive than external-visibility) --
+    (re.compile(r"\bgh\s+secret\s+(?!list\b)\w+"), "gh secret write/delete (credential operation)", "credential-reads"),
     # -- external-visibility --
     # ORDERING INVARIANT: git-destructive patterns must precede external-visibility
-    # to ensure force-push detection fires first.
-    (re.compile(r"\bgit\s+push\b(?!.*--force)"), "git push (visible to teammates)", "external-visibility"),
-    (re.compile(r"\bgh\s+secret\s+set\b"), "gh secret set (writes to GitHub Secrets)", "external-visibility"),
-    (re.compile(r"\bgh\s+pr\s+(create|comment|close|merge|edit|review)\b"), "gh pr write operation (visible to teammates)", "external-visibility"),
-    (re.compile(r"\bgh\s+issue\s+(create|comment|close|edit|transfer)\b"), "gh issue write operation (visible to teammates)", "external-visibility"),
+    # to ensure force-push detection fires first. Negative lookahead covers both
+    # --force and -f shorthand as defense-in-depth.
+    (re.compile(r"\bgit\s+push\b(?!.*(?:--force\b|-[a-eg-zA-Z]*f\b))"), "git push (visible to teammates)", "external-visibility"),
+    (re.compile(r"\bgh\s+pr\s+(?!" + _GH_READ_ONLY + r")\w+"), "gh pr write operation (visible to teammates)", "external-visibility"),
+    (re.compile(r"\bgh\s+issue\s+(?!" + _GH_READ_ONLY + r")\w+"), "gh issue write operation (visible to teammates)", "external-visibility"),
+    (re.compile(r"\bgh\s+workflow\s+(?!" + _GH_READ_ONLY + r")\w+"), "gh workflow operation (visible to teammates)", "external-visibility"),
+    (re.compile(r"\bgh\s+release\s+(?!" + _GH_READ_ONLY + r")\w+"), "gh release operation (visible to teammates)", "external-visibility"),
+    (re.compile(r"\bgh\s+repo\s+(?!" + _GH_READ_ONLY + r"|clone\b)\w+"), "gh repo write operation (visible to teammates)", "external-visibility"),
     # -- docker-destruction --
     (re.compile(_BIN + r"\bdocker\s+system\s+prune\s+-a\b"), "docker system prune -a", "docker-destruction"),
     (re.compile(_BIN + r"\bdocker\s+volume\s+prune\b"), "docker volume prune", "docker-destruction"),
