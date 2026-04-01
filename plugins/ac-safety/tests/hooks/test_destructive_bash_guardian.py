@@ -6,6 +6,7 @@ import os
 import subprocess
 import sys
 from pathlib import Path
+from typing import Callable
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from ac_safety_test_support import TestResult  # noqa: E402  # pyright: ignore[reportMissingImports]
@@ -1347,680 +1348,132 @@ def test_blocks_rm_rf_tmp() -> TestResult:
     return r
 
 
+# ---------------------------------------------------------------------------
+# Helper: reduces per-test boilerplate for simple command → decision checks.
+# Tests that need custom setup (e.g. config overrides) still use full form.
+# ---------------------------------------------------------------------------
+
+def _make_test(name: str, command: str, expected: str) -> "Callable[[], TestResult]":
+    """Create a test function that runs `command` and asserts `expected` decision."""
+    def test_fn() -> TestResult:
+        r = TestResult(name)
+        try:
+            out = run_hook(command)
+            assert out["decision"] == expected, f"Expected {expected}, got {out['decision']}"
+            r.mark_pass()
+        except Exception as e:
+            r.mark_fail(str(e))
+            raise
+        return r
+    test_fn.__name__ = f"test_{'blocks' if expected == 'deny' else 'allows'}_{name.lower().replace(' ', '_')}"
+    return test_fn
+
+
 # --- iac-destruction: CDK + terraform apply + bootstrap ---
 
-
-def test_blocks_cdk_deploy() -> TestResult:
-    r = TestResult("Blocks cdk deploy")
-    try:
-        out = run_hook("cdk deploy MyStack")
-        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
-        r.mark_pass()
-    except Exception as e:
-        r.mark_fail(str(e))
-        raise
-    return r
-
-
-def test_blocks_cdk_destroy() -> TestResult:
-    r = TestResult("Blocks cdk destroy")
-    try:
-        out = run_hook("cdk destroy MyStack")
-        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
-        r.mark_pass()
-    except Exception as e:
-        r.mark_fail(str(e))
-        raise
-    return r
-
-
-def test_blocks_cdk_bootstrap() -> TestResult:
-    r = TestResult("Blocks cdk bootstrap")
-    try:
-        out = run_hook("cdk bootstrap")
-        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
-        r.mark_pass()
-    except Exception as e:
-        r.mark_fail(str(e))
-        raise
-    return r
-
-
-def test_blocks_npx_cdk_deploy() -> TestResult:
-    r = TestResult("Blocks npx cdk deploy")
-    try:
-        out = run_hook("npx cdk deploy MyStack")
-        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
-        r.mark_pass()
-    except Exception as e:
-        r.mark_fail(str(e))
-        raise
-    return r
-
-
-def test_blocks_npx_cdk_destroy() -> TestResult:
-    r = TestResult("Blocks npx cdk destroy")
-    try:
-        out = run_hook("npx cdk destroy MyStack")
-        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
-        r.mark_pass()
-    except Exception as e:
-        r.mark_fail(str(e))
-        raise
-    return r
-
-
-def test_blocks_npx_yes_cdk_deploy() -> TestResult:
-    r = TestResult("Blocks npx --yes cdk deploy")
-    try:
-        out = run_hook("npx --yes cdk deploy MyStack")
-        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
-        r.mark_pass()
-    except Exception as e:
-        r.mark_fail(str(e))
-        raise
-    return r
-
-
-def test_blocks_terraform_apply() -> TestResult:
-    r = TestResult("Blocks terraform apply")
-    try:
-        out = run_hook("terraform apply -auto-approve")
-        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
-        r.mark_pass()
-    except Exception as e:
-        r.mark_fail(str(e))
-        raise
-    return r
-
-
-def test_blocks_pulumi_up() -> TestResult:
-    r = TestResult("Blocks pulumi up")
-    try:
-        out = run_hook("pulumi up --yes")
-        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
-        r.mark_pass()
-    except Exception as e:
-        r.mark_fail(str(e))
-        raise
-    return r
-
-
-def test_allows_cdk_synth() -> TestResult:
-    r = TestResult("Allows cdk synth (no side effects)")
-    try:
-        out = run_hook("cdk synth MyStack")
-        assert out["decision"] == "allow", f"Expected allow, got {out['decision']}"
-        r.mark_pass()
-    except Exception as e:
-        r.mark_fail(str(e))
-        raise
-    return r
-
-
-def test_blocks_cdk_watch() -> TestResult:
-    r = TestResult("Blocks cdk watch")
-    try:
-        out = run_hook("cdk watch MyStack")
-        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
-        r.mark_pass()
-    except Exception as e:
-        r.mark_fail(str(e))
-        raise
-    return r
-
-
-def test_blocks_npx_cdk_watch() -> TestResult:
-    r = TestResult("Blocks npx cdk watch")
-    try:
-        out = run_hook("npx cdk watch MyStack")
-        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
-        r.mark_pass()
-    except Exception as e:
-        r.mark_fail(str(e))
-        raise
-    return r
-
-
-def test_blocks_npx_aws_cdk_deploy() -> TestResult:
-    r = TestResult("Blocks npx aws-cdk deploy")
-    try:
-        out = run_hook("npx aws-cdk deploy MyStack")
-        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
-        r.mark_pass()
-    except Exception as e:
-        r.mark_fail(str(e))
-        raise
-    return r
-
-
-def test_blocks_yarn_cdk_deploy() -> TestResult:
-    r = TestResult("Blocks yarn cdk deploy")
-    try:
-        out = run_hook("yarn cdk deploy MyStack")
-        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
-        r.mark_pass()
-    except Exception as e:
-        r.mark_fail(str(e))
-        raise
-    return r
-
-
-def test_blocks_yarn_cdk_destroy() -> TestResult:
-    r = TestResult("Blocks yarn cdk destroy")
-    try:
-        out = run_hook("yarn cdk destroy MyStack")
-        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
-        r.mark_pass()
-    except Exception as e:
-        r.mark_fail(str(e))
-        raise
-    return r
-
-
-def test_blocks_pnpm_cdk_deploy() -> TestResult:
-    r = TestResult("Blocks pnpm cdk deploy")
-    try:
-        out = run_hook("pnpm cdk deploy MyStack")
-        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
-        r.mark_pass()
-    except Exception as e:
-        r.mark_fail(str(e))
-        raise
-    return r
-
-
-def test_blocks_pnpm_exec_cdk_deploy() -> TestResult:
-    r = TestResult("Blocks pnpm exec cdk deploy")
-    try:
-        out = run_hook("pnpm exec cdk deploy MyStack")
-        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
-        r.mark_pass()
-    except Exception as e:
-        r.mark_fail(str(e))
-        raise
-    return r
-
-
-def test_allows_cdk_diff() -> TestResult:
-    r = TestResult("Allows cdk diff (no side effects)")
-    try:
-        out = run_hook("cdk diff MyStack")
-        assert out["decision"] == "allow", f"Expected allow, got {out['decision']}"
-        r.mark_pass()
-    except Exception as e:
-        r.mark_fail(str(e))
-        raise
-    return r
-
-
-def test_allows_cdk_list() -> TestResult:
-    r = TestResult("Allows cdk list (no side effects)")
-    try:
-        out = run_hook("cdk list")
-        assert out["decision"] == "allow", f"Expected allow, got {out['decision']}"
-        r.mark_pass()
-    except Exception as e:
-        r.mark_fail(str(e))
-        raise
-    return r
-
-
-def test_allows_terraform_plan() -> TestResult:
-    r = TestResult("Allows terraform plan (read-only)")
-    try:
-        out = run_hook("terraform plan -out=plan.tfplan")
-        assert out["decision"] == "allow", f"Expected allow, got {out['decision']}"
-        r.mark_pass()
-    except Exception as e:
-        r.mark_fail(str(e))
-        raise
-    return r
-
-
-def test_allows_terraform_init() -> TestResult:
-    r = TestResult("Allows terraform init (no infrastructure changes)")
-    try:
-        out = run_hook("terraform init")
-        assert out["decision"] == "allow", f"Expected allow, got {out['decision']}"
-        r.mark_pass()
-    except Exception as e:
-        r.mark_fail(str(e))
-        raise
-    return r
-
-
-def test_allows_pulumi_preview() -> TestResult:
-    r = TestResult("Allows pulumi preview (read-only)")
-    try:
-        out = run_hook("pulumi preview")
-        assert out["decision"] == "allow", f"Expected allow, got {out['decision']}"
-        r.mark_pass()
-    except Exception as e:
-        r.mark_fail(str(e))
-        raise
-    return r
-
+test_blocks_cdk_deploy = _make_test("Blocks cdk deploy", "cdk deploy MyStack", "deny")
+test_blocks_cdk_deploy_all = _make_test("Blocks bare cdk deploy (all stacks)", "cdk deploy", "deny")
+test_blocks_cdk_destroy = _make_test("Blocks cdk destroy", "cdk destroy MyStack", "deny")
+test_blocks_cdk_bootstrap = _make_test("Blocks cdk bootstrap", "cdk bootstrap", "deny")
+test_blocks_cdk_watch = _make_test("Blocks cdk watch", "cdk watch MyStack", "deny")
+test_blocks_npx_cdk_deploy = _make_test("Blocks npx cdk deploy", "npx cdk deploy MyStack", "deny")
+test_blocks_npx_cdk_destroy = _make_test("Blocks npx cdk destroy", "npx cdk destroy MyStack", "deny")
+test_blocks_npx_yes_cdk_deploy = _make_test("Blocks npx --yes cdk deploy", "npx --yes cdk deploy MyStack", "deny")
+test_blocks_npx_cdk_watch = _make_test("Blocks npx cdk watch", "npx cdk watch MyStack", "deny")
+test_blocks_npx_aws_cdk_deploy = _make_test("Blocks npx aws-cdk deploy", "npx aws-cdk deploy MyStack", "deny")
+test_blocks_npx_separator_cdk_deploy = _make_test("Blocks npx -- cdk deploy", "npx -- cdk deploy MyStack", "deny")
+test_blocks_npx_c_cdk_deploy = _make_test("Blocks npx -c 'cdk deploy'", "npx -c 'cdk deploy MyStack'", "deny")
+test_blocks_yarn_cdk_deploy = _make_test("Blocks yarn cdk deploy", "yarn cdk deploy MyStack", "deny")
+test_blocks_yarn_cdk_destroy = _make_test("Blocks yarn cdk destroy", "yarn cdk destroy MyStack", "deny")
+test_blocks_yarn_aws_cdk_deploy = _make_test("Blocks yarn aws-cdk deploy", "yarn aws-cdk deploy MyStack", "deny")
+test_blocks_pnpm_cdk_deploy = _make_test("Blocks pnpm cdk deploy", "pnpm cdk deploy MyStack", "deny")
+test_blocks_pnpm_exec_cdk_deploy = _make_test("Blocks pnpm exec cdk deploy", "pnpm exec cdk deploy MyStack", "deny")
+test_blocks_pnpm_dlx_cdk_deploy = _make_test("Blocks pnpm dlx cdk deploy", "pnpm dlx cdk deploy MyStack", "deny")
+test_blocks_bunx_cdk_deploy = _make_test("Blocks bunx cdk deploy", "bunx cdk deploy MyStack", "deny")
+test_blocks_terraform_apply = _make_test("Blocks terraform apply", "terraform apply -auto-approve", "deny")
+test_blocks_pulumi_up = _make_test("Blocks pulumi up", "pulumi up --yes", "deny")
+test_allows_cdk_synth = _make_test("Allows cdk synth (no side effects)", "cdk synth MyStack", "allow")
+test_allows_cdk_diff = _make_test("Allows cdk diff (no side effects)", "cdk diff MyStack", "allow")
+test_allows_cdk_list = _make_test("Allows cdk list (no side effects)", "cdk list", "allow")
+test_allows_terraform_plan = _make_test("Allows terraform plan (read-only)", "terraform plan -out=plan.tfplan", "allow")
+test_allows_terraform_init = _make_test("Allows terraform init", "terraform init", "allow")
+test_allows_pulumi_preview = _make_test("Allows pulumi preview (read-only)", "pulumi preview", "allow")
 
 # --- privilege-escalation ---
 
+test_blocks_sudo = _make_test("Blocks sudo", "sudo rm -rf /var/log", "deny")
+test_blocks_bare_sudo = _make_test("Blocks bare sudo (end of string)", "sudo", "deny")
+test_blocks_su = _make_test("Blocks su -", "su - root", "deny")
+test_blocks_su_root_no_dash = _make_test("Blocks su root (no dash)", "su root", "deny")
+test_blocks_su_nobody = _make_test("Blocks su nobody (arbitrary user)", "su nobody", "deny")
+test_blocks_bare_su = _make_test("Blocks bare su (no arguments)", "su", "deny")
+test_blocks_doas = _make_test("Blocks doas", "doas apt install something", "deny")
+test_blocks_bare_doas = _make_test("Blocks bare doas (end of string)", "doas", "deny")
+test_blocks_su_c_command = _make_test("Blocks su -c 'command'", "su -c 'whoami'", "deny")
+# False-positive checks: su as substring should NOT trigger.
+# NOTE: standalone "su" after a pipe or semicolon WILL trigger (known limitation:
+# _BIN is an optional prefix, not a command-position anchor). The \b word boundary
+# protects against substring matches like "suspend" and "result".
+test_allows_summary_command = _make_test("Allows grep suspend (su substring, no false positive)", "git log --oneline | grep suspend", "allow")
+test_allows_result_command = _make_test("Allows result var (su substring, no false positive)", "result=success && echo $result", "allow")
 
-def test_blocks_sudo() -> TestResult:
-    r = TestResult("Blocks sudo")
-    try:
-        out = run_hook("sudo rm -rf /var/log")
-        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
-        r.mark_pass()
-    except Exception as e:
-        r.mark_fail(str(e))
-        raise
-    return r
+# --- git-destructive: gh secrets (write/delete ops) ---
 
-
-def test_blocks_bare_sudo() -> TestResult:
-    r = TestResult("Blocks bare sudo (end of string)")
-    try:
-        out = run_hook("sudo")
-        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
-        r.mark_pass()
-    except Exception as e:
-        r.mark_fail(str(e))
-        raise
-    return r
-
-
-def test_blocks_su() -> TestResult:
-    r = TestResult("Blocks su -")
-    try:
-        out = run_hook("su - root")
-        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
-        r.mark_pass()
-    except Exception as e:
-        r.mark_fail(str(e))
-        raise
-    return r
-
-
-def test_blocks_su_root_no_dash() -> TestResult:
-    r = TestResult("Blocks su root (no dash)")
-    try:
-        out = run_hook("su root")
-        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
-        r.mark_pass()
-    except Exception as e:
-        r.mark_fail(str(e))
-        raise
-    return r
-
-
-def test_blocks_bare_su() -> TestResult:
-    r = TestResult("Blocks bare su (no arguments)")
-    try:
-        out = run_hook("su")
-        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
-        r.mark_pass()
-    except Exception as e:
-        r.mark_fail(str(e))
-        raise
-    return r
-
-
-def test_blocks_doas() -> TestResult:
-    r = TestResult("Blocks doas")
-    try:
-        out = run_hook("doas apt install something")
-        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
-        r.mark_pass()
-    except Exception as e:
-        r.mark_fail(str(e))
-        raise
-    return r
-
-
-def test_blocks_bare_doas() -> TestResult:
-    r = TestResult("Blocks bare doas (end of string)")
-    try:
-        out = run_hook("doas")
-        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
-        r.mark_pass()
-    except Exception as e:
-        r.mark_fail(str(e))
-        raise
-    return r
-
-
-def test_blocks_su_c_command() -> TestResult:
-    r = TestResult("Blocks su -c 'command' (privilege escalation)")
-    try:
-        out = run_hook("su -c 'whoami'")
-        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
-        r.mark_pass()
-    except Exception as e:
-        r.mark_fail(str(e))
-        raise
-    return r
-
-
-# --- credential-reads: gh secrets ---
-
-
-def test_blocks_gh_secret_set() -> TestResult:
-    r = TestResult("Blocks gh secret set (credential-reads: deny)")
-    try:
-        out = run_hook("gh secret set MY_SECRET --body secret_value")
-        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
-        r.mark_pass()
-    except Exception as e:
-        r.mark_fail(str(e))
-        raise
-    return r
-
-
-def test_blocks_gh_secret_delete() -> TestResult:
-    r = TestResult("Blocks gh secret delete (credential-reads: deny)")
-    try:
-        out = run_hook("gh secret delete MY_SECRET")
-        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
-        r.mark_pass()
-    except Exception as e:
-        r.mark_fail(str(e))
-        raise
-    return r
-
-
-def test_allows_gh_secret_list() -> TestResult:
-    r = TestResult("Allows gh secret list (read-only)")
-    try:
-        out = run_hook("gh secret list")
-        assert out["decision"] == "allow", f"Expected allow, got {out['decision']}"
-        r.mark_pass()
-    except Exception as e:
-        r.mark_fail(str(e))
-        raise
-    return r
-
-
-def test_blocks_gh_secret_remove() -> TestResult:
-    r = TestResult("Blocks gh secret remove (alias for delete)")
-    try:
-        out = run_hook("gh secret remove MY_SECRET")
-        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
-        r.mark_pass()
-    except Exception as e:
-        r.mark_fail(str(e))
-        raise
-    return r
-
+test_blocks_gh_secret_set = _make_test("Blocks gh secret set (git-destructive: deny)", "gh secret set MY_SECRET --body secret_value", "deny")
+test_blocks_gh_secret_delete = _make_test("Blocks gh secret delete (git-destructive: deny)", "gh secret delete MY_SECRET", "deny")
+test_allows_gh_secret_list = _make_test("Allows gh secret list (read-only)", "gh secret list", "allow")
+test_blocks_gh_secret_remove = _make_test("Blocks gh secret remove (git-destructive: deny)", "gh secret remove MY_SECRET", "deny")
 
 # --- git-destructive: gh repo delete ---
 
+test_blocks_gh_repo_delete = _make_test("Blocks gh repo delete (git-destructive: deny)", "gh repo delete owner/repo --yes", "deny")
 
-def test_blocks_gh_repo_delete() -> TestResult:
-    r = TestResult("Blocks gh repo delete (git-destructive: deny)")
+# --- git-destructive: --force-with-lease reason string ---
+
+def test_force_with_lease_reason_string() -> TestResult:
+    """Verify --force-with-lease gets its own reason (not the --force reason)."""
+    r = TestResult("--force-with-lease has correct reason string")
     try:
-        out = run_hook("gh repo delete owner/repo --yes")
+        out = run_hook("git push --force-with-lease origin feat")
         assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
+        assert "force-with-lease" in out["reason"], f"Reason should mention force-with-lease, got: {out['reason']}"
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
         raise
     return r
 
+# --- external-visibility (default: allow) ---
 
-# --- external-visibility ---
+test_allows_git_push_default = _make_test("Allows git push (default: allow)", "git push origin main", "allow")
+test_allows_gh_pr_create_default = _make_test("Allows gh pr create (default: allow)", 'gh pr create --title "fix bug" --body "details"', "allow")
+test_allows_gh_pr_list_default = _make_test("Allows gh pr list (read-only, no match)", "gh pr list", "allow")
+test_allows_gh_pr_merge_default = _make_test("Allows gh pr merge (default: allow)", "gh pr merge 123 --squash", "allow")
+test_allows_gh_pr_close_default = _make_test("Allows gh pr close (default: allow)", "gh pr close 123", "allow")
+test_allows_gh_issue_create_default = _make_test("Allows gh issue create (default: allow)", 'gh issue create --title "bug" --body "details"', "allow")
+test_allows_gh_issue_view_default = _make_test("Allows gh issue view (read-only, no match)", "gh issue view 123", "allow")
+test_allows_gh_issue_close_default = _make_test("Allows gh issue close (default: allow)", "gh issue close 123", "allow")
+test_allows_gh_workflow_run_default = _make_test("Allows gh workflow run (default: allow)", "gh workflow run deploy.yml", "allow")
+test_allows_gh_release_create_default = _make_test("Allows gh release create (default: allow)", "gh release create v1.0.0", "allow")
+test_allows_gh_repo_clone = _make_test("Allows gh repo clone (read-only, no match)", "gh repo clone owner/repo", "allow")
+test_allows_gh_pr_checkout_default = _make_test("Allows gh pr checkout (read-only, no match)", "gh pr checkout 123", "allow")
+test_allows_gh_label_create_default = _make_test("Allows gh label create (default: allow)", 'gh label create "bug" --color FF0000', "allow")
+test_allows_gh_variable_set_default = _make_test("Allows gh variable set (default: allow)", "gh variable set MY_VAR --body value", "allow")
+test_allows_gh_api_post_default = _make_test("Allows gh api -X POST (default: allow)", "gh api -X POST /repos/owner/repo/issues --field title=test", "allow")
+test_allows_gh_api_get_no_match = _make_test("Allows gh api GET (no match, read-only)", "gh api /repos/owner/repo/issues", "allow")
+test_allows_gh_api_implicit_post_default = _make_test("Allows gh api implicit POST (default: allow)", "gh api /repos/owner/repo/issues --field title=test", "allow")
+test_allows_gh_api_implicit_post_f_flag = _make_test("Allows gh api -f implicit POST (default: allow)", "gh api /repos/owner/repo/issues -f title=test", "allow")
+test_allows_gh_pr_review_default = _make_test("Allows gh pr review (default: allow)", "gh pr review 123 --approve", "allow")
+test_allows_gh_run_cancel_default = _make_test("Allows gh run cancel (default: allow)", "gh run cancel 12345", "allow")
+test_allows_gh_run_rerun_default = _make_test("Allows gh run rerun (default: allow)", "gh run rerun 12345", "allow")
+test_allows_gh_run_view_no_match = _make_test("Allows gh run view (read-only, no match)", "gh run view 12345", "allow")
+test_allows_gh_api_method_post_default = _make_test("Allows gh api --method POST (default: allow)", "gh api --method POST /repos/owner/repo/issues --field title=test", "allow")
+test_allows_gh_pr_search_no_match = _make_test("Allows gh pr search (read-only, no match)", "gh pr search --state open", "allow")
+test_allows_gh_issue_search_no_match = _make_test("Allows gh issue search (read-only, no match)", "gh issue search --label bug", "allow")
 
-
-def test_allows_git_push_default() -> TestResult:
-    r = TestResult("Allows git push (default: allow)")
-    try:
-        out = run_hook("git push origin main")
-        assert out["decision"] == "allow", f"Expected allow, got {out['decision']}"
-        r.mark_pass()
-    except Exception as e:
-        r.mark_fail(str(e))
-        raise
-    return r
-
-
-def test_allows_gh_pr_create_default() -> TestResult:
-    r = TestResult("Allows gh pr create (default: allow)")
-    try:
-        out = run_hook('gh pr create --title "fix bug" --body "details"')
-        assert out["decision"] == "allow", f"Expected allow, got {out['decision']}"
-        r.mark_pass()
-    except Exception as e:
-        r.mark_fail(str(e))
-        raise
-    return r
-
-
-def test_allows_gh_pr_list_default() -> TestResult:
-    r = TestResult("Allows gh pr list (read-only, no match)")
-    try:
-        out = run_hook("gh pr list")
-        assert out["decision"] == "allow", f"Expected allow, got {out['decision']}"
-        r.mark_pass()
-    except Exception as e:
-        r.mark_fail(str(e))
-        raise
-    return r
-
-
-def test_allows_gh_issue_create_default() -> TestResult:
-    r = TestResult("Allows gh issue create (default: allow)")
-    try:
-        out = run_hook('gh issue create --title "bug" --body "details"')
-        assert out["decision"] == "allow", f"Expected allow, got {out['decision']}"
-        r.mark_pass()
-    except Exception as e:
-        r.mark_fail(str(e))
-        raise
-    return r
-
-
-def test_allows_gh_issue_view_default() -> TestResult:
-    r = TestResult("Allows gh issue view (read-only, no match)")
-    try:
-        out = run_hook("gh issue view 123")
-        assert out["decision"] == "allow", f"Expected allow, got {out['decision']}"
-        r.mark_pass()
-    except Exception as e:
-        r.mark_fail(str(e))
-        raise
-    return r
-
-
-def test_allows_gh_workflow_run_default() -> TestResult:
-    r = TestResult("Allows gh workflow run (default: allow)")
-    try:
-        out = run_hook("gh workflow run deploy.yml")
-        assert out["decision"] == "allow", f"Expected allow, got {out['decision']}"
-        r.mark_pass()
-    except Exception as e:
-        r.mark_fail(str(e))
-        raise
-    return r
-
-
-def test_allows_gh_release_create_default() -> TestResult:
-    r = TestResult("Allows gh release create (default: allow)")
-    try:
-        out = run_hook("gh release create v1.0.0")
-        assert out["decision"] == "allow", f"Expected allow, got {out['decision']}"
-        r.mark_pass()
-    except Exception as e:
-        r.mark_fail(str(e))
-        raise
-    return r
-
-
-def test_allows_gh_repo_clone() -> TestResult:
-    r = TestResult("Allows gh repo clone (read-only, no match)")
-    try:
-        out = run_hook("gh repo clone owner/repo")
-        assert out["decision"] == "allow", f"Expected allow, got {out['decision']}"
-        r.mark_pass()
-    except Exception as e:
-        r.mark_fail(str(e))
-        raise
-    return r
-
-
-def test_blocks_git_push_force_with_lease_default() -> TestResult:
-    r = TestResult("Blocks git push --force-with-lease (git-destructive)")
-    try:
-        out = run_hook("git push --force-with-lease origin main")
-        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
-        r.mark_pass()
-    except Exception as e:
-        r.mark_fail(str(e))
-        raise
-    return r
-
-
-def test_allows_gh_pr_checkout_default() -> TestResult:
-    r = TestResult("Allows gh pr checkout (read-only, no match)")
-    try:
-        out = run_hook("gh pr checkout 123")
-        assert out["decision"] == "allow", f"Expected allow, got {out['decision']}"
-        r.mark_pass()
-    except Exception as e:
-        r.mark_fail(str(e))
-        raise
-    return r
-
-
-def test_allows_gh_label_create_default() -> TestResult:
-    r = TestResult("Allows gh label create (default: allow)")
-    try:
-        out = run_hook('gh label create "bug" --color FF0000')
-        assert out["decision"] == "allow", f"Expected allow, got {out['decision']}"
-        r.mark_pass()
-    except Exception as e:
-        r.mark_fail(str(e))
-        raise
-    return r
-
-
-def test_allows_gh_variable_set_default() -> TestResult:
-    r = TestResult("Allows gh variable set (default: allow)")
-    try:
-        out = run_hook("gh variable set MY_VAR --body value")
-        assert out["decision"] == "allow", f"Expected allow, got {out['decision']}"
-        r.mark_pass()
-    except Exception as e:
-        r.mark_fail(str(e))
-        raise
-    return r
-
-
-def test_allows_gh_api_post_default() -> TestResult:
-    r = TestResult("Allows gh api -X POST (default: allow)")
-    try:
-        out = run_hook("gh api -X POST /repos/owner/repo/issues --field title=test")
-        assert out["decision"] == "allow", f"Expected allow, got {out['decision']}"
-        r.mark_pass()
-    except Exception as e:
-        r.mark_fail(str(e))
-        raise
-    return r
-
-
-def test_allows_gh_api_get_no_match() -> TestResult:
-    r = TestResult("Allows gh api GET (no match, read-only)")
-    try:
-        out = run_hook("gh api /repos/owner/repo/issues")
-        assert out["decision"] == "allow", f"Expected allow, got {out['decision']}"
-        r.mark_pass()
-    except Exception as e:
-        r.mark_fail(str(e))
-        raise
-    return r
-
-
-def test_allows_gh_pr_review_default() -> TestResult:
-    r = TestResult("Allows gh pr review (default: allow, write op)")
-    try:
-        out = run_hook("gh pr review 123 --approve")
-        assert out["decision"] == "allow", f"Expected allow, got {out['decision']}"
-        r.mark_pass()
-    except Exception as e:
-        r.mark_fail(str(e))
-        raise
-    return r
-
-
-def test_allows_gh_run_cancel_default() -> TestResult:
-    r = TestResult("Allows gh run cancel (default: allow)")
-    try:
-        out = run_hook("gh run cancel 12345")
-        assert out["decision"] == "allow", f"Expected allow, got {out['decision']}"
-        r.mark_pass()
-    except Exception as e:
-        r.mark_fail(str(e))
-        raise
-    return r
-
-
-def test_allows_gh_run_rerun_default() -> TestResult:
-    r = TestResult("Allows gh run rerun (default: allow)")
-    try:
-        out = run_hook("gh run rerun 12345")
-        assert out["decision"] == "allow", f"Expected allow, got {out['decision']}"
-        r.mark_pass()
-    except Exception as e:
-        r.mark_fail(str(e))
-        raise
-    return r
-
-
-def test_allows_gh_run_view_no_match() -> TestResult:
-    r = TestResult("Allows gh run view (read-only, no match)")
-    try:
-        out = run_hook("gh run view 12345")
-        assert out["decision"] == "allow", f"Expected allow, got {out['decision']}"
-        r.mark_pass()
-    except Exception as e:
-        r.mark_fail(str(e))
-        raise
-    return r
-
-
-def test_allows_gh_api_method_post_default() -> TestResult:
-    r = TestResult("Allows gh api --method POST (default: allow)")
-    try:
-        out = run_hook("gh api --method POST /repos/owner/repo/issues --field title=test")
-        assert out["decision"] == "allow", f"Expected allow, got {out['decision']}"
-        r.mark_pass()
-    except Exception as e:
-        r.mark_fail(str(e))
-        raise
-    return r
-
-
-def test_allows_gh_pr_search_no_match() -> TestResult:
-    r = TestResult("Allows gh pr search (read-only, no match)")
-    try:
-        out = run_hook("gh pr search --state open")
-        assert out["decision"] == "allow", f"Expected allow, got {out['decision']}"
-        r.mark_pass()
-    except Exception as e:
-        r.mark_fail(str(e))
-        raise
-    return r
-
-
-def test_allows_gh_issue_search_no_match() -> TestResult:
-    r = TestResult("Allows gh issue search (read-only, no match)")
-    try:
-        out = run_hook("gh issue search --label bug")
-        assert out["decision"] == "allow", f"Expected allow, got {out['decision']}"
-        r.mark_pass()
-    except Exception as e:
-        r.mark_fail(str(e))
-        raise
-    return r
-
+# force-with-lease should be denied by git-destructive, not reach external-visibility
+# (removed duplicate test_blocks_git_push_force_with_lease_default — covered by
+# test_blocks_git_push_force_with_lease in the pre-existing tests above)
 
 # --- external-visibility: deny override ---
 
@@ -2179,21 +1632,27 @@ def main() -> None:
         test_blocks_rm_rf_tmp,
         # IaC: CDK + terraform apply + bootstrap
         test_blocks_cdk_deploy,
+        test_blocks_cdk_deploy_all,
         test_blocks_cdk_destroy,
         test_blocks_cdk_bootstrap,
+        test_blocks_cdk_watch,
         test_blocks_npx_cdk_deploy,
         test_blocks_npx_cdk_destroy,
         test_blocks_npx_yes_cdk_deploy,
+        test_blocks_npx_cdk_watch,
+        test_blocks_npx_aws_cdk_deploy,
+        test_blocks_npx_separator_cdk_deploy,
+        test_blocks_npx_c_cdk_deploy,
+        test_blocks_yarn_cdk_deploy,
+        test_blocks_yarn_cdk_destroy,
+        test_blocks_yarn_aws_cdk_deploy,
+        test_blocks_pnpm_cdk_deploy,
+        test_blocks_pnpm_exec_cdk_deploy,
+        test_blocks_pnpm_dlx_cdk_deploy,
+        test_blocks_bunx_cdk_deploy,
         test_blocks_terraform_apply,
         test_blocks_pulumi_up,
         test_allows_cdk_synth,
-        test_blocks_cdk_watch,
-        test_blocks_npx_cdk_watch,
-        test_blocks_npx_aws_cdk_deploy,
-        test_blocks_yarn_cdk_deploy,
-        test_blocks_yarn_cdk_destroy,
-        test_blocks_pnpm_cdk_deploy,
-        test_blocks_pnpm_exec_cdk_deploy,
         test_allows_cdk_diff,
         test_allows_cdk_list,
         test_allows_terraform_plan,
@@ -2204,32 +1663,40 @@ def main() -> None:
         test_blocks_bare_sudo,
         test_blocks_su,
         test_blocks_su_root_no_dash,
+        test_blocks_su_nobody,
         test_blocks_bare_su,
         test_blocks_doas,
         test_blocks_bare_doas,
         test_blocks_su_c_command,
-        # Credential reads: gh secrets
+        test_allows_summary_command,
+        test_allows_result_command,
+        # git-destructive: gh secret write/delete
         test_blocks_gh_secret_set,
         test_blocks_gh_secret_delete,
         test_allows_gh_secret_list,
         test_blocks_gh_secret_remove,
-        # git-destructive: gh repo delete
+        # git-destructive: gh repo delete + force-with-lease reason
         test_blocks_gh_repo_delete,
+        test_force_with_lease_reason_string,
         # External visibility (default: allow)
         test_allows_git_push_default,
         test_allows_gh_pr_create_default,
         test_allows_gh_pr_list_default,
+        test_allows_gh_pr_merge_default,
+        test_allows_gh_pr_close_default,
         test_allows_gh_issue_create_default,
         test_allows_gh_issue_view_default,
+        test_allows_gh_issue_close_default,
         test_allows_gh_workflow_run_default,
         test_allows_gh_release_create_default,
         test_allows_gh_repo_clone,
-        test_blocks_git_push_force_with_lease_default,
         test_allows_gh_pr_checkout_default,
         test_allows_gh_label_create_default,
         test_allows_gh_variable_set_default,
         test_allows_gh_api_post_default,
         test_allows_gh_api_get_no_match,
+        test_allows_gh_api_implicit_post_default,
+        test_allows_gh_api_implicit_post_f_flag,
         test_allows_gh_pr_review_default,
         test_allows_gh_run_cancel_default,
         test_allows_gh_run_rerun_default,

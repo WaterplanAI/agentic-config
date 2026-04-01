@@ -44,7 +44,6 @@ credential_guardian:
 
 destructive_bash:
   categories:
-    # deny by default
     file-destruction: deny
     git-destructive: deny
     aws-destructive: deny
@@ -59,7 +58,6 @@ destructive_bash:
     remote-code-execution: deny
     persistence: deny
     npm-publish: deny
-    # allow by default (visible to teammates but not destructive)
     external-visibility: allow
 
 write_scope:
