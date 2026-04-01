@@ -240,7 +240,7 @@ PATTERNS: list[tuple[re.Pattern[str], str, str]] = [
     (re.compile(r"\baws\s+eks\s+delete-cluster\b"), "aws eks delete-cluster", "aws-destructive"),
     (re.compile(r"\baws\s+ecr\s+delete-repository\b"), "aws ecr delete-repository", "aws-destructive"),
     # -- git-destructive --
-    (re.compile(r"\bgit\s+push\s+.*--force(?!-with-lease)\b"), "git push --force (use --force-with-lease)", "git-destructive"),
+    (re.compile(r"\bgit\s+push\s+.*--force\b"), "git push --force (rewrites remote history)", "git-destructive"),
     (re.compile(r"\bgit\s+push\s+(-[^\s]*\s+)*-[a-eg-zA-Z]*f\b"), "git push -f (force push, combined flags)", "git-destructive"),
     (re.compile(r"\bgit\s+push\s+.+\s+-[a-eg-zA-Z]*f\b"), "git push <args> -f (force push, trailing)", "git-destructive"),
     # Force push via refspec: git push <remote> +<ref>:<ref>
@@ -308,7 +308,7 @@ PATTERNS: list[tuple[re.Pattern[str], str, str]] = [
     # ORDERING INVARIANT: git-destructive patterns must precede external-visibility
     # to ensure force-push detection fires first. Negative lookahead covers both
     # --force and -f shorthand as defense-in-depth.
-    (re.compile(r"\bgit\s+push\b(?!.*(?:--force(?!-with-lease)\b|-[a-eg-zA-Z]*f\b))"), "git push (visible to teammates)", "external-visibility"),
+    (re.compile(r"\bgit\s+push\b(?!.*(?:--force\b|-[a-eg-zA-Z]*f\b))"), "git push (visible to teammates)", "external-visibility"),
     (re.compile(r"\bgh\s+pr\s+(?!" + _GH_READ_ONLY + r")\w+"), "gh pr write operation (visible to teammates)", "external-visibility"),
     (re.compile(r"\bgh\s+issue\s+(?!" + _GH_READ_ONLY + r")\w+"), "gh issue write operation (visible to teammates)", "external-visibility"),
     (re.compile(r"\bgh\s+workflow\s+(?!" + _GH_READ_ONLY + r")\w+"), "gh workflow operation (visible to teammates)", "external-visibility"),

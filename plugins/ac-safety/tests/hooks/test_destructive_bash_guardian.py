@@ -334,12 +334,12 @@ def test_blocks_git_push_combined_uf() -> TestResult:
     return r
 
 
-def test_allows_git_push_force_with_lease() -> TestResult:
-    """Regression: git push --force-with-lease should still be allowed"""
-    r = TestResult("Allows git push --force-with-lease")
+def test_blocks_git_push_force_with_lease() -> TestResult:
+    """git push --force-with-lease rewrites remote history — blocked as git-destructive"""
+    r = TestResult("Blocks git push --force-with-lease (git-destructive)")
     try:
         out = run_hook("git push --force-with-lease origin feat")
-        assert out["decision"] == "allow", f"Expected allow, got {out['decision']}"
+        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
@@ -1866,11 +1866,11 @@ def test_allows_gh_repo_clone() -> TestResult:
     return r
 
 
-def test_allows_git_push_force_with_lease_default() -> TestResult:
-    r = TestResult("Allows git push --force-with-lease (default: allow, not git-destructive)")
+def test_blocks_git_push_force_with_lease_default() -> TestResult:
+    r = TestResult("Blocks git push --force-with-lease (git-destructive)")
     try:
         out = run_hook("git push --force-with-lease origin main")
-        assert out["decision"] == "allow", f"Expected allow, got {out['decision']}"
+        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
@@ -2082,7 +2082,7 @@ def main() -> None:
         test_blocks_rm_rf_dollar_home_subdir,
         # H-03: git push combined-flag bypass
         test_blocks_git_push_combined_uf,
-        test_allows_git_push_force_with_lease,
+        test_blocks_git_push_force_with_lease,
         # H-NEW-02: quoted variable bypass
         test_blocks_rm_rf_quoted_dollar_home,
         test_blocks_rm_rf_single_quoted_dollar_home,
@@ -2224,7 +2224,7 @@ def main() -> None:
         test_allows_gh_workflow_run_default,
         test_allows_gh_release_create_default,
         test_allows_gh_repo_clone,
-        test_allows_git_push_force_with_lease_default,
+        test_blocks_git_push_force_with_lease_default,
         test_allows_gh_pr_checkout_default,
         test_allows_gh_label_create_default,
         test_allows_gh_variable_set_default,
