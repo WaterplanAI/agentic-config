@@ -285,7 +285,18 @@ PATTERNS: list[tuple[re.Pattern[str], str, str]] = [
     (re.compile(r":\(\)\{.*\|.*&.*\};:"), "fork bomb", "system-level"),
     # -- iac-destruction --
     (re.compile(_BIN + r"\bterraform\s+destroy\b"), "terraform destroy", "iac-destruction"),
+    (re.compile(_BIN + r"\bterraform\s+apply\b"), "terraform apply (can implicitly destroy resources)", "iac-destruction"),
     (re.compile(_BIN + r"\bpulumi\s+destroy\b"), "pulumi destroy", "iac-destruction"),
+    (re.compile(r"\b(?:npx\s+)?cdk\s+deploy\b"), "cdk deploy (can implicitly destroy resources)", "iac-destruction"),
+    (re.compile(r"\b(?:npx\s+)?cdk\s+destroy\b"), "cdk destroy", "iac-destruction"),
+    # -- privilege-escalation --
+    (re.compile(_BIN + r"\bsudo\s"), "sudo (privilege escalation)", "privilege-escalation"),
+    (re.compile(_BIN + r"\bsu\s+-"), "su - (privilege escalation)", "privilege-escalation"),
+    (re.compile(_BIN + r"\bdoas\s"), "doas (privilege escalation)", "privilege-escalation"),
+    # -- external-visibility --
+    (re.compile(r"\bgit\s+push\b(?!.*--force)"), "git push (visible to teammates)", "external-visibility"),
+    (re.compile(r"\bgh\s+pr\s+(create|comment|close|merge|edit|review)\b"), "gh pr write operation (visible to teammates)", "external-visibility"),
+    (re.compile(r"\bgh\s+issue\s+(create|comment|close|edit|transfer)\b"), "gh issue write operation (visible to teammates)", "external-visibility"),
     # -- docker-destruction --
     (re.compile(_BIN + r"\bdocker\s+system\s+prune\s+-a\b"), "docker system prune -a", "docker-destruction"),
     (re.compile(_BIN + r"\bdocker\s+volume\s+prune\b"), "docker volume prune", "docker-destruction"),

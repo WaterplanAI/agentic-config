@@ -54,6 +54,8 @@ destructive_bash:
     docker-destruction: deny
     npm-publish: deny
     iac-destruction: deny
+    privilege-escalation: deny
+    external-visibility: allow
     permission-abuse: deny
     credential-reads: deny
     remote-code-execution: deny

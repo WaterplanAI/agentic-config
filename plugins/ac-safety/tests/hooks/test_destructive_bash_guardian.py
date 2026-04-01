@@ -1347,6 +1347,159 @@ def test_blocks_rm_rf_tmp() -> TestResult:
     return r
 
 
+# --- iac-destruction: CDK + terraform apply ---
+
+
+def test_blocks_cdk_deploy() -> TestResult:
+    r = TestResult("Blocks cdk deploy")
+    try:
+        out = run_hook("cdk deploy MyStack")
+        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+        raise
+    return r
+
+
+def test_blocks_cdk_destroy() -> TestResult:
+    r = TestResult("Blocks cdk destroy")
+    try:
+        out = run_hook("cdk destroy MyStack")
+        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+        raise
+    return r
+
+
+def test_blocks_npx_cdk_deploy() -> TestResult:
+    r = TestResult("Blocks npx cdk deploy")
+    try:
+        out = run_hook("npx cdk deploy MyStack")
+        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+        raise
+    return r
+
+
+def test_blocks_npx_cdk_destroy() -> TestResult:
+    r = TestResult("Blocks npx cdk destroy")
+    try:
+        out = run_hook("npx cdk destroy MyStack")
+        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+        raise
+    return r
+
+
+def test_blocks_terraform_apply() -> TestResult:
+    r = TestResult("Blocks terraform apply")
+    try:
+        out = run_hook("terraform apply -auto-approve")
+        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+        raise
+    return r
+
+
+def test_allows_cdk_synth() -> TestResult:
+    r = TestResult("Allows cdk synth (no side effects)")
+    try:
+        out = run_hook("cdk synth MyStack")
+        assert out["decision"] == "allow", f"Expected allow, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+        raise
+    return r
+
+
+# --- privilege-escalation ---
+
+
+def test_blocks_sudo() -> TestResult:
+    r = TestResult("Blocks sudo")
+    try:
+        out = run_hook("sudo rm -rf /var/log")
+        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+        raise
+    return r
+
+
+def test_blocks_su() -> TestResult:
+    r = TestResult("Blocks su -")
+    try:
+        out = run_hook("su - root")
+        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+        raise
+    return r
+
+
+def test_blocks_doas() -> TestResult:
+    r = TestResult("Blocks doas")
+    try:
+        out = run_hook("doas apt install something")
+        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+        raise
+    return r
+
+
+# --- external-visibility ---
+
+
+def test_allows_git_push_default() -> TestResult:
+    r = TestResult("Allows git push (default: allow)")
+    try:
+        out = run_hook("git push origin main")
+        assert out["decision"] == "allow", f"Expected allow, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+        raise
+    return r
+
+
+def test_allows_gh_pr_create_default() -> TestResult:
+    r = TestResult("Allows gh pr create (default: allow)")
+    try:
+        out = run_hook('gh pr create --title "fix bug" --body "details"')
+        assert out["decision"] == "allow", f"Expected allow, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+        raise
+    return r
+
+
+def test_allows_gh_issue_create_default() -> TestResult:
+    r = TestResult("Allows gh issue create (default: allow)")
+    try:
+        out = run_hook('gh issue create --title "bug" --body "details"')
+        assert out["decision"] == "allow", f"Expected allow, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+        raise
+    return r
+
+
 def main() -> None:
     from ac_safety_test_support import run_tests  # pyright: ignore[reportMissingImports]
     run_tests("destructive-bash-guardian unit tests", [
@@ -1472,6 +1625,21 @@ def main() -> None:
         test_allows_rm_rf_braced_home_project_dir,
         test_blocks_rm_rf_outside_project,
         test_blocks_rm_rf_tmp,
+        # IaC: CDK + terraform apply
+        test_blocks_cdk_deploy,
+        test_blocks_cdk_destroy,
+        test_blocks_npx_cdk_deploy,
+        test_blocks_npx_cdk_destroy,
+        test_blocks_terraform_apply,
+        test_allows_cdk_synth,
+        # Privilege escalation
+        test_blocks_sudo,
+        test_blocks_su,
+        test_blocks_doas,
+        # External visibility (default: allow)
+        test_allows_git_push_default,
+        test_allows_gh_pr_create_default,
+        test_allows_gh_issue_create_default,
     ])
 
 
