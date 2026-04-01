@@ -1,7 +1,7 @@
 {
   "name": "ac-audit",
   "description": "Tool audit logging - JSONL audit trail and real-time systemMessage display",
-  "version": "0.2.5",
+  "version": "0.2.6",
   "author": {
     "name": "Agentic Config Contributors"
   },

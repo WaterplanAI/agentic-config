@@ -4,6 +4,8 @@ All notable changes to agentic-config.
 
 ## [Unreleased]
 
+## [0.2.6] - 2026-04-01
+
 ### Added
 
 - `ac-safety`: `harden-supply-chain-sec` skill for supply chain hardening across package managers (pnpm, yarn, bun, npm, uv)
