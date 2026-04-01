@@ -1458,6 +1458,30 @@ def test_allows_cdk_synth() -> TestResult:
     return r
 
 
+def test_blocks_cdk_watch() -> TestResult:
+    r = TestResult("Blocks cdk watch")
+    try:
+        out = run_hook("cdk watch MyStack")
+        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+        raise
+    return r
+
+
+def test_blocks_npx_cdk_watch() -> TestResult:
+    r = TestResult("Blocks npx cdk watch")
+    try:
+        out = run_hook("npx cdk watch MyStack")
+        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+        raise
+    return r
+
+
 # --- privilege-escalation ---
 
 
@@ -1584,6 +1608,33 @@ def test_allows_gh_secret_list() -> TestResult:
     return r
 
 
+def test_blocks_gh_secret_remove() -> TestResult:
+    r = TestResult("Blocks gh secret remove (alias for delete)")
+    try:
+        out = run_hook("gh secret remove MY_SECRET")
+        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+        raise
+    return r
+
+
+# --- git-destructive: gh repo delete ---
+
+
+def test_blocks_gh_repo_delete() -> TestResult:
+    r = TestResult("Blocks gh repo delete (git-destructive: deny)")
+    try:
+        out = run_hook("gh repo delete owner/repo --yes")
+        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+        raise
+    return r
+
+
 # --- external-visibility ---
 
 
@@ -1676,6 +1727,108 @@ def test_allows_gh_repo_clone() -> TestResult:
     try:
         out = run_hook("gh repo clone owner/repo")
         assert out["decision"] == "allow", f"Expected allow, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+        raise
+    return r
+
+
+def test_allows_git_push_force_with_lease_default() -> TestResult:
+    r = TestResult("Allows git push --force-with-lease (default: allow, not git-destructive)")
+    try:
+        out = run_hook("git push --force-with-lease origin main")
+        assert out["decision"] == "allow", f"Expected allow, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+        raise
+    return r
+
+
+def test_allows_gh_pr_checkout_default() -> TestResult:
+    r = TestResult("Allows gh pr checkout (read-only, no match)")
+    try:
+        out = run_hook("gh pr checkout 123")
+        assert out["decision"] == "allow", f"Expected allow, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+        raise
+    return r
+
+
+def test_allows_gh_label_create_default() -> TestResult:
+    r = TestResult("Allows gh label create (default: allow)")
+    try:
+        out = run_hook('gh label create "bug" --color FF0000')
+        assert out["decision"] == "allow", f"Expected allow, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+        raise
+    return r
+
+
+def test_allows_gh_variable_set_default() -> TestResult:
+    r = TestResult("Allows gh variable set (default: allow)")
+    try:
+        out = run_hook("gh variable set MY_VAR --body value")
+        assert out["decision"] == "allow", f"Expected allow, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+        raise
+    return r
+
+
+def test_allows_gh_api_post_default() -> TestResult:
+    r = TestResult("Allows gh api -X POST (default: allow)")
+    try:
+        out = run_hook("gh api -X POST /repos/owner/repo/issues --field title=test")
+        assert out["decision"] == "allow", f"Expected allow, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+        raise
+    return r
+
+
+def test_allows_gh_api_get_no_match() -> TestResult:
+    r = TestResult("Allows gh api GET (no match, read-only)")
+    try:
+        out = run_hook("gh api /repos/owner/repo/issues")
+        assert out["decision"] == "allow", f"Expected allow, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+        raise
+    return r
+
+
+# --- external-visibility: deny override ---
+
+
+def test_blocks_git_push_when_external_visibility_deny() -> TestResult:
+    r = TestResult("Blocks git push when external-visibility overridden to deny")
+    import tempfile
+    import yaml  # pyright: ignore[reportMissingImports]
+    try:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            override = {"destructive_bash": {"categories": {"external-visibility": "deny"}}}
+            safety_path = os.path.join(tmpdir, "safety.yaml")
+            with open(safety_path, "w") as f:
+                yaml.dump(override, f)
+            env = {**os.environ, "CLAUDE_PROJECT_DIR": tmpdir}
+            result = subprocess.run(
+                [str(HOOK_PATH)],
+                input=json.dumps({"tool_name": "Bash", "tool_input": {"command": "git push origin main"}}),
+                capture_output=True, text=True, env=env,
+            )
+            output = json.loads(result.stdout)
+            hook_out = output.get("hookSpecificOutput", {})
+            decision = hook_out.get("permissionDecision", "allow")
+            assert decision == "deny", f"Expected deny, got {decision}"
         r.mark_pass()
     except Exception as e:
         r.mark_fail(str(e))
@@ -1818,6 +1971,8 @@ def main() -> None:
         test_blocks_terraform_apply,
         test_blocks_pulumi_up,
         test_allows_cdk_synth,
+        test_blocks_cdk_watch,
+        test_blocks_npx_cdk_watch,
         # Privilege escalation
         test_blocks_sudo,
         test_blocks_bare_sudo,
@@ -1830,6 +1985,9 @@ def main() -> None:
         test_blocks_gh_secret_set,
         test_blocks_gh_secret_delete,
         test_allows_gh_secret_list,
+        test_blocks_gh_secret_remove,
+        # git-destructive: gh repo delete
+        test_blocks_gh_repo_delete,
         # External visibility (default: allow)
         test_allows_git_push_default,
         test_allows_gh_pr_create_default,
@@ -1839,6 +1997,14 @@ def main() -> None:
         test_allows_gh_workflow_run_default,
         test_allows_gh_release_create_default,
         test_allows_gh_repo_clone,
+        test_allows_git_push_force_with_lease_default,
+        test_allows_gh_pr_checkout_default,
+        test_allows_gh_label_create_default,
+        test_allows_gh_variable_set_default,
+        test_allows_gh_api_post_default,
+        test_allows_gh_api_get_no_match,
+        # External visibility: deny override
+        test_blocks_git_push_when_external_visibility_deny,
     ])
 
 
