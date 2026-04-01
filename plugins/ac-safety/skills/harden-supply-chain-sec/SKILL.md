@@ -47,6 +47,9 @@ Harden software supply chain security by configuring minimum release age policie
 - You are a senior security engineer hardening supply chain configuration.
 - Always show dry-run before any writes. Never write without explicit confirmation.
 - Fail-open on errors: warn and skip, do not block the user.
+- Detection and dry-run phases are read-only. Do not install, enable, or update tooling during preflight.
+- Any install/update, audit-tool installation, or lockfile-regeneration command requires a separate explicit confirmation after the exact command is shown.
+- Never recommend or run `curl | sh` / `curl | bash` installers.
 - Be project-agnostic: no hardcoded paths, repos, or organization names.
 - If `--guided` is present, always enter guided mode regardless of other args.
 - If `--harden` is present, proceed to hardening gates after config writes.
@@ -158,9 +161,9 @@ For each manager to be configured, run the version check BEFORE any config write
 2. **Yarn v4 Corepack detection** (special case):
    - `yarn --version` may return nothing or Yarn Classic (1.x) because Yarn v4 is managed via Corepack, NOT the `yarn` npm package.
    - If `yarn --version` fails or returns `1.x`: run `corepack yarn --version 2>/dev/null` as fallback.
-   - If Corepack is not installed: run `corepack --version 2>/dev/null` to check, then `corepack enable` if available.
+   - If Corepack is not installed: run `corepack --version 2>/dev/null` to check, record the prerequisite command, and WARN -- but do NOT run `corepack enable` during detection.
    - If Corepack resolves Yarn v4 (>= 4.x): use that version. Record install command as `corepack prepare yarn@<version> --activate`.
-   - If Corepack is unavailable and Yarn is not installed: status = `NOT_INSTALLED`, but include in update commands: `corepack enable && corepack prepare yarn@<version> --activate`.
+   - If Corepack is unavailable and Yarn is not installed: status = `NOT_INSTALLED`, but include in update commands: `corepack enable && corepack prepare yarn@<version> --activate` for later explicit confirmation.
 3. Parse version string from output:
    - pnpm: output is just the version number (e.g., `10.16.0`)
    - yarn: output is just the version number (e.g., `4.13.0`) — may come from Corepack fallback
@@ -193,6 +196,7 @@ MUST itself respect the minimum release age being configured.
    - WARN: "<manager> latest version <version> was published <N days> ago, which is below the configured minimum release age of <duration>. Recommend waiting or pinning to an older verified version."
    - Suggest the most recent version that DOES meet the age threshold.
 3. If the latest version meets the age threshold: suggest it normally.
+4. When presenting install/update guidance, first display the exact command or manual steps. Only execute a command after an explicit confirmation step. Never recommend or run `curl | sh` / `curl | bash` installers.
 
 This rule ensures the hardening tool does not undermine its own security posture
 by recommending freshly-published manager binaries.
@@ -701,13 +705,27 @@ After displaying the dry-run, ask using AskUserQuestion:
   for each manager with status `TOO_OLD` or `NOT_INSTALLED`:
   1. Look up the manager's latest version that meets the configured minimum release
      age (per Section 3 "Manager Installation/Update Age Gate").
-  2. Display the exact install/update command pinned to that age-verified version:
+  2. Display the exact install/update guidance pinned to that age-verified version:
      - pnpm: `npm install -g pnpm@<version>`
      - yarn: `corepack enable && corepack prepare yarn@<version> --activate`
-     - bun: `curl -fsSL https://bun.sh/install | bash -s "bun-v<version>"`
+     - bun: manual install only -- show the exact Bun version to install and direct the user to the official Bun installation documentation. Do NOT use or display `curl | bash`.
      - npm: `npm install -g npm@<version>`
-     - uv: `pip install uv==<version>` or `curl -LsSf https://astral.sh/uv/<version>/install.sh | sh`
+     - uv: `pip install uv==<version>` if `pip` is available; otherwise show manual installation guidance without `curl | sh`.
   3. After each command, note: "Version <version> published <N days> ago (meets <duration> age gate)."
+  4. For commands that are safe to execute directly (`pnpm`, `yarn`, `npm`, and `uv` via `pip`), use AskUserQuestion:
+     - header: `Prerequisite`
+     - question: "Run the age-verified install/update command for <manager> now?"
+     - options:
+       - label: "Run now"
+       - description: "Execute: <exact_command>"
+       - label: "Show command only"
+       - description: "Display the exact command without executing it"
+       - label: "Skip"
+       - description: "Do not install/update this manager now"
+  5. If "Run now": execute the exact command.
+  6. If "Show command only": display the exact command and continue.
+  7. If "Skip": continue without executing anything.
+  8. For Bun, always show manual guidance only and continue.
 
 ### Post-Apply Display
 
@@ -1310,14 +1328,14 @@ lockfiles. Use AskUserQuestion:
 - header: `Lockfile`
 - question: "Found <N> floating ranges (<M> safe to pin from lockfile, <K> need older version). How would you like to proceed?"
 - options:
-  - label: "Auto-fix and re-generate"
-  - description: "Pin safe versions from lockfile + downgrade unsafe ones + re-generate lockfile"
+  - label: "Auto-fix declarations"
+  - description: "Pin safe versions from lockfile + downgrade unsafe ones + offer the lockfile re-generation command for explicit confirmation"
   - label: "Show commands only"
   - description: "Display the manual steps without making changes"
   - label: "Skip"
   - description: "Leave dependency versions as-is for now"
 
-**If "Auto-fix and re-generate":**
+**If "Auto-fix declarations":**
 
 1. **Pin safe dependencies** (locked version meets age gate):
    - Replace range with exact locked version in declaration file.
@@ -1333,15 +1351,30 @@ lockfiles. Use AskUserQuestion:
 
 3. Show full diff of all declaration file changes using Edit tool. Wait for approval.
 
-4. **Re-generate lockfile** (only if any dependencies were downgraded):
+4. **Determine the lockfile re-generation command** (only if any dependencies were downgraded):
    - bun: `bun install`
    - npm: `npm install`
    - pnpm: `pnpm install`
    - yarn: `yarn install`
    - uv: `uv lock`
-   - If no downgrades were needed (all safe pins): skip re-generation.
+   - If no downgrades were needed (all safe pins): state that no lockfile re-generation is required.
 
-4. Display: "Review the lockfile diff with `git diff` before committing."
+5. For each affected manager, use AskUserQuestion:
+   - header: `Lockfile`
+   - question: "Run the lockfile re-generation command for <manager> now?"
+   - options:
+     - label: "Run now"
+     - description: "Execute: <exact_command>"
+     - label: "Show command only"
+     - description: "Display the exact command without executing it"
+     - label: "Skip"
+     - description: "Leave the lockfile unchanged for now"
+
+6. If "Run now": execute the exact command.
+7. If "Show command only": display the exact command and continue.
+8. If "Skip": continue without executing anything.
+
+9. Display: "Review the declaration and lockfile diff with `git diff` before committing."
 
 **If "Show commands only":**
 
@@ -1412,7 +1445,7 @@ dependencies and write a comprehensive security review.
    - pnpm: `pnpm audit --json`
    - yarn: `yarn npm audit --json`
    - bun: `bun pm scan` (if available, else note as gap)
-   - uv: `pip-audit` (if installed, else note as gap -- install via `uv pip install pip-audit`)
+   - uv: `pip-audit` (if installed; if missing, note the gap and offer `uv pip install pip-audit` only after explicit confirmation)
 
 2. Parse the audit output. For each vulnerability found, record:
    - Package name
@@ -1445,7 +1478,20 @@ dependencies and write a comprehensive security review.
 5. If an audit tool is not installed (e.g., pip-audit):
    - Record as a gap in the summary
    - Do NOT silently skip
-   - Recommend installation of the tool
+   - Display the exact install command
+   - Use AskUserQuestion:
+     - header: `Audit tool`
+     - question: "`<tool_name>` is not installed. Run the install command now?"
+     - options:
+       - label: "Run now"
+       - description: "Execute: <exact_command>"
+       - label: "Show command only"
+       - description: "Display the exact command without executing it"
+       - label: "Skip"
+       - description: "Continue and record a tooling gap"
+   - If "Run now": execute the exact command, then continue the audit if installation succeeds
+   - If "Show command only": display the exact command, record a tooling gap, and continue
+   - If "Skip": record a tooling gap and continue
 
 6. If no vulnerabilities found: still write the file with a clean summary.
 ```
@@ -1500,7 +1546,7 @@ When adding, updating, or removing dependencies, follow this protocol:
    - pnpm: `pnpm audit`
    - yarn: `yarn npm audit`
    - bun: `bun pm scan`
-   - uv: `pip-audit` (install via `uv pip install pip-audit` if not available)
+   - uv: `pip-audit` (if not available, present `uv pip install pip-audit` and wait for explicit confirmation before running it)
 2. Review and update SECURITY-REVIEW.md with new findings.
 3. Address critical and high severity vulnerabilities before merging.
 
