@@ -1482,6 +1482,126 @@ def test_blocks_npx_cdk_watch() -> TestResult:
     return r
 
 
+def test_blocks_npx_aws_cdk_deploy() -> TestResult:
+    r = TestResult("Blocks npx aws-cdk deploy")
+    try:
+        out = run_hook("npx aws-cdk deploy MyStack")
+        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+        raise
+    return r
+
+
+def test_blocks_yarn_cdk_deploy() -> TestResult:
+    r = TestResult("Blocks yarn cdk deploy")
+    try:
+        out = run_hook("yarn cdk deploy MyStack")
+        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+        raise
+    return r
+
+
+def test_blocks_yarn_cdk_destroy() -> TestResult:
+    r = TestResult("Blocks yarn cdk destroy")
+    try:
+        out = run_hook("yarn cdk destroy MyStack")
+        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+        raise
+    return r
+
+
+def test_blocks_pnpm_cdk_deploy() -> TestResult:
+    r = TestResult("Blocks pnpm cdk deploy")
+    try:
+        out = run_hook("pnpm cdk deploy MyStack")
+        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+        raise
+    return r
+
+
+def test_blocks_pnpm_exec_cdk_deploy() -> TestResult:
+    r = TestResult("Blocks pnpm exec cdk deploy")
+    try:
+        out = run_hook("pnpm exec cdk deploy MyStack")
+        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+        raise
+    return r
+
+
+def test_allows_cdk_diff() -> TestResult:
+    r = TestResult("Allows cdk diff (no side effects)")
+    try:
+        out = run_hook("cdk diff MyStack")
+        assert out["decision"] == "allow", f"Expected allow, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+        raise
+    return r
+
+
+def test_allows_cdk_list() -> TestResult:
+    r = TestResult("Allows cdk list (no side effects)")
+    try:
+        out = run_hook("cdk list")
+        assert out["decision"] == "allow", f"Expected allow, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+        raise
+    return r
+
+
+def test_allows_terraform_plan() -> TestResult:
+    r = TestResult("Allows terraform plan (read-only)")
+    try:
+        out = run_hook("terraform plan -out=plan.tfplan")
+        assert out["decision"] == "allow", f"Expected allow, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+        raise
+    return r
+
+
+def test_allows_terraform_init() -> TestResult:
+    r = TestResult("Allows terraform init (no infrastructure changes)")
+    try:
+        out = run_hook("terraform init")
+        assert out["decision"] == "allow", f"Expected allow, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+        raise
+    return r
+
+
+def test_allows_pulumi_preview() -> TestResult:
+    r = TestResult("Allows pulumi preview (read-only)")
+    try:
+        out = run_hook("pulumi preview")
+        assert out["decision"] == "allow", f"Expected allow, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+        raise
+    return r
+
+
 # --- privilege-escalation ---
 
 
@@ -1561,6 +1681,18 @@ def test_blocks_bare_doas() -> TestResult:
     r = TestResult("Blocks bare doas (end of string)")
     try:
         out = run_hook("doas")
+        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+        raise
+    return r
+
+
+def test_blocks_su_c_command() -> TestResult:
+    r = TestResult("Blocks su -c 'command' (privilege escalation)")
+    try:
+        out = run_hook("su -c 'whoami'")
         assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
         r.mark_pass()
     except Exception as e:
@@ -1806,6 +1938,90 @@ def test_allows_gh_api_get_no_match() -> TestResult:
     return r
 
 
+def test_allows_gh_pr_review_default() -> TestResult:
+    r = TestResult("Allows gh pr review (default: allow, write op)")
+    try:
+        out = run_hook("gh pr review 123 --approve")
+        assert out["decision"] == "allow", f"Expected allow, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+        raise
+    return r
+
+
+def test_allows_gh_run_cancel_default() -> TestResult:
+    r = TestResult("Allows gh run cancel (default: allow)")
+    try:
+        out = run_hook("gh run cancel 12345")
+        assert out["decision"] == "allow", f"Expected allow, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+        raise
+    return r
+
+
+def test_allows_gh_run_rerun_default() -> TestResult:
+    r = TestResult("Allows gh run rerun (default: allow)")
+    try:
+        out = run_hook("gh run rerun 12345")
+        assert out["decision"] == "allow", f"Expected allow, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+        raise
+    return r
+
+
+def test_allows_gh_run_view_no_match() -> TestResult:
+    r = TestResult("Allows gh run view (read-only, no match)")
+    try:
+        out = run_hook("gh run view 12345")
+        assert out["decision"] == "allow", f"Expected allow, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+        raise
+    return r
+
+
+def test_allows_gh_api_method_post_default() -> TestResult:
+    r = TestResult("Allows gh api --method POST (default: allow)")
+    try:
+        out = run_hook("gh api --method POST /repos/owner/repo/issues --field title=test")
+        assert out["decision"] == "allow", f"Expected allow, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+        raise
+    return r
+
+
+def test_allows_gh_pr_search_no_match() -> TestResult:
+    r = TestResult("Allows gh pr search (read-only, no match)")
+    try:
+        out = run_hook("gh pr search --state open")
+        assert out["decision"] == "allow", f"Expected allow, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+        raise
+    return r
+
+
+def test_allows_gh_issue_search_no_match() -> TestResult:
+    r = TestResult("Allows gh issue search (read-only, no match)")
+    try:
+        out = run_hook("gh issue search --label bug")
+        assert out["decision"] == "allow", f"Expected allow, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+        raise
+    return r
+
+
 # --- external-visibility: deny override ---
 
 
@@ -1973,6 +2189,16 @@ def main() -> None:
         test_allows_cdk_synth,
         test_blocks_cdk_watch,
         test_blocks_npx_cdk_watch,
+        test_blocks_npx_aws_cdk_deploy,
+        test_blocks_yarn_cdk_deploy,
+        test_blocks_yarn_cdk_destroy,
+        test_blocks_pnpm_cdk_deploy,
+        test_blocks_pnpm_exec_cdk_deploy,
+        test_allows_cdk_diff,
+        test_allows_cdk_list,
+        test_allows_terraform_plan,
+        test_allows_terraform_init,
+        test_allows_pulumi_preview,
         # Privilege escalation
         test_blocks_sudo,
         test_blocks_bare_sudo,
@@ -1981,6 +2207,7 @@ def main() -> None:
         test_blocks_bare_su,
         test_blocks_doas,
         test_blocks_bare_doas,
+        test_blocks_su_c_command,
         # Credential reads: gh secrets
         test_blocks_gh_secret_set,
         test_blocks_gh_secret_delete,
@@ -2003,6 +2230,13 @@ def main() -> None:
         test_allows_gh_variable_set_default,
         test_allows_gh_api_post_default,
         test_allows_gh_api_get_no_match,
+        test_allows_gh_pr_review_default,
+        test_allows_gh_run_cancel_default,
+        test_allows_gh_run_rerun_default,
+        test_allows_gh_run_view_no_match,
+        test_allows_gh_api_method_post_default,
+        test_allows_gh_pr_search_no_match,
+        test_allows_gh_issue_search_no_match,
         # External visibility: deny override
         test_blocks_git_push_when_external_visibility_deny,
     ])
