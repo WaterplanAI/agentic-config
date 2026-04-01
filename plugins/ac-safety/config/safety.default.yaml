@@ -44,20 +44,20 @@ credential_guardian:
 
 destructive_bash:
   categories:
-    file-destruction: deny
     git-destructive: deny
+    file-destruction: deny
     aws-destructive: deny
-    iac-destruction: deny
-    docker-destruction: deny
+    data-exfiltration: deny
     process-destruction: deny
+    persistence: deny
     system-level: deny
     privilege-escalation: deny
+    docker-destruction: deny
+    npm-publish: deny
+    iac-destruction: deny
     permission-abuse: deny
     credential-reads: deny
-    data-exfiltration: deny
     remote-code-execution: deny
-    persistence: deny
-    npm-publish: deny
     external-visibility: allow
 
 write_scope:
