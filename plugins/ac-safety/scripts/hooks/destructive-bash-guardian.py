@@ -39,6 +39,9 @@ _SHELL_RE = r"(?:sh|bash|zsh|dash)"
 # Executors (for pipe-to, process substitution, download-then-execute -- any interpreter)
 _EXEC_RE = r"(?:sh|bash|zsh|dash|python[23]?|perl|ruby|node)"
 
+# gh CLI read-only subcommands: excluded from external-visibility blocking
+_GH_READ_ONLY = r"(?:list|view|status|checks|diff|download|checkout|search)\b"
+
 
 def _rce_patterns() -> list[tuple[re.Pattern[str], str, str]]:
     """Build remote-code-execution patterns using shared shell/exec constants."""
@@ -237,7 +240,10 @@ PATTERNS: list[tuple[re.Pattern[str], str, str]] = [
     (re.compile(r"\baws\s+eks\s+delete-cluster\b"), "aws eks delete-cluster", "aws-destructive"),
     (re.compile(r"\baws\s+ecr\s+delete-repository\b"), "aws ecr delete-repository", "aws-destructive"),
     # -- git-destructive --
-    (re.compile(r"\bgit\s+push\s+.*--force(?!-with-lease)\b"), "git push --force (use --force-with-lease)", "git-destructive"),
+    # --force-with-lease must precede --force: the broader \b boundary in --force
+    # also matches --force-with-lease, so the specific pattern must fire first.
+    (re.compile(r"\bgit\s+push\s+.*--force-with-lease\b"), "git push --force-with-lease (rewrites remote history)", "git-destructive"),
+    (re.compile(r"\bgit\s+push\s+.*--force\b"), "git push --force (rewrites remote history)", "git-destructive"),
     (re.compile(r"\bgit\s+push\s+(-[^\s]*\s+)*-[a-eg-zA-Z]*f\b"), "git push -f (force push, combined flags)", "git-destructive"),
     (re.compile(r"\bgit\s+push\s+.+\s+-[a-eg-zA-Z]*f\b"), "git push <args> -f (force push, trailing)", "git-destructive"),
     # Force push via refspec: git push <remote> +<ref>:<ref>
@@ -253,6 +259,11 @@ PATTERNS: list[tuple[re.Pattern[str], str, str]] = [
     (re.compile(r"\bgit\s+push\s+\S+\s+--delete\b"), "git push --delete (remote branch deletion)", "git-destructive"),
     (re.compile(r"\bgit\s+checkout\s+\.\s*$"), "git checkout . (discard all changes)", "git-destructive"),
     (re.compile(r"\bgit\s+restore\s+\.\s*$"), "git restore . (discard all changes)", "git-destructive"),
+    # gh repo delete is irreversible — categorized as git-destructive, not external-visibility
+    (re.compile(r"\bgh\s+repo\s+delete\b"), "gh repo delete (irreversible repository deletion)", "git-destructive"),
+    # gh secret write/delete is a destructive operation on secrets — categorized as
+    # git-destructive (not external-visibility) so it defaults to deny.
+    (re.compile(r"\bgh\s+secret\s+(?!list\b)\w+"), "gh secret write/delete (destructive operation)", "git-destructive"),
     # -- credential-reads --
     # Any file-reading or file-copying command accessing credential paths is blocked.
     # _FILE_READERS covers: cat, head, tail, less, more, od, xxd, hexdump,
@@ -285,7 +296,40 @@ PATTERNS: list[tuple[re.Pattern[str], str, str]] = [
     (re.compile(r":\(\)\{.*\|.*&.*\};:"), "fork bomb", "system-level"),
     # -- iac-destruction --
     (re.compile(_BIN + r"\bterraform\s+destroy\b"), "terraform destroy", "iac-destruction"),
+    (re.compile(_BIN + r"\bterraform\s+apply\b"), "terraform apply (can implicitly destroy resources)", "iac-destruction"),
     (re.compile(_BIN + r"\bpulumi\s+destroy\b"), "pulumi destroy", "iac-destruction"),
+    (re.compile(_BIN + r"\bpulumi\s+up\b"), "pulumi up (can implicitly destroy resources)", "iac-destruction"),
+    # npx/yarn/pnpm/bunx patterns handle optional flags between runner and cdk (e.g. npx --yes cdk deploy)
+    # The flags pattern (?:--?\S*\s+)* matches flags, bare --, and option terminators.
+    (re.compile(_BIN + r"\bnpx\s+(?:--?\S*\s+)*(?:aws-)?cdk\s+(?:deploy|destroy|bootstrap|watch)\b"), "cdk deploy/destroy/bootstrap/watch via npx (can implicitly destroy resources)", "iac-destruction"),
+    # npx -c "cdk deploy" — command string syntax
+    (re.compile(_BIN + r"\bnpx\s+.*-c\s+[\"'](?:aws-)?cdk\s+(?:deploy|destroy|bootstrap|watch)\b"), "cdk deploy/destroy/bootstrap/watch via npx -c (can implicitly destroy resources)", "iac-destruction"),
+    (re.compile(_BIN + r"\byarn\s+(?:dlx\s+)?(?:--?\S*\s+)*(?:aws-)?cdk\s+(?:deploy|destroy|bootstrap|watch)\b"), "cdk deploy/destroy/bootstrap/watch via yarn (can implicitly destroy resources)", "iac-destruction"),
+    (re.compile(_BIN + r"\bpnpm\s+(?:(?:exec|dlx)\s+)?(?:--?\S*\s+)*(?:aws-)?cdk\s+(?:deploy|destroy|bootstrap|watch)\b"), "cdk deploy/destroy/bootstrap/watch via pnpm (can implicitly destroy resources)", "iac-destruction"),
+    (re.compile(_BIN + r"\bbunx\s+(?:--?\S*\s+)*(?:aws-)?cdk\s+(?:deploy|destroy|bootstrap|watch)\b"), "cdk deploy/destroy/bootstrap/watch via bunx (can implicitly destroy resources)", "iac-destruction"),
+    (re.compile(_BIN + r"\bcdk\s+(?:deploy|destroy|bootstrap|watch)\b"), "cdk deploy/destroy/bootstrap/watch (can implicitly destroy resources)", "iac-destruction"),
+    # -- privilege-escalation --
+    (re.compile(_BIN + r"\bsudo(\s|$)"), "sudo (privilege escalation)", "privilege-escalation"),
+    (re.compile(_BIN + r"\bsu(\s|$)"), "su (privilege escalation)", "privilege-escalation"),
+    (re.compile(_BIN + r"\bdoas(\s|$)"), "doas (privilege escalation)", "privilege-escalation"),
+    # -- external-visibility --
+    # ORDERING INVARIANT: git-destructive patterns must precede external-visibility
+    # to ensure force-push detection fires first. Negative lookahead covers both
+    # --force and -f shorthand as defense-in-depth.
+    (re.compile(r"\bgit\s+push\b(?!.*(?:--force\b|-[a-eg-zA-Z]*f\b))"), "git push (visible to teammates)", "external-visibility"),
+    (re.compile(r"\bgh\s+pr\s+(?!" + _GH_READ_ONLY + r")\w+"), "gh pr write operation (visible to teammates)", "external-visibility"),
+    (re.compile(r"\bgh\s+issue\s+(?!" + _GH_READ_ONLY + r")\w+"), "gh issue write operation (visible to teammates)", "external-visibility"),
+    (re.compile(r"\bgh\s+workflow\s+(?!" + _GH_READ_ONLY + r")\w+"), "gh workflow operation (visible to teammates)", "external-visibility"),
+    (re.compile(r"\bgh\s+run\s+(?!" + _GH_READ_ONLY + r")\w+"), "gh run write operation (visible to teammates)", "external-visibility"),
+    (re.compile(r"\bgh\s+release\s+(?!" + _GH_READ_ONLY + r")\w+"), "gh release operation (visible to teammates)", "external-visibility"),
+    (re.compile(r"\bgh\s+repo\s+(?!" + _GH_READ_ONLY + r"|clone\b|delete\b)\w+"), "gh repo write operation (visible to teammates)", "external-visibility"),
+    (re.compile(r"\bgh\s+label\s+(?!" + _GH_READ_ONLY + r")\w+"), "gh label write operation (visible to teammates)", "external-visibility"),
+    (re.compile(r"\bgh\s+variable\s+(?!" + _GH_READ_ONLY + r")\w+"), "gh variable write operation (visible to teammates)", "external-visibility"),
+    (re.compile(r"\bgh\s+environment\s+(?!" + _GH_READ_ONLY + r")\w+"), "gh environment write operation (visible to teammates)", "external-visibility"),
+    (re.compile(r"\bgh\s+ruleset\s+(?!" + _GH_READ_ONLY + r")\w+"), "gh ruleset write operation (visible to teammates)", "external-visibility"),
+    (re.compile(r"\bgh\s+api\s+.*(?:-X|--method)\s*(?:POST|PUT|DELETE|PATCH)\b"), "gh api write operation (visible to teammates)", "external-visibility"),
+    # gh api with implicit POST: --field/-f/--raw-field triggers auto-POST when no -X is given
+    (re.compile(r"\bgh\s+api\s+(?!.*(?:-X|--method)\s).*(?:--field|--raw-field|-[fF])\s"), "gh api with field data (implicit POST, visible to teammates)", "external-visibility"),
     # -- docker-destruction --
     (re.compile(_BIN + r"\bdocker\s+system\s+prune\s+-a\b"), "docker system prune -a", "docker-destruction"),
     (re.compile(_BIN + r"\bdocker\s+volume\s+prune\b"), "docker volume prune", "docker-destruction"),
@@ -298,6 +342,7 @@ PATTERNS: list[tuple[re.Pattern[str], str, str]] = [
     #   _EXEC_RE:  shells + interpreters (for pipe-to, process subst, download-exec)
     *_rce_patterns(),
 ]
+
 
 
 def _normalize_rm_target(arg: str) -> str | None:

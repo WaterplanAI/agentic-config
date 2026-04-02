@@ -51,12 +51,14 @@ destructive_bash:
     process-destruction: deny
     persistence: deny
     system-level: deny
+    privilege-escalation: deny
     docker-destruction: deny
     npm-publish: deny
     iac-destruction: deny
     permission-abuse: deny
     credential-reads: deny
     remote-code-execution: deny
+    external-visibility: allow
 
 write_scope:
   categories:
@@ -125,6 +127,8 @@ supply_chain:
   npx_allowlist:
     - "@playwright/mcp"
     - "ts-node"
+    # deploy/destroy/bootstrap blocked by destructive-bash-guardian (iac-destruction);
+    # allowlisted here so safe subcommands (synth, diff, list) don't trigger a prompt.
     - "cdk"
     - "aws-cdk"
     - "jest"
