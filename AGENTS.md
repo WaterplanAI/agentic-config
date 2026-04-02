@@ -56,7 +56,7 @@ Use tier-based names in core assets, not specific model names:
 
 ## Specs
 - Specs MUST be created in `.specs/` (external specs repo), NEVER in `specs/` (gitignored local dir)
-- `/spec CREATE` must target `.specs/` path convention: `.specs/<YYYY>/<MM>/<bundle>/<NNN>-<short-title>.md`
+- `/spec CREATE` must target `.specs/` path convention: `.specs/specs/<YYYY>/<MM>/<branch>/<NNN>-<short-title>.md`
 - `specs/` is for local scratch only — never commit, never use as spec destination
 
 ## Session Resume
