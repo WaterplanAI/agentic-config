@@ -54,20 +54,20 @@ Generated outputs intentionally coexist with still-manual siblings. The generato
 Write generated outputs:
 
 ```bash
-python tools/generate_canonical_wrappers.py
+uv run python tools/generate_canonical_wrappers.py
 ```
 
 Check for drift without writing:
 
 ```bash
-python tools/generate_canonical_wrappers.py --check
+uv run python tools/generate_canonical_wrappers.py --check
 ```
 
 Run a filtered package wave:
 
 ```bash
-python tools/generate_canonical_wrappers.py --plugin ac-git --check
-python tools/generate_canonical_wrappers.py --plugin ac-workflow
+uv run python tools/generate_canonical_wrappers.py --plugin ac-git --check
+uv run python tools/generate_canonical_wrappers.py --plugin ac-workflow
 ```
 
 ## What the generator owns
