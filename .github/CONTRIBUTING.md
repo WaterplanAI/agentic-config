@@ -44,6 +44,10 @@ Thank you for your interest in contributing!
 
 ## Development
 
+Prerequisites for contributing locally:
+- `claude` for Claude Code plugin development and validation
+- `pi` for pi package validation and the pre-commit PII audit hook
+
 ```bash
 # Launch claude with all plugin dirs for local development
 ./dev.sh

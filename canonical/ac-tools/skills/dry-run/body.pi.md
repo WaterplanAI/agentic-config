@@ -13,18 +13,23 @@ This pi wrapper preserves the original dry-run workflow. Runtime enforcement com
 ```
 
 Examples:
-- `/skill:ac-tools-dry-run /spec IMPLEMENT path/to/spec.md` - Preview the implementation flow without writing files
-- `/skill:ac-tools-dry-run /mux-ospec path/to/spec.md` - Preview a larger workflow without committing changes
+- `/skill:ac-tools-dry-run /skill:ac-workflow-spec IMPLEMENT path/to/spec.md` - Preview the implementation flow without writing files
+- `/skill:ac-tools-dry-run /skill:ac-workflow-mux-ospec path/to/spec.md` - Preview a larger workflow without committing changes
 - `/skill:ac-tools-dry-run explain why the current plan uses packaged assets` - Normal chat with no file modifications
 
 ## Workflow
 
 ### Step 1: Initialize Session Status
 
-Resolve the Claude-compatible PID using process-tree tracing (matching the dry-run hook behavior), then create the session directory:
+Resolve the session status path using the same priority as the dry-run hook:
+1. prefer `CLAUDE_SESSION_ID` when it is available
+2. otherwise fall back to Claude-compatible PID tracing
+3. use the shared path only as a legacy last resort
 
 ```bash
-CLAUDE_PID=$(python3 - <<'PY'
+SESSION_ID="${CLAUDE_SESSION_ID:-}"
+if [ -z "$SESSION_ID" ]; then
+  SESSION_ID=$(python3 - <<'PY'
 import os
 import subprocess
 
@@ -34,6 +39,7 @@ for _ in range(10):
         ["ps", "-o", "pid=,ppid=,comm=", "-p", str(pid)],
         capture_output=True,
         text=True,
+        check=False,
     )
     line = result.stdout.strip()
     if not line:
@@ -52,12 +58,15 @@ else:
     print("shared")
 PY
 )
+fi
 
-[ -n "$CLAUDE_PID" ] || CLAUDE_PID="shared"
-mkdir -p "outputs/session/${CLAUDE_PID}"
+[ -n "$SESSION_ID" ] || SESSION_ID="shared"
+STATUS_DIR="outputs/session/${SESSION_ID}"
+STATUS_FILE="${STATUS_DIR}/status.yml"
+mkdir -p "$STATUS_DIR"
 ```
 
-If `outputs/session/<CLAUDE_PID>/status.yml` does not exist, create it with:
+If `${STATUS_FILE}` does not exist, create it with:
 
 ```yaml
 dry_run: false
@@ -65,26 +74,26 @@ dry_run: false
 
 ### Step 2: Set Dry-Run Mode
 
-Update `outputs/session/<CLAUDE_PID>/status.yml` to:
+Update `${STATUS_FILE}` to:
 
 ```yaml
 dry_run: true
 ```
 
-This signals to this session's file operations that writes are prohibited. Other sessions with different PIDs are not affected.
+This signals to this session's file operations that writes are prohibited. Other sessions with different session IDs are not affected.
 
 ### Step 3: Execute Delegated Command
 
 Execute the provided command or prompt exactly as given. All behavior remains normal except:
 
 - No file modifications are allowed
-- The only write exception is `outputs/session/<CLAUDE_PID>/status.yml`
+- The only write exception is `${STATUS_FILE}`
 - If the delegated work requires file writes, describe what would change instead of performing the write
 - For chat-only prompts, respond normally
 
 ### Step 4: Reset Dry-Run Mode
 
-After execution completes, whether it succeeds or fails, reset `outputs/session/<CLAUDE_PID>/status.yml` to:
+After execution completes, whether it succeeds or fails, reset `${STATUS_FILE}` to:
 
 ```yaml
 dry_run: false
@@ -107,7 +116,7 @@ The skill acts as a wrapper:
 
 ## State Schema
 
-`outputs/session/<claude_pid>/status.yml`:
+`outputs/session/<session_id>/status.yml`:
 
 ```yaml
 dry_run: bool

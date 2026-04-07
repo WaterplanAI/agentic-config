@@ -85,9 +85,17 @@ This keeps the marketplace and all installed plugins automatically in sync with 
 
 In any project directory:
 
+Claude Code:
+
 ```bash
 claude
 /improve-agents-md setup
+```
+
+Pi:
+
+```text
+/skill:ac-tools-improve-agents-md setup
 ```
 
 The `improve-agents-md` skill (part of `ac-tools`) generates and manages AGENTS.md (CLAUDE.md):
@@ -112,31 +120,47 @@ Project type is auto-detected or specified with `--type` flag.
 
 ## Update
 
+Claude Code:
+
 ```bash
 claude
 /improve-agents-md update
+```
+
+Pi:
+
+```text
+/skill:ac-tools-improve-agents-md update
 ```
 
 Regenerates AGENTS.md with latest template.
 
 ## Validate
 
+Claude Code:
+
 ```bash
 claude
 /improve-agents-md validate
+```
+
+Pi:
+
+```text
+/skill:ac-tools-improve-agents-md validate
 ```
 
 Checks AGENTS.md is up-to-date with current template and validates project type detection.
 
 ## Core Commands
 
-| Command | Description |
-|---------|-------------|
-| `/improve-agents-md setup` | Generate AGENTS.md for new project |
-| `/improve-agents-md update` | Regenerate AGENTS.md with latest template |
-| `/improve-agents-md validate` | Check AGENTS.md is current |
-| `/spec STAGE path` | Execute single workflow stage |
-| `/mux "prompt"` | Parallel research-to-deliverable orchestration |
+| Claude Code | Pi | Description |
+|-------------|----|-------------|
+| `/improve-agents-md setup` | `/skill:ac-tools-improve-agents-md setup` | Generate AGENTS.md for new project |
+| `/improve-agents-md update` | `/skill:ac-tools-improve-agents-md update` | Regenerate AGENTS.md with latest template |
+| `/improve-agents-md validate` | `/skill:ac-tools-improve-agents-md validate` | Check AGENTS.md is current |
+| `/spec STAGE path` | `/skill:ac-workflow-spec STAGE path` | Execute single workflow stage |
+| `/mux "prompt"` | `/skill:ac-workflow-mux "prompt"` | Parallel research-to-deliverable orchestration |
 
 See [Plugin Catalog](plugin-catalog.md) for all skills across 7 plugins.
 
@@ -186,7 +210,7 @@ claude plugin install ac-audit@agentic-plugins
 ```
 
 **Skill not responding:**
-- Use explicit slash command: `/improve-agents-md setup`
+- Use the explicit command form for your harness: `/improve-agents-md setup` in Claude Code or `/skill:ac-tools-improve-agents-md setup` in Pi
 - Check plugin is installed: `claude plugin list`
 - Reinstall if missing: `claude plugin install ac-tools@agentic-plugins`
 
@@ -203,9 +227,16 @@ claude plugin marketplace add WaterplanAI/agentic-config
 See [Migration Guide](migration-v0.2.0.md#step-1-remove-old-symlinks) for details.
 
 **Version mismatch:**
+
+Claude Code:
 ```bash
 claude
 /improve-agents-md update
+```
+
+Pi:
+```text
+/skill:ac-tools-improve-agents-md update
 ```
 
 ## See Also
