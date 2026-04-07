@@ -21,11 +21,23 @@ claude plugin install ac-audit@agentic-plugins
 > Enable them via `/plugins` > Marketplaces > agentic-plugins > Enable auto-update
 > to stay in sync with new releases automatically.
 
-See [Getting Started](docs/getting-started.md) for full setup.
+See [Getting Started](docs/getting-started.md) for Claude Code and pi setup.
+
+## Pi Packages
+
+Pi is also supported through published npm packages. Install the full shipped surface in one step:
+
+```bash
+pi install npm:@agentic-config/pi-all@0.2.6
+```
+
+For teams, prefer a committed `.pi/settings.json` so pi can auto-install the same package set for everyone. For plugin-by-plugin rollout, install only the package families you need.
+
+See the [Pi Package Adoption Guide](packages/README.md) for one-shot and selective install examples, committed settings guidance, and local pre-distribution testing.
 
 ## What is agentic-config?
 
-A centralized configuration system with a Claude Code plugin architecture first in v0.2.0.
+A centralized configuration system with Claude Code plugins and a shipped pi package surface.
 
 Future releases will extend the same plugin approach to additional tools (Cursor, Codex CLI, Gemini CLI, and Antigravity).
 
@@ -33,7 +45,7 @@ Core principles:
 
 1. **Project-agnostic** -- Works in any codebase without modification
 2. **Composable** -- Skills invoke other skills, creating compounding automation
-3. **CC-native distribution** -- Install via `claude plugin install`, no symlinks
+3. **Native distribution surfaces** -- Claude via `claude plugin install`; pi via `pi install`
 
 ## Plugins
 
@@ -51,8 +63,8 @@ Core principles:
 
 - [Getting Started](docs/getting-started.md) -- Install, setup, first use
 - [Plugin Catalog](docs/plugin-catalog.md) -- All 42 skills with composition patterns
-- [Distribution Guide](docs/distribution.md) -- Team adoption and private marketplace
-- [Pi Package Adoption Guide](packages/README.md) -- IT001 pi install guidance, local pre-distribution package testing, availability matrix, and IT002 handoff
+- [Distribution Guide](docs/distribution.md) -- Claude marketplace rollout plus pi package team adoption
+- [Pi Package Adoption Guide](packages/README.md) -- npm installs, committed `.pi/settings.json`, selective package rollout, and local pre-distribution testing
 - [Migration Guide v0.2.0](docs/migration-v0.2.0.md) -- Migrate from v0.1.x
 - [Uninstall Legacy (v0.1.x)](docs/migration-v0.2.0.md#step-1-remove-old-symlinks) -- Remove legacy symlink wiring
 - [Full Documentation Index](docs/index.md)
@@ -79,7 +91,7 @@ All plugins in this repository are designed and tested with full tool permission
 
 See [Contributing Guidelines](.github/CONTRIBUTING.md).
 
-For local pi package testing before npm distribution is enabled, start with the [Pi Package Adoption Guide](packages/README.md#local-package-testing-before-distribution).
+For local pre-distribution pi package testing, start with the [Pi Package Adoption Guide](packages/README.md#local-package-testing-before-distribution).
 
 ## License
 

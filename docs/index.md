@@ -8,7 +8,8 @@ Table of contents for agentic-config documentation.
 |----------|-------------|
 | [Getting Started](getting-started.md) | Installation, setup, first use, troubleshooting |
 | [Plugin Catalog](plugin-catalog.md) | All 42 skills across 7 plugins with composition patterns |
-| [Distribution Guide](distribution.md) | Team adoption tiers and private marketplace setup |
+| [Distribution Guide](distribution.md) | Claude marketplace rollout plus pi package team adoption |
+| [Pi Package Adoption Guide](../packages/README.md) | npm installs, committed `.pi/settings.json`, selective package rollout, and local pre-distribution testing |
 | [Migration Guide v0.2.0](migration-v0.2.0.md) | Migrate from v0.1.x symlinks to CC-native plugins |
 
 ## Reference

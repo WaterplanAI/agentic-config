@@ -4,10 +4,11 @@ Setup and first use of agentic-config for AI-assisted development workflows.
 
 ## Prerequisites
 
-- Claude Code CLI with plugin support (`claude plugin install` available)
-- Git (for marketplace access)
+- Claude Code CLI with plugin support (`claude plugin install` available) for Claude Code setup
+- Pi CLI (`pi install` available) for pi package setup
+- Git (for Claude marketplace access)
 
-## Install
+## Install for Claude Code
 
 Add the marketplace, then install plugins:
 
@@ -22,6 +23,36 @@ claude plugin install ac-meta@agentic-plugins
 claude plugin install ac-safety@agentic-plugins
 claude plugin install ac-audit@agentic-plugins
 ```
+
+## Install for pi
+
+Pi packages are published as npm packages. The one-shot install path is:
+
+```bash
+pi install npm:@agentic-config/pi-all@0.2.6
+```
+
+Install only selected package families when you want a smaller surface:
+
+```bash
+pi install npm:@agentic-config/pi-ac-git@0.2.6
+pi install npm:@agentic-config/pi-ac-tools@0.2.6
+pi install npm:@agentic-config/pi-ac-workflow@0.2.6
+```
+
+Use `-l` if you want `pi install` to write directly to the project-local `.pi/settings.json` instead of your global settings.
+
+For teams, prefer a committed `.pi/settings.json` so pi can auto-install the same package set on startup:
+
+```json
+{
+  "packages": [
+    "npm:@agentic-config/pi-all@0.2.6"
+  ]
+}
+```
+
+Use selective package entries instead when rolling out plugin families incrementally. Local-path installs remain useful for local pre-distribution testing, not as the primary team rollout path for this monorepo. See the [Pi Package Adoption Guide](../packages/README.md) for the full install matrix.
 
 ## Enable Auto-Updates (Recommended)
 
@@ -107,9 +138,13 @@ Add project-specific customizations directly to AGENTS.md.
 
 ## What Gets Installed
 
-**Plugins (via `claude plugin install`):**
+**Claude Code plugins (via `claude plugin install`):**
 - `ac-workflow`, `ac-git`, `ac-qa`, `ac-tools`, `ac-meta`, `ac-safety`, `ac-audit`
 - No symlinks -- plugins load from `~/.claude/plugins/cache/`
+
+**Pi packages (via `pi install`):**
+- `@agentic-config/pi-all` for the full shipped surface, or selective `@agentic-config/pi-*` packages
+- Team rollout is typically versioned in committed `.pi/settings.json`
 
 **Copied (project-customizable):**
 - `AGENTS.md` -- Project-specific guidelines
@@ -162,6 +197,7 @@ claude
 ## See Also
 
 - [Plugin Catalog](plugin-catalog.md) -- All skills by plugin
-- [Distribution Guide](distribution.md) -- Team adoption tiers and private marketplace
+- [Distribution Guide](distribution.md) -- Claude marketplace rollout plus pi package team adoption
+- [Pi Package Adoption Guide](../packages/README.md) -- npm installs, committed `.pi/settings.json`, and local pre-distribution testing
 - [Migration Guide v0.2.0](migration-v0.2.0.md) -- Migrate from v0.1.x symlinks
 - [External Specs Storage](external-specs-storage.md) -- Configure external specs repository
