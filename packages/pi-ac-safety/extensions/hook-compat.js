@@ -60,6 +60,17 @@ export default function registerAcSafetyHookCompat(pi) {
         ],
       },
       {
+        matcher: "mcp__playwright__*|mcp__plugin_playwright_playwright__*",
+        hooks: [
+          {
+            id: "playwright-guardian",
+            scriptPath: "scripts/hooks/playwright-guardian.py",
+            timeoutMs: 5000,
+            failureMode: "fail-close",
+          },
+        ],
+      },
+      {
         matcher: "Write|Edit|NotebookEdit",
         hooks: [
           {

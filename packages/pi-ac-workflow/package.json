@@ -21,6 +21,11 @@
     "product-manager"
   ],
   "type": "module",
+  "peerDependencies": {
+    "@mariozechner/pi-ai": "*",
+    "@mariozechner/pi-coding-agent": "*",
+    "@sinclair/typebox": "*"
+  },
   "pi": {
     "skills": [
       "./skills"

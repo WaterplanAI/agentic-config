@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { isAbsolute, resolve } from "node:path";
 
 function normalizeEnvValue(value) {
@@ -5,6 +6,24 @@ function normalizeEnvValue(value) {
     return undefined;
   }
   return String(value);
+}
+
+function buildOpaqueSessionId(value, prefix) {
+  const digest = createHash("sha256").update(value).digest("hex");
+  return `${prefix}-${digest.slice(0, 24)}`;
+}
+
+function normalizeClaudeSessionId(value, prefix = "session") {
+  const normalized = normalizeEnvValue(value)?.trim();
+  if (!normalized) {
+    return undefined;
+  }
+
+  if (/^[A-Za-z0-9._-]{1,128}$/.test(normalized)) {
+    return normalized;
+  }
+
+  return buildOpaqueSessionId(normalized, prefix);
 }
 
 export function normalizeSpawnCwd(cwd) {
@@ -30,16 +49,16 @@ export function resolveClaudeSessionId(ctx) {
   const sessionManager = ctx?.sessionManager;
 
   if (sessionManager && typeof sessionManager.getSessionId === "function") {
-    const sessionId = normalizeEnvValue(sessionManager.getSessionId());
+    const sessionId = normalizeClaudeSessionId(sessionManager.getSessionId(), "session");
     if (sessionId) {
       return sessionId;
     }
   }
 
   if (sessionManager && typeof sessionManager.getSessionFile === "function") {
-    const sessionFile = normalizeEnvValue(sessionManager.getSessionFile());
+    const sessionFile = normalizeEnvValue(sessionManager.getSessionFile())?.trim();
     if (sessionFile) {
-      return sessionFile;
+      return buildOpaqueSessionId(sessionFile, "session-file");
     }
   }
 
@@ -55,7 +74,7 @@ export function buildClaudeCompatEnv({
 }) {
   const claudePluginRoot = normalizeEnvValue(pluginRoot);
   const claudeProjectDir = normalizeEnvValue(projectDir);
-  const claudeSessionId = normalizeEnvValue(sessionId);
+  const claudeSessionId = normalizeClaudeSessionId(sessionId, "session");
 
   if (!claudePluginRoot || !claudeProjectDir || !claudeSessionId) {
     throw new TypeError(

@@ -5,11 +5,27 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 
 import hookCompatExtension, {
+  HookCompatGuardBlockedError,
+  guardedBash,
+  guardedEdit,
+  guardedGlob,
+  guardedGrep,
+  guardedNotebookEdit,
+  guardedRead,
+  guardedToolExecution,
+  guardedWrite,
   listRegisteredHookCompatPackages,
   registerHookCompatPackage,
+  runHookCompatPreflight,
+  runHookCompatToolCall,
 } from "../index.js";
 import { interpretHookDecision } from "../decision.js";
-import { resetHookCompatRegistryForTests } from "../registry.js";
+import { buildClaudeCompatEnv, resolveClaudeSessionId } from "../env.js";
+import {
+  clearHookCompatRuntimeState,
+  markHookCompatRuntimeInstalled,
+  resetHookCompatRegistryForTests,
+} from "../registry.js";
 
 function sampleRegistration(packageId = "package-surface") {
   return {
@@ -29,12 +45,23 @@ function sampleRegistration(packageId = "package-surface") {
   };
 }
 
-test("hook-compat exports the runtime extension and registration helper", () => {
+test("hook-compat exports the runtime extension, preflight helpers, guarded wrappers, and registration helpers", () => {
   resetHookCompatRegistryForTests();
 
   assert.equal(typeof hookCompatExtension, "function");
   assert.equal(typeof registerHookCompatPackage, "function");
   assert.equal(typeof listRegisteredHookCompatPackages, "function");
+  assert.equal(typeof runHookCompatPreflight, "function");
+  assert.equal(typeof runHookCompatToolCall, "function");
+  assert.equal(typeof guardedRead, "function");
+  assert.equal(typeof guardedToolExecution, "function");
+  assert.equal(typeof guardedGrep, "function");
+  assert.equal(typeof guardedGlob, "function");
+  assert.equal(typeof guardedBash, "function");
+  assert.equal(typeof guardedWrite, "function");
+  assert.equal(typeof guardedEdit, "function");
+  assert.equal(typeof guardedNotebookEdit, "function");
+  assert.equal(typeof HookCompatGuardBlockedError, "function");
 });
 
 test("registry state is shared across imports but isolated per runtime object", async () => {
@@ -70,6 +97,45 @@ test("registry state is shared across imports but isolated per runtime object", 
   firstModule.resetHookCompatRegistryForTests();
 });
 
+test("registry uses the shared events bus so package registrations and hook runtime handlers can meet in real pi", async () => {
+  resetHookCompatRegistryForTests();
+
+  const sharedEvents = { name: "shared-events" };
+  const hookRuntimeApi = {
+    events: sharedEvents,
+    on() {},
+  };
+  const packageRuntimeApi = {
+    events: sharedEvents,
+    on() {},
+  };
+  const otherRuntimeApi = {
+    events: { name: "other-events" },
+    on() {},
+  };
+
+  const firstResult = registerHookCompatPackage(packageRuntimeApi, sampleRegistration("shared-events-package"));
+  const secondResult = registerHookCompatPackage(hookRuntimeApi, sampleRegistration("shared-events-package"));
+  const thirdResult = registerHookCompatPackage(otherRuntimeApi, sampleRegistration("other-events-package"));
+
+  assert.equal(firstResult.status, "registered");
+  assert.equal(secondResult.status, "replaced");
+  assert.equal(thirdResult.status, "registered");
+
+  assert.equal(listRegisteredHookCompatPackages(hookRuntimeApi).length, 1);
+  assert.equal(listRegisteredHookCompatPackages(packageRuntimeApi).length, 1);
+  assert.equal(listRegisteredHookCompatPackages(otherRuntimeApi).length, 1);
+  assert.notDeepEqual(
+    listRegisteredHookCompatPackages(hookRuntimeApi).map((registration) => registration.packageId),
+    listRegisteredHookCompatPackages(otherRuntimeApi).map((registration) => registration.packageId),
+  );
+
+  assert.equal(markHookCompatRuntimeInstalled(hookRuntimeApi), true);
+  assert.equal(markHookCompatRuntimeInstalled(packageRuntimeApi), false);
+  clearHookCompatRuntimeState(packageRuntimeApi);
+  assert.equal(listRegisteredHookCompatPackages(hookRuntimeApi).length, 0);
+});
+
 test("extension registers one runtime handler set and clears only its own runtime state on shutdown", async () => {
   resetHookCompatRegistryForTests();
 
@@ -97,28 +163,34 @@ test("extension registers one runtime handler set and clears only its own runtim
   hookCompatExtension(pi);
   hookCompatExtension(pi);
 
-  assert.equal(handlers.length, 2);
+  assert.equal(handlers.length, 3);
   assert.deepEqual(
     handlers.map((entry) => entry.eventName),
-    ["tool_call", "session_shutdown"],
+    ["tool_call", "user_bash", "session_shutdown"],
   );
-  assert.equal(typeof handlers[0].handler, "function");
-  assert.equal(typeof handlers[1].handler, "function");
+
+  const toolCallHandler = handlers.find((entry) => entry.eventName === "tool_call")?.handler;
+  const sessionShutdownHandler = handlers.find((entry) => entry.eventName === "session_shutdown")?.handler;
+  const userBashHandler = handlers.find((entry) => entry.eventName === "user_bash")?.handler;
+
+  assert.equal(typeof toolCallHandler, "function");
+  assert.equal(typeof userBashHandler, "function");
+  assert.equal(typeof sessionShutdownHandler, "function");
 
   registerHookCompatPackage(pi, sampleRegistration("shutdown-package"));
   registerHookCompatPackage(otherRuntime, sampleRegistration("other-runtime-package"));
   assert.equal(listRegisteredHookCompatPackages(pi).length, 1);
   assert.equal(listRegisteredHookCompatPackages(otherRuntime).length, 1);
 
-  const beforeShutdownResult = await handlers[0].handler(toolCallEvent, ctx);
+  const beforeShutdownResult = await toolCallHandler(toolCallEvent, ctx);
   assert.equal(beforeShutdownResult?.block, true);
   assert.match(beforeShutdownResult?.reason ?? "", /example\.py|Hook adapter failure/i);
 
-  await handlers[1].handler();
+  await sessionShutdownHandler();
   assert.equal(listRegisteredHookCompatPackages(pi).length, 0);
   assert.equal(listRegisteredHookCompatPackages(otherRuntime).length, 1);
 
-  const afterShutdownResult = await handlers[0].handler(toolCallEvent, ctx);
+  const afterShutdownResult = await toolCallHandler(toolCallEvent, ctx);
   assert.equal(afterShutdownResult, undefined);
 });
 
@@ -150,6 +222,50 @@ test("malformed hookSpecificOutput fails before user notification", async () => 
   assert.deepEqual(notifications, []);
 });
 
+test("resolveClaudeSessionId preserves safe ids and hashes unsafe session-file fallbacks", () => {
+  const safeId = resolveClaudeSessionId({
+    sessionManager: {
+      getSessionId() {
+        return "hook-compat-session";
+      },
+    },
+  });
+  assert.equal(safeId, "hook-compat-session");
+
+  const hashedId = resolveClaudeSessionId({
+    sessionManager: {
+      getSessionFile() {
+        return "/tmp/pi-compat/../../unsafe/session.json";
+      },
+    },
+  });
+  assert.match(hashedId, /^session-file-[a-f0-9]{24}$/);
+  assert.equal(hashedId.includes("/"), false);
+  assert.equal(
+    hashedId,
+    resolveClaudeSessionId({
+      sessionManager: {
+        getSessionFile() {
+          return "/tmp/pi-compat/../../unsafe/session.json";
+        },
+      },
+    }),
+  );
+});
+
+
+test("buildClaudeCompatEnv normalizes unsafe session ids before exporting CLAUDE_SESSION_ID", () => {
+  const env = buildClaudeCompatEnv({
+    pluginRoot: "/tmp/plugin-root",
+    projectDir: "/tmp/project-root",
+    sessionId: "../../unsafe/session-id",
+  });
+
+  assert.match(env.CLAUDE_SESSION_ID, /^session-[a-f0-9]{24}$/);
+  assert.equal(env.CLAUDE_SESSION_ID.includes("/"), false);
+});
+
+
 test("package.json wires hook-compat export surface", async () => {
   const packageJsonPath = fileURLToPath(new URL("../../../package.json", import.meta.url));
   const packageJson = JSON.parse(await readFile(packageJsonPath, "utf8"));
@@ -175,5 +291,22 @@ test("package.json wires hook-compat export surface", async () => {
   );
 
   assert.equal(importProbe.status, 0, importProbe.stderr);
-  assert.equal(importProbe.stdout.trim(), "default,listRegisteredHookCompatPackages,registerHookCompatPackage");
+
+  const exportedKeys = importProbe.stdout.trim().split(",").filter(Boolean);
+  assert.deepEqual(exportedKeys, [
+    "HookCompatGuardBlockedError",
+    "default",
+    "guardedBash",
+    "guardedEdit",
+    "guardedGlob",
+    "guardedGrep",
+    "guardedNotebookEdit",
+    "guardedRead",
+    "guardedToolExecution",
+    "guardedWrite",
+    "listRegisteredHookCompatPackages",
+    "registerHookCompatPackage",
+    "runHookCompatPreflight",
+    "runHookCompatToolCall",
+  ]);
 });

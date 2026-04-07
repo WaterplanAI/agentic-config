@@ -21,7 +21,7 @@
 - playwright guardian parity for the current Bash-based `playwright-cli` surface
 
 ### Deferred surface
-- None.
+- External raw-tool host adoption outside the active pi/Claude runtime remains out of scope for this package. This matches the current Claude-package scope: hooks enforce the host runtime's own tool surfaces, not arbitrary external executors.
 
 ## Layout conventions
 - `skills/` for exported pi skills using namespaced `<plugin>-<resource>` identifiers
@@ -33,4 +33,5 @@
 ## Status signaling
 - This package now ships the generated safety configuration surface, the generated `ac-safety-harden-supply-chain-sec` skill, and the current guardian parity surface through the shared `pi-compat` adapter.
 - The shipped Playwright guardian parity enforces the configured allowlist/blocklist policy on the current `playwright-cli` Bash surface; it does not introduce a first-party browser tool of its own.
+- External raw-tool endpoint adoption is follow-up hardening, not part of the current Claude-parity completion claim.
 - Presence of this package directory does not imply that broader generic nested/background subagent parity is solved repository-wide.

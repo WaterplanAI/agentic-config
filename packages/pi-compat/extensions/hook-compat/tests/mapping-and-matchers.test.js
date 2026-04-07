@@ -24,7 +24,7 @@ test("maps read payload to Claude Read schema", () => {
   });
 });
 
-test("maps grep/find/write/edit/bash/NotebookEdit payloads per the locked table", () => {
+test("maps grep/find/glob/write/edit/bash/NotebookEdit payloads per the locked table", () => {
   assert.deepEqual(
     mapPiToolCallToClaudePayload({
       toolName: "grep",
@@ -44,6 +44,17 @@ test("maps grep/find/write/edit/bash/NotebookEdit payloads per the locked table"
     {
       tool_name: "Glob",
       tool_input: { pattern: "*.md", path: "docs" },
+    },
+  );
+
+  assert.deepEqual(
+    mapPiToolCallToClaudePayload({
+      toolName: "glob",
+      input: { pattern: "*.json", path: "fixtures" },
+    }),
+    {
+      tool_name: "Glob",
+      tool_input: { pattern: "*.json", path: "fixtures" },
     },
   );
 
@@ -119,16 +130,27 @@ test("maps grep/find/write/edit/bash/NotebookEdit payloads per the locked table"
   );
 });
 
-test("passes true unknown tools through unchanged", () => {
+test("passes raw custom tool names through unchanged", () => {
   const payload = mapPiToolCallToClaudePayload({
-    toolName: "custom_preview_tool",
-    input: { selector: "#submit" },
+    toolName: "mcp__playwright__browser_navigate",
+    input: { url: "https://example.com" },
   });
 
   assert.deepEqual(payload, {
-    tool_name: "custom_preview_tool",
-    tool_input: { selector: "#submit" },
+    tool_name: "mcp__playwright__browser_navigate",
+    tool_input: { url: "https://example.com" },
   });
+
+  assert.deepEqual(
+    mapPiToolCallToClaudePayload({
+      toolName: "custom_preview_tool",
+      input: { selector: "#submit" },
+    }),
+    {
+      tool_name: "custom_preview_tool",
+      tool_input: { selector: "#submit" },
+    },
+  );
 });
 
 test("matcher supports wildcard, alternation, exact, and suffix wildcard", () => {
@@ -137,6 +159,13 @@ test("matcher supports wildcard, alternation, exact, and suffix wildcard", () =>
   assert.equal(matchesClaudeMatcher("Read|Grep|Glob", "Bash"), false);
   assert.equal(matchesClaudeMatcher("Bash", "Bash"), true);
   assert.equal(matchesClaudeMatcher("mcp__playwright__*", "mcp__playwright__browser_click"), true);
+  assert.equal(
+    matchesClaudeMatcher(
+      "mcp__playwright__*|mcp__plugin_playwright_playwright__*",
+      "mcp__plugin_playwright_playwright__browser_click",
+    ),
+    true,
+  );
   assert.equal(matchesClaudeMatcher("mcp__playwright__*", "mcp__plugin_other__browser_click"), false);
 });
 

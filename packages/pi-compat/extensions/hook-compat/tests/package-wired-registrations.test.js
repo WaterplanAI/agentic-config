@@ -6,7 +6,7 @@ import test from "node:test";
 
 import { listRegisteredHookCompatPackages } from "../index.js";
 import { resetHookCompatRegistryForTests } from "../registry.js";
-import { runHookCompatToolCall } from "../runtime.js";
+import { runHookCompatPreflight, runHookCompatToolCall } from "../runtime.js";
 import {
   REPO_ROOT,
   UV_CACHE_DIR,
@@ -90,11 +90,15 @@ test("package extensions register packaged asset roots and expected hook tables"
   assert.deepEqual(safetyRegistration.hooks.map((group) => group.matcher), [
     "Read|Grep|Glob",
     "Bash",
+    "mcp__playwright__*|mcp__plugin_playwright_playwright__*",
     "Write|Edit|NotebookEdit",
   ]);
   assert.deepEqual(safetyRegistration.hooks[1].hooks.map((hook) => hook.scriptPath), [
     "scripts/hooks/destructive-bash-guardian.py",
     "scripts/hooks/supply-chain-guardian.py",
+    "scripts/hooks/playwright-guardian.py",
+  ]);
+  assert.deepEqual(safetyRegistration.hooks[2].hooks.map((hook) => hook.scriptPath), [
     "scripts/hooks/playwright-guardian.py",
   ]);
 
@@ -223,6 +227,19 @@ test(
         assert.equal(bashResult?.block, true);
         assert.match(bashResult?.reason ?? "", /confirm to proceed|unapproved package/i);
 
+        const protectedWriteContext = createTestContext({
+          cwd: workspace.projectDir,
+          hasUI: false,
+        });
+        const protectedWriteResult = await runHookCompatToolCall(
+          createToolCallEvent("bash", { command: "touch ~/.ssh/test" }),
+          protectedWriteContext.ctx,
+          { runtime },
+        );
+
+        assert.equal(protectedWriteResult?.block, true);
+        assert.match(protectedWriteResult?.reason ?? "", /blocked|protected directory|ssh/i);
+
         const playwrightAllowContext = createTestContext({
           cwd: workspace.projectDir,
           hasUI: false,
@@ -247,6 +264,19 @@ test(
 
         assert.equal(playwrightBlockedResult?.block, true);
         assert.match(playwrightBlockedResult?.reason ?? "", /allowed domain list|confirm to proceed|playwright/i);
+
+        const playwrightMcpBlockedContext = createTestContext({
+          cwd: workspace.projectDir,
+          hasUI: false,
+        });
+        const playwrightMcpBlockedResult = await runHookCompatToolCall(
+          createToolCallEvent("mcp__playwright__browser_navigate", { url: "https://evil.com/phishing" }),
+          playwrightMcpBlockedContext.ctx,
+          { runtime },
+        );
+
+        assert.equal(playwrightMcpBlockedResult?.block, true);
+        assert.match(playwrightMcpBlockedResult?.reason ?? "", /allowed domain list|confirm to proceed|playwright/i);
 
         const writeContext = createTestContext({
           cwd: workspace.projectDir,
@@ -275,6 +305,84 @@ test(
           { runtime },
         );
 
+        assert.equal(notebookResult?.block, true);
+        assert.match(notebookResult?.reason ?? "", /blocked|outside allowed|protected/i);
+      });
+    } finally {
+      await cleanupPath(workspace.rootDir);
+      resetHookCompatRegistryForTests();
+    }
+  },
+);
+
+test(
+  "package-wired safety registrations support direct preflight with live runtime state",
+  { skip: !UV_IS_AVAILABLE, concurrency: false },
+  async () => {
+    resetHookCompatRegistryForTests();
+    const workspace = await createRuntimeWorkspace("phase007-safety-direct-preflight");
+
+    try {
+      await withTemporaryEnv({ HOME: workspace.homeDir, UV_CACHE_DIR }, async () => {
+        const runtime = createRuntime("safety-runtime-direct-preflight");
+        registerAcSafetyHookCompat(runtime);
+
+        const directContext = createTestContext({
+          cwd: workspace.projectDir,
+          hasUI: false,
+        });
+
+        const credentialReadResult = await runHookCompatPreflight({
+          toolName: "read",
+          input: { path: resolve(workspace.homeDir, ".ssh", "id_rsa") },
+          cwd: workspace.projectDir,
+          ctx: directContext.ctx,
+          runtime,
+        });
+        assert.equal(credentialReadResult?.block, true);
+        assert.match(credentialReadResult?.reason ?? "", /blocked|credential/i);
+
+        const destructiveBashResult = await runHookCompatPreflight({
+          toolName: "bash",
+          input: { command: "rm -rf ~" },
+          cwd: workspace.projectDir,
+          ctx: directContext.ctx,
+          runtime,
+        });
+        assert.equal(destructiveBashResult?.block, true);
+        assert.match(destructiveBashResult?.reason ?? "", /blocked|rm -rf|destructive/i);
+
+        const supplyChainResult = await runHookCompatPreflight({
+          toolName: "bash",
+          input: { command: "uv add evilpkg" },
+          cwd: workspace.projectDir,
+          ctx: directContext.ctx,
+          runtime,
+        });
+        assert.equal(supplyChainResult?.block, true);
+        assert.match(supplyChainResult?.reason ?? "", /confirm to proceed|unapproved package/i);
+
+        const writeScopeResult = await runHookCompatPreflight({
+          toolName: "write",
+          input: { path: "/etc/hosts", content: "127.0.0.1 example.com\n" },
+          cwd: workspace.projectDir,
+          ctx: directContext.ctx,
+          runtime,
+        });
+        assert.equal(writeScopeResult?.block, true);
+        assert.match(writeScopeResult?.reason ?? "", /blocked|outside allowed|protected/i);
+
+        const notebookResult = await runHookCompatPreflight({
+          toolName: "NotebookEdit",
+          input: {
+            notebook_path: "/etc/x.ipynb",
+            cell_index: 0,
+            new_source: "print('unsafe')\n",
+          },
+          cwd: workspace.projectDir,
+          ctx: directContext.ctx,
+          runtime,
+        });
         assert.equal(notebookResult?.block, true);
         assert.match(notebookResult?.reason ?? "", /blocked|outside allowed|protected/i);
       });

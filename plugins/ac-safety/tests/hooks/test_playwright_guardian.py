@@ -72,6 +72,45 @@ def test_asks_navigate_blocked_domain() -> TestResult:
     return r
 
 
+def test_blocks_plugin_prefixed_browser_evaluate() -> TestResult:
+    r = TestResult("Blocks plugin-prefixed browser_evaluate")
+    try:
+        out = run_hook("mcp__plugin_playwright_playwright__browser_evaluate", {"script": "document.cookie"})
+        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+        raise
+    return r
+
+
+def test_allows_plugin_prefixed_browser_snapshot() -> TestResult:
+    r = TestResult("Allows plugin-prefixed browser_snapshot")
+    try:
+        out = run_hook("mcp__plugin_playwright_playwright__browser_snapshot", {})
+        assert out["decision"] == "allow", f"Expected allow, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+        raise
+    return r
+
+
+def test_asks_plugin_prefixed_navigate_blocked_domain() -> TestResult:
+    r = TestResult("Asks for plugin-prefixed navigate to blocked domain")
+    try:
+        out = run_hook(
+            "mcp__plugin_playwright_playwright__browser_navigate",
+            {"url": "https://evil.com/phishing"},
+        )
+        assert out["decision"] == "ask", f"Expected ask, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+        raise
+    return r
+
+
 def test_asks_action_with_url_on_blocked_domain() -> TestResult:
     """Any action with a url param on blocked domain triggers domain check."""
     r = TestResult("Asks for action with url param on blocked domain")
@@ -171,6 +210,36 @@ def test_denies_blocked_action_in_playwright_cli_chain() -> TestResult:
     return r
 
 
+def test_parity_between_raw_mcp_and_bash_run_code() -> TestResult:
+    r = TestResult("Parity between raw MCP and Bash run-code blocking")
+    try:
+        raw_out = run_hook("mcp__playwright__browser_run_code", {"script": "document.title"})
+        bash_out = run_hook("Bash", {"command": "playwright-cli run-code \"document.title\""})
+        assert raw_out["decision"] == "deny", f"Expected deny, got {raw_out['decision']}"
+        assert bash_out["decision"] == "deny", f"Expected deny, got {bash_out['decision']}"
+        assert raw_out["decision"] == bash_out["decision"]
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+        raise
+    return r
+
+
+def test_parity_between_raw_mcp_and_bash_navigation() -> TestResult:
+    r = TestResult("Parity between raw MCP and Bash blocked-domain navigation")
+    try:
+        raw_out = run_hook("mcp__playwright__browser_navigate", {"url": "https://evil.com/phishing"})
+        bash_out = run_hook("Bash", {"command": "playwright-cli open https://evil.com/phishing"})
+        assert raw_out["decision"] == "ask", f"Expected ask, got {raw_out['decision']}"
+        assert bash_out["decision"] == "ask", f"Expected ask, got {bash_out['decision']}"
+        assert raw_out["decision"] == bash_out["decision"]
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+        raise
+    return r
+
+
 def main() -> None:
     from ac_safety_test_support import run_tests  # pyright: ignore[reportMissingImports]
     run_tests("playwright-guardian unit tests", [
@@ -178,6 +247,9 @@ def main() -> None:
         test_allows_browser_snapshot,
         test_allows_navigate_allowed_domain,
         test_asks_navigate_blocked_domain,
+        test_blocks_plugin_prefixed_browser_evaluate,
+        test_allows_plugin_prefixed_browser_snapshot,
+        test_asks_plugin_prefixed_navigate_blocked_domain,
         test_asks_action_with_url_on_blocked_domain,
         test_allows_action_with_url_on_allowed_domain,
         test_denies_playwright_cli_run_code,
@@ -185,6 +257,8 @@ def main() -> None:
         test_asks_playwright_cli_open_blocked_domain,
         test_denies_playwright_cli_fill,
         test_denies_blocked_action_in_playwright_cli_chain,
+        test_parity_between_raw_mcp_and_bash_run_code,
+        test_parity_between_raw_mcp_and_bash_navigation,
     ])
 
 

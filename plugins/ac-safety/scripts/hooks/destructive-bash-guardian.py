@@ -17,7 +17,7 @@ import shlex
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from _lib import allow, ask, deny, fail_close, get_category_decision, load_config, resolve_path
+from _lib import allow, ask, deny, fail_close, get_category_decision, is_in_prefixes, load_config, resolve_path
 
 # Optional path prefix for system binaries (covers /bin/rm, /usr/bin/rm,
 # /usr/local/bin/rm, /usr/local/sbin/rm, etc.)
@@ -38,6 +38,11 @@ _RM_RF_SPLIT = r"(-[^\s]*\s+)*(-[^\s]*[rR][^\s]*\s+(-[^\s]*\s+)*-[^\s]*f[^\s]*|-
 _SHELL_RE = r"(?:sh|bash|zsh|dash)"
 # Executors (for pipe-to, process substitution, download-then-execute -- any interpreter)
 _EXEC_RE = r"(?:sh|bash|zsh|dash|python[23]?|perl|ruby|node)"
+
+_CONTROL_TOKENS = {";", "&&", "||", "|", "&"}
+_REDIRECTION_RE = re.compile(r"(?:^|[\s;&|])(?:\d*>>?)(?![&])\s*(?P<path>'[^']+'|\"[^\"]+\"|[^\s;&|]+)")
+_TARGETING_BASH_WRITE_COMMANDS = {"touch", "rm", "mkdir", "rmdir", "tee"}
+_DESTINATION_BASH_WRITE_COMMANDS = {"cp", "mv", "install", "ln"}
 
 
 def _rce_patterns() -> list[tuple[re.Pattern[str], str, str]]:
@@ -70,12 +75,18 @@ def _rce_patterns() -> list[tuple[re.Pattern[str], str, str]]:
 # File-reading commands that can expose credential file contents
 _FILE_READER_COMMANDS: tuple[str, ...] = (
     "cat", "head", "tail", "less", "more", "od", "xxd", "hexdump",
-    "strings", "base64", "openssl", "sed", "awk", "grep", "sort",
-    "tee", "cp", "scp", "tar", "zip", "rsync", "mv", "ln", "diff",
-    "nl", "cut", "paste", "fold", "fmt", "rev", "pr", "dd", "install",
+    "strings", "base64", "openssl", "sed", "awk", "grep", "rg", "ripgrep",
+    "sort", "tee", "cp", "scp", "tar", "zip", "rsync", "mv", "ln",
+    "diff", "nl", "cut", "paste", "fold", "fmt", "rev", "pr", "dd",
+    "install", "fd", "find", "ls", "tree", "stat",
 )
 _FILE_READER_COMMAND_SET = set(_FILE_READER_COMMANDS)
 _FILE_READERS = r"(?:" + "|".join(re.escape(command) for command in _FILE_READER_COMMANDS) + r")"
+_CREDENTIAL_PATH_FRAGMENT_RE = (
+    r"(?:\.ssh/|\.aws/|\.config/gh/|\.config/gcloud/|\.azure/|\.kube/|"
+    r"\.gnupg/|\.terraform\.d/|\.docker/|/Library/|\.claude/debug/|"
+    r"\.claude/\.claude\.json\b|\.npmrc\b|\.netrc\b)"
+)
 
 # Credential paths: (regex_suffix, description)
 # Kept in sync with safety.default.yaml credential_guardian.blocked_prefixes
@@ -111,16 +122,55 @@ _CREDENTIAL_PATHS: list[tuple[str, str]] = [
 ]
 
 
+def _normalize_credential_path_regex(path_re: str) -> str:
+    """Allow directory roots to match with or without a trailing slash."""
+    if path_re.endswith("/"):
+        return path_re[:-1] + r"(?:/|\b)"
+    return path_re
+
+
 def _credential_read_patterns() -> list[tuple[re.Pattern[str], str, str]]:
     """Build credential-read patterns for all file-reading commands."""
     patterns: list[tuple[re.Pattern[str], str, str]] = []
     for path_re, description in _CREDENTIAL_PATHS:
         patterns.append((
-            re.compile(r"\b" + _FILE_READERS + r"\s+.*" + path_re),
+            re.compile(r"\b" + _FILE_READERS + r"\s+.*" + _normalize_credential_path_regex(path_re)),
             f"file reader accessing {description}",
             "credential-reads",
         ))
     return patterns
+
+
+def _interpreter_credential_read_patterns() -> list[tuple[re.Pattern[str], str, str]]:
+    """Build interpreter one-liner patterns that read blocked credential paths."""
+    return [
+        (
+            re.compile(
+                r"\bpython(?:3)?\s+-c\s+.*(?:open\s*\(|Path\s*\(|read_text\s*\(|read_bytes\s*\().*"
+                + _CREDENTIAL_PATH_FRAGMENT_RE
+            ),
+            "python -c accessing blocked credential path",
+            "credential-reads",
+        ),
+        (
+            re.compile(
+                r"\bnode\s+-e\s+.*(?:readFileSync|readFile\s*\(|createReadStream|openSync).*"
+                + _CREDENTIAL_PATH_FRAGMENT_RE
+            ),
+            "node -e accessing blocked credential path",
+            "credential-reads",
+        ),
+        (
+            re.compile(r"\bperl\s+-e\s+.*(?:open\s*\(|open\s+).*" + _CREDENTIAL_PATH_FRAGMENT_RE),
+            "perl -e accessing blocked credential path",
+            "credential-reads",
+        ),
+        (
+            re.compile(r"\bruby\s+-e\s+.*(?:File\.(?:read|open|binread)|IO\.read).*" + _CREDENTIAL_PATH_FRAGMENT_RE),
+            "ruby -e accessing blocked credential path",
+            "credential-reads",
+        ),
+    ]
 
 
 def _split_args(command: str) -> list[str]:
@@ -129,6 +179,32 @@ def _split_args(command: str) -> list[str]:
         return shlex.split(command)
     except ValueError:
         return command.split()
+
+
+def _split_shell_segments(command: str) -> list[list[str]]:
+    """Split a shell command into argv segments separated by control operators."""
+    try:
+        lexer = shlex.shlex(command, posix=True, punctuation_chars=";&|")
+        lexer.whitespace_split = True
+        lexer.commenters = ""
+        tokens = list(lexer)
+    except ValueError:
+        fallback_tokens = command.split()
+        return [fallback_tokens] if fallback_tokens else []
+
+    segments: list[list[str]] = []
+    current: list[str] = []
+    for token in tokens:
+        if token in _CONTROL_TOKENS:
+            if current:
+                segments.append(current)
+                current = []
+            continue
+        current.append(token)
+
+    if current:
+        segments.append(current)
+    return segments
 
 
 def _extract_command_name(args: list[str]) -> tuple[str, list[str]]:
@@ -255,10 +331,10 @@ PATTERNS: list[tuple[re.Pattern[str], str, str]] = [
     (re.compile(r"\bgit\s+restore\s+\.\s*$"), "git restore . (discard all changes)", "git-destructive"),
     # -- credential-reads --
     # Any file-reading or file-copying command accessing credential paths is blocked.
-    # _FILE_READERS covers: cat, head, tail, less, more, od, xxd, hexdump,
-    # strings, base64, openssl, sed, awk, grep, sort, tee, cp, scp,
-    # diff, nl, cut, paste, fold, fmt, rev, pr, dd, install
+    # _FILE_READERS covers credential readers plus common enumeration tools such as
+    # rg/ripgrep, fd, find, ls, tree, and stat.
     *_credential_read_patterns(),
+    *_interpreter_credential_read_patterns(),
     (re.compile(r"\bsecurity\s+(find|dump)-.*keychain"), "macOS Keychain access", "credential-reads"),
     # -- data-exfiltration --
     (re.compile(r"\bcurl\s+.*-X\s*POST\b"), "curl POST (potential exfiltration)", "data-exfiltration"),
@@ -298,6 +374,18 @@ PATTERNS: list[tuple[re.Pattern[str], str, str]] = [
     #   _EXEC_RE:  shells + interpreters (for pipe-to, process subst, download-exec)
     *_rce_patterns(),
 ]
+
+
+def _normalize_path_target(arg: str) -> str | None:
+    """Normalize a candidate filesystem target into a resolved path when possible."""
+    cleaned = arg.replace('"', "").replace("'", "").strip("`()")
+    cleaned = cleaned.replace("${HOME}", os.path.expanduser("~"))
+    cleaned = cleaned.replace("$HOME", os.path.expanduser("~"))
+    if not cleaned or cleaned in {"-", "&1", "&2"}:
+        return None
+    if cleaned.startswith("-"):
+        return None
+    return resolve_path(cleaned)
 
 
 def _normalize_rm_target(arg: str) -> str | None:
@@ -354,6 +442,156 @@ def _is_within_allowed_roots(targets: list[str], allowed_roots: list[str]) -> bo
     return True
 
 
+def _extract_non_option_targets(args: list[str]) -> list[str]:
+    """Extract target paths from trailing argv, ignoring flags and ``--``."""
+    targets: list[str] = []
+    past_flags = False
+    for arg in args:
+        if arg == "--":
+            past_flags = True
+            continue
+        if not past_flags and arg.startswith("-"):
+            continue
+        normalized = _normalize_path_target(arg)
+        if normalized:
+            targets.append(normalized)
+    return targets
+
+
+def _extract_destination_targets(args: list[str]) -> list[str]:
+    """Extract destination paths from commands whose final arg is the write target."""
+    targets = _extract_non_option_targets(args)
+    if len(targets) < 2:
+        return []
+    return [targets[-1]]
+
+
+def _extract_dd_output_targets(args: list[str]) -> list[str]:
+    """Extract dd output paths from ``of=...`` arguments."""
+    targets: list[str] = []
+    for arg in args:
+        if not arg.startswith("of="):
+            continue
+        normalized = _normalize_path_target(arg.split("=", 1)[1])
+        if normalized:
+            targets.append(normalized)
+    return targets
+
+
+def _extract_redirection_targets(command: str) -> list[str]:
+    """Extract shell redirection targets such as ``> file`` and ``>> file``."""
+    targets: list[str] = []
+    for match in _REDIRECTION_RE.finditer(command):
+        normalized = _normalize_path_target(match.group("path"))
+        if normalized:
+            targets.append(normalized)
+    return targets
+
+
+def _extract_bash_write_targets(command: str) -> list[str]:
+    """Extract filesystem mutation targets from common bash write/delete commands."""
+    targets = _extract_redirection_targets(command)
+    for segment_args in _split_shell_segments(command):
+        if not segment_args:
+            continue
+        command_name, trailing_args = _extract_command_name(segment_args)
+        base_name = os.path.basename(command_name)
+        if base_name in _TARGETING_BASH_WRITE_COMMANDS:
+            targets.extend(_extract_non_option_targets(trailing_args))
+            continue
+        if base_name in _DESTINATION_BASH_WRITE_COMMANDS:
+            targets.extend(_extract_destination_targets(trailing_args))
+            continue
+        if base_name == "dd":
+            targets.extend(_extract_dd_output_targets(trailing_args))
+    return targets
+
+
+def _check_write_scope_path(
+    path: str,
+    blocked_write_files: list[str],
+    ask_user_prefixes: list[str],
+    blocked_write_prefixes: list[str],
+    allowed_write_prefixes: list[str],
+    git_hooks_segment: str,
+) -> tuple[str, str | None, str]:
+    """Returns (decision, reason, category). decision: 'allow', 'deny', or 'ask'."""
+    resolved = resolve_path(path)
+
+    for blocked_file in blocked_write_files:
+        if resolved == os.path.realpath(os.path.expanduser(blocked_file)):
+            return "deny", f"Write to {blocked_file} is blocked (tamper protection)", "tamper-protected-file"
+
+    for prefix in ask_user_prefixes:
+        real_prefix = os.path.realpath(os.path.expanduser(prefix.rstrip("/")))
+        if resolved.startswith(real_prefix + "/") or resolved == real_prefix:
+            return "ask", f"Write to {path} targets sensitive directory -- confirm?", "sensitive-directory"
+
+    for prefix in blocked_write_prefixes:
+        real_prefix = os.path.realpath(os.path.expanduser(prefix.rstrip("/")))
+        if resolved.startswith(real_prefix + "/") or resolved == real_prefix:
+            return "deny", f"Write to {prefix} is blocked (protected directory)", "protected-directory"
+
+    if git_hooks_segment in resolved:
+        return "deny", "Write to .git/hooks/ is blocked (hook injection prevention)", "git-hooks-injection"
+
+    if is_in_prefixes(path, allowed_write_prefixes):
+        return "allow", None, ""
+
+    return "deny", f"Write to {path} is blocked (outside allowed project directories)", "outside-allowed-paths"
+
+
+def _check_bash_write_scope(command: str, config: dict) -> tuple[str, str | None]:
+    """Apply write-scope policy to bash-level filesystem mutations."""
+    ws = config.get("write_scope", {})
+    if not isinstance(ws, dict):
+        ws = {}
+
+    allowed_write_prefixes: list[str] = ws.get("allowed_write_prefixes", [
+        "~/projects/", "~/.claude/", "~/.claude-secondary/", "/private/tmp/", "/tmp/",
+    ])
+    blocked_write_prefixes: list[str] = ws.get("blocked_write_prefixes", [
+        "~/.ssh/", "~/.aws/", "~/.config/gcloud/", "~/.config/gh/", "~/.azure/", "~/.kube/",
+        "~/.docker/", "~/.gnupg/", "~/.terraform.d/",
+        "~/Library/LaunchAgents/", "~/Library/LaunchDaemons/",
+        "/etc/", "/usr/", "/bin/", "/sbin/",
+    ])
+    blocked_write_files: list[str] = ws.get("blocked_write_files", [
+        "~/.claude/settings.json", "~/.claude/settings.local.json",
+        "~/.claude-secondary/settings.json",
+        "~/.bashrc", "~/.zshrc", "~/.zprofile", "~/.profile", "~/.bash_profile",
+        "~/.npmrc", "~/.netrc", "~/.gitconfig", "~/.pypirc", "~/.pythonrc",
+        "~/.ssh/authorized_keys",
+    ])
+    ask_user_prefixes: list[str] = ws.get("ask_user_prefixes", [
+        "~/.claude/hooks/", "~/.claude-secondary/hooks/",
+    ])
+    git_hooks_segment: str = ws.get("git_hooks_segment", "/.git/hooks/")
+
+    for path in _extract_bash_write_targets(command):
+        default_decision, reason, category = _check_write_scope_path(
+            path,
+            blocked_write_files,
+            ask_user_prefixes,
+            blocked_write_prefixes,
+            allowed_write_prefixes,
+            git_hooks_segment,
+        )
+        if default_decision == "allow":
+            continue
+
+        decision = get_category_decision(config, "write_scope", category) if category else default_decision
+        if default_decision == "deny" and decision == "allow":
+            decision = "deny"
+
+        if decision == "deny":
+            return "deny", f"BLOCKED: {reason}. Command denied by destructive-bash-guardian."
+        if decision == "ask":
+            return "ask", reason
+
+    return "allow", None
+
+
 @fail_close
 def main() -> None:
     input_data = json.load(sys.stdin)
@@ -398,6 +636,14 @@ def main() -> None:
             else:
                 allow()
             return
+
+    write_scope_decision, write_scope_reason = _check_bash_write_scope(command, config)
+    if write_scope_decision == "deny":
+        deny(write_scope_reason or "BLOCKED: bash write denied by destructive-bash-guardian.")
+        return
+    if write_scope_decision == "ask":
+        ask(write_scope_reason or "bash write targets a sensitive path -- confirm to proceed?")
+        return
 
     allow()
 

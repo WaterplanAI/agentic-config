@@ -3,37 +3,35 @@
 # requires-python = ">=3.11"
 # dependencies = []
 # ///
-"""
-Bounded summary extraction from MUX subagent output files.
+"""Bounded summary extraction from mux subagent reports.
 
-Outputs structured metadata + table of contents + executive summary.
-Designed as the ONLY sanctioned way for the MUX orchestrator to access
-subagent report content without polluting its context window.
+Default mode keeps the existing human-readable output:
+- file metadata
+- markdown table of contents
+- executive summary section
 
-Output format:
-    ## File Metadata
-    - Path: <path>
-    - Size: <bytes>
-    - Words: <count>
-    - Modified: <timestamp>
-
-    ## Table of Contents
-    - <all markdown headers from the file>
-
-    ## Executive Summary
-    <content of the Executive Summary section, or fallback>
+Phase 003 adds machine-readable evidence output so verify.py can gate on
+structured summary artifacts rather than brittle markdown parsing.
 
 Usage:
     uv run extract-summary.py <file>
     uv run extract-summary.py <file> --max-bytes 2048
-    uv run extract-summary.py <file> --metadata
+    uv run extract-summary.py <file> --evidence
+    uv run extract-summary.py <file> --evidence-path <path>
+
+Artifact paths should be project-root-relative when invoked by mux workers.
 """
 
+from __future__ import annotations
+
 import argparse
+import json
+import os
 import re
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
 
 
 def extract_headers(content: str) -> list[str]:
@@ -49,60 +47,106 @@ def extract_headers(content: str) -> list[str]:
     return headers
 
 
-def extract_executive_summary(content: str, max_bytes: int) -> str:
-    """Extract the Executive Summary section content, capped at max_bytes."""
+def extract_executive_summary(content: str, max_bytes: int) -> tuple[str, bool]:
+    """Extract Executive Summary content, capped at max_bytes."""
     lines = content.split("\n")
 
-    # Find Executive Summary section
     exec_start = -1
     exec_end = len(lines)
-    for i, line in enumerate(lines):
+    for index, line in enumerate(lines):
         if re.match(r"^##\s+Executive Summary", line):
-            exec_start = i + 1
+            exec_start = index + 1
             continue
         if exec_start >= 0 and (line.startswith("## ") or line.strip() == "---"):
-            exec_end = i
+            exec_end = index
             break
 
     if exec_start >= 0:
         section_lines = lines[exec_start:exec_end]
-        # Strip leading/trailing blank lines
         while section_lines and not section_lines[0].strip():
             section_lines.pop(0)
         while section_lines and not section_lines[-1].strip():
             section_lines.pop()
-        result = "\n".join(section_lines)
-        return result[:max_bytes] if len(result) > max_bytes else result
 
-    # Fallback: first 40 lines (no Executive Summary found)
-    return ""
+        summary = "\n".join(section_lines)
+        if len(summary) > max_bytes:
+            summary = summary[:max_bytes]
+        return summary, True
+
+    return "", False
 
 
-def format_file_metadata(file_path: Path) -> str:
-    """Format file metadata section."""
-    stat = file_path.stat()
-    size = stat.st_size
-    mtime = datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc)
-    content = file_path.read_text()
-    words = len(content.split())
+def build_summary_evidence(
+    *,
+    requested_path: str,
+    resolved_path: Path,
+    content: str,
+    max_bytes: int,
+) -> dict[str, Any]:
+    """Build machine-readable summary evidence payload."""
+    stat = resolved_path.stat()
+    modified_at = datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc)
 
-    lines = [
+    executive_summary, summary_found = extract_executive_summary(content, max_bytes)
+    headers = extract_headers(content)
+
+    return {
+        "report_path": requested_path,
+        "resolved_report_path": str(resolved_path),
+        "size_bytes": stat.st_size,
+        "word_count": len(content.split()),
+        "modified_at": modified_at.strftime("%Y-%m-%d %H:%M:%S UTC"),
+        "headers": headers,
+        "executive_summary_found": summary_found,
+        "executive_summary": executive_summary,
+        "executive_summary_bytes": len(executive_summary.encode("utf-8")),
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+def _atomic_write_text(path: Path, content: str) -> None:
+    """Atomically write text payload to path."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_path = path.parent / f".{path.name}.tmp.{os.getpid()}"
+    tmp_path.write_text(content)
+    os.replace(str(tmp_path), str(path))
+
+
+def render_human_summary(evidence: dict[str, Any]) -> str:
+    """Render backwards-compatible human-readable summary output."""
+    lines: list[str] = [
         "## File Metadata",
-        f"- Path: {file_path}",
-        f"- Size: {size} bytes",
-        f"- Words: {words}",
-        f"- Modified: {mtime.strftime('%Y-%m-%d %H:%M:%S UTC')}",
+        f"- Path: {evidence['resolved_report_path']}",
+        f"- Size: {evidence['size_bytes']} bytes",
+        f"- Words: {evidence['word_count']}",
+        f"- Modified: {evidence['modified_at']}",
+        "",
+        "## Table of Contents",
     ]
+
+    headers = evidence.get("headers", [])
+    if isinstance(headers, list) and headers:
+        lines.extend(headers)
+    else:
+        lines.append("No markdown headers found")
+
+    lines.extend(["", "## Executive Summary"])
+    summary_text = evidence.get("executive_summary", "")
+    if evidence.get("executive_summary_found") is True and isinstance(summary_text, str):
+        lines.append(summary_text if summary_text else "(section present but empty)")
+    else:
+        lines.append("No Executive Summary section found")
+
     return "\n".join(lines)
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Extract bounded summary from MUX subagent output file"
+        description="Extract bounded summary and machine-readable evidence from mux report"
     )
     parser.add_argument(
         "file",
-        help="Path to markdown file with TOC + Executive Summary",
+        help="Path to markdown file with TOC + Executive Summary (project-root-relative)",
     )
     parser.add_argument(
         "--max-bytes",
@@ -113,7 +157,17 @@ def main() -> int:
     parser.add_argument(
         "--metadata",
         action="store_true",
-        help="Include file metadata section (size, word count, modified)",
+        help="Retained for backwards compatibility; metadata is included by default",
+    )
+    parser.add_argument(
+        "--evidence",
+        action="store_true",
+        help="Output machine-readable JSON evidence instead of markdown",
+    )
+    parser.add_argument(
+        "--evidence-path",
+        type=str,
+        help="Optional project-root-relative path for machine-readable JSON evidence artifact",
     )
 
     args = parser.parse_args()
@@ -124,30 +178,22 @@ def main() -> int:
         return 1
 
     content = file_path.read_text()
-    output_parts: list[str] = []
+    evidence = build_summary_evidence(
+        requested_path=args.file,
+        resolved_path=file_path,
+        content=content,
+        max_bytes=args.max_bytes,
+    )
 
-    # File Metadata (always included)
-    output_parts.append(format_file_metadata(file_path))
+    if args.evidence_path:
+        evidence_path = Path(args.evidence_path)
+        _atomic_write_text(evidence_path, json.dumps(evidence, indent=2, sort_keys=True) + "\n")
 
-    # Table of Contents (all markdown headers)
-    headers = extract_headers(content)
-    toc_section = "## Table of Contents"
-    if headers:
-        toc_section += "\n" + "\n".join(headers)
-    else:
-        toc_section += "\nNo markdown headers found"
-    output_parts.append(toc_section)
+    if args.evidence:
+        print(json.dumps(evidence, indent=2, sort_keys=True))
+        return 0
 
-    # Executive Summary
-    exec_summary = extract_executive_summary(content, args.max_bytes)
-    exec_section = "## Executive Summary"
-    if exec_summary:
-        exec_section += "\n" + exec_summary
-    else:
-        exec_section += "\nNo Executive Summary section found"
-    output_parts.append(exec_section)
-
-    print("\n\n".join(output_parts))
+    print(render_human_summary(evidence))
     return 0
 
 
