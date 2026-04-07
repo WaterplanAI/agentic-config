@@ -2,7 +2,7 @@
 
 Team and enterprise distribution of agentic-config for Claude Code plugins and pi packages.
 
-Claude Code uses the marketplace flow below. Pi uses published packages and committed `.pi/settings.json`.
+Claude Code uses the marketplace flow below. Pi currently uses validated git-tag installs of the root umbrella package as the primary distribution path, with branch refs for development and local package-root installs for validation. Per-package npm distribution remains future work.
 
 ## Claude Code Marketplace Distribution
 
@@ -99,55 +99,61 @@ One `.claude/settings.json` commit replaces per-member setup instructions.
 
 ## Pi Package Distribution
 
-Pi package sources generally support npm, git, and local paths. For the current `agentic-config` monorepo package layout, the recommended distribution path is npm-published packages plus a committed `.pi/settings.json` for team rollout.
+Pi package sources generally support npm, git, and local paths. For the current `agentic-config` monorepo package layout:
+- git-tag installs of the validated root umbrella package are the primary team and automation path
+- branch refs are the preferred repo-based path for local testing and development
+- local package-root installs remain useful for focused package validation
+- per-package npm distribution remains future work
 
-### Team-Recommended: Committed `.pi/settings.json`
+### Team and automation rollout: pinned git tag
 
-Install the full shipped surface with the one-shot package:
+Use the current public release tag when you want reproducible rollout from the repository itself:
+
+```bash
+pi install "git:github.com/WaterplanAI/agentic-config@v0.2.6" -l
+```
+
+Equivalent committed `.pi/settings.json` source:
 
 ```json
 {
   "packages": [
-    "npm:@agentic-config/pi-all@0.2.6"
+    "git:github.com/WaterplanAI/agentic-config@v0.2.6"
   ]
 }
 ```
 
-This is the preferred team path because pi can auto-install missing packages on startup and keep the package list versioned with the project.
+Use the equivalent SSH git source for the same repository and tag when needed.
 
-Use selective package entries when you want a smaller rollout surface:
+This path has been validated end to end against the root umbrella package layout, including representative skill and extension loading.
 
-```json
-{
-  "packages": [
-    "npm:@agentic-config/pi-ac-git@0.2.6",
-    "npm:@agentic-config/pi-ac-tools@0.2.6",
-    "npm:@agentic-config/pi-ac-workflow@0.2.6"
-  ]
-}
-```
+### Local testing and development: branch refs
 
-### Manual Installs
-
-One-shot install:
+Use a branch ref when you want repo-based rollout for local testing or development without cutting a new tag yet:
 
 ```bash
-pi install npm:@agentic-config/pi-all@0.2.6
+pi install "git:github.com/WaterplanAI/agentic-config@main" -l
 ```
 
-Selective installs:
+Replace `main` with a feature branch name when testing unpublished pi changes.
+
+### Local package-root installs for focused validation
+
+Local-path installs remain primarily for local development and pre-distribution testing, not as the main repo-based distribution path for this monorepo.
+
+Direct local-path installs are appropriate for standalone package roots such as:
 
 ```bash
-pi install npm:@agentic-config/pi-ac-git@0.2.6
-pi install npm:@agentic-config/pi-ac-tools@0.2.6
-pi install npm:@agentic-config/pi-ac-workflow@0.2.6
+pi install ./packages/pi-compat -l
+pi install ./packages/pi-ac-meta -l
+pi install ./packages/pi-ac-workflow -l
 ```
 
-Use `pi install -l` when you want pi to write directly to the project-local `.pi/settings.json` instead of your global settings.
+For bundled package roots such as `pi-all`, use the staged local testing flow from the [Pi Package Adoption Guide](../packages/README.md#local-package-testing-before-distribution).
 
-### Local-Path Installs for Pre-Distribution Testing
+### Future npm distribution
 
-Local-path installs remain valid for local pre-distribution testing, but they are not the primary team rollout path for this monorepo. Use the exact staged/local commands in the [Pi Package Adoption Guide](../packages/README.md#local-package-testing-before-distribution) when validating unpublished packages locally.
+Publishing the per-package npm surface remains future work. When that distribution path is enabled, it will complement the git-based root install path rather than replace the validated repo-based rollout described above.
 
 For the full current package surface and install matrix, see the [Pi Package Adoption Guide](../packages/README.md).
 
@@ -226,5 +232,5 @@ All customizations are isolated to the private fork.
 ## See Also
 
 - [Getting Started](getting-started.md) -- Claude Code and pi setup
-- [Pi Package Adoption Guide](../packages/README.md) -- npm installs, committed `.pi/settings.json`, and local pre-distribution testing
+- [Pi Package Adoption Guide](../packages/README.md) -- npm installs, alternative git installs, committed `.pi/settings.json`, and local pre-distribution testing
 - [Migration Guide v0.2.0](migration-v0.2.0.md) -- Migrate from v0.1.x symlinks

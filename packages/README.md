@@ -55,27 +55,40 @@ The current surface does **not** claim that:
 - every Claude marketplace surface has full pi parity
 
 ## Install and adoption
-### Manual install
-Use manual install when you want a personal/global setup or want to try a subset before committing team settings.
+### Primary repo-based install via git tag
+Use a tagged git ref when you want a reproducible team or automation rollout from the repository itself.
 
-Install the full shipped set:
-
-```bash
-pi install npm:@agentic-config/pi-all@0.2.6
-```
-
-Install only selected plugin families:
+Install the full shipped surface:
 
 ```bash
-pi install npm:@agentic-config/pi-ac-git@0.2.6
-pi install npm:@agentic-config/pi-ac-tools@0.2.6
-pi install npm:@agentic-config/pi-ac-workflow@0.2.6
+pi install "git:github.com/WaterplanAI/agentic-config@v0.2.6" -l
 ```
 
-Use `-l` if you want `pi install` to write directly to the project-local `.pi/settings.json` instead of your global settings.
+Equivalent committed `.pi/settings.json` source:
+
+```json
+{
+  "packages": [
+    "git:github.com/WaterplanAI/agentic-config@v0.2.6"
+  ]
+}
+```
+
+Use the equivalent SSH git source for the same repository and tag when needed.
+
+This root install path has been validated end to end against the umbrella package layout, including representative skill and extension loading.
+
+### Branch-based install for local testing and development
+Use a branch ref when you want repo-based rollout for local testing or development without cutting a new tag yet.
+
+```bash
+pi install "git:github.com/WaterplanAI/agentic-config@main" -l
+```
+
+Replace `main` with a feature branch name when testing unpublished pi changes.
 
 ### Local package testing before distribution
-Pi also supports local-path installs while these packages are still being validated before npm distribution is enabled.
+Local-path installs remain mainly for local development and focused package validation.
 
 Direct local-path installs are appropriate for standalone packages such as:
 
@@ -86,7 +99,7 @@ pi install ./packages/pi-ac-workflow -l
 ```
 
 For `@agentic-config/pi-ac-audit`, `@agentic-config/pi-ac-git`, `@agentic-config/pi-ac-qa`, `@agentic-config/pi-ac-safety`, `@agentic-config/pi-ac-tools`, and `@agentic-config/pi-all`, stage a temp package directory first.
-Those packages reference bundled sibling resources under `node_modules/@agentic-config/...`, and a raw local-path install reads the directory as-is instead of materializing bundled sibling dependencies for you.
+Those packages reference bundled sibling resources under `node_modules/@agentic-config/...`, and a raw local-path install reads the directory as-is instead of materializing bundled sibling dependencies for you. For repo-based distribution, prefer the tagged git install path above rather than raw local paths.
 
 Representative staged install for `@agentic-config/pi-ac-tools`:
 
@@ -121,35 +134,33 @@ EOF
 This staged layout mirrors the bundled dependency structure that the published package tarballs will carry.
 
 ### Recommended team-adoption path: committed `.pi/settings.json`
-Committed `.pi/settings.json` is the preferred team-adoption path because pi can auto-install missing packages on startup and keep the whole team on the same package set.
+Committed `.pi/settings.json` with a pinned git tag is the preferred team-adoption path because pi can auto-install the same reproducible package set on startup and keep the selected rollout ref versioned with the project.
 
 Full shipped set:
 
 ```json
 {
   "packages": [
-    "npm:@agentic-config/pi-all@0.2.6"
+    "git:github.com/WaterplanAI/agentic-config@v0.2.6"
   ]
 }
 ```
 
-Selective team adoption:
+Branch-based dev rollout:
 
 ```json
 {
   "packages": [
-    "npm:@agentic-config/pi-ac-git@0.2.6",
-    "npm:@agentic-config/pi-ac-tools@0.2.6",
-    "npm:@agentic-config/pi-ac-workflow@0.2.6"
+    "git:github.com/WaterplanAI/agentic-config@main"
   ]
 }
 ```
 
-Why this is preferred over one-off local instructions:
-- the package list is versioned with the project
+Why the pinned tag is preferred for teams and automation:
+- the install ref is versioned with the project
 - new teammates get the same pi surface automatically
-- package choice stays visible in code review
-- plugin-by-plugin installs remain possible without inventing a second distribution scheme
+- tagged rollout stays reproducible
+- branch refs remain available for local development and testing
 
 ## Availability matrix
 This matrix is the current adoption surface. It separates what is available now, what ships with a known partial/current-gap note, and what remains explicitly deferred.

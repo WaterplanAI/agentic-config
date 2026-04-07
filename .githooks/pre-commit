@@ -216,6 +216,7 @@ ALLOW (anonymized):
 - @google.com, @gmail.com (API references), @anthropic.com (Co-Authored-By)
 - Generic names: John Smith, Jane Doe
 - Generic companies: Example Corp, Acme Inc, Test Company
+- Public distribution exception: WaterplanAI when referencing this repository's published GitHub organization for plugin/package distribution
 - Placeholder IDs: <id>, abc123, <email>, <file_id>
 - System emails: noreply@, no-reply@
 - Placeholder monetary: $X, <amount>

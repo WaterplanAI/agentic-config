@@ -2,8 +2,14 @@
   "name": "agentic-config-pi-root",
   "private": true,
   "version": "0.2.6",
-  "description": "Git-installable umbrella pi package PoC for agentic-config.",
+  "description": "Git-installable umbrella pi package for agentic-config.",
   "license": "MIT",
+  "homepage": "https://github.com/WaterplanAI/agentic-config",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/WaterplanAI/agentic-config.git",
+    "directory": "."
+  },
   "keywords": ["pi-package", "agentic-config", "pi", "git-install"],
   "type": "module",
   "dependencies": {

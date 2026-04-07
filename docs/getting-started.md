@@ -26,33 +26,47 @@ claude plugin install ac-audit@agentic-plugins
 
 ## Install for pi
 
-Pi packages are published as npm packages. The one-shot install path is:
+The current primary pi install path uses the validated root umbrella package from a git ref.
+
+### Team and automation install: pin a release tag
 
 ```bash
-pi install npm:@agentic-config/pi-all@0.2.6
+pi install "git:github.com/WaterplanAI/agentic-config@v0.2.6" -l
 ```
 
-Install only selected package families when you want a smaller surface:
+Use the equivalent SSH git source for the same repository and tag when needed.
 
-```bash
-pi install npm:@agentic-config/pi-ac-git@0.2.6
-pi install npm:@agentic-config/pi-ac-tools@0.2.6
-pi install npm:@agentic-config/pi-ac-workflow@0.2.6
-```
-
-Use `-l` if you want `pi install` to write directly to the project-local `.pi/settings.json` instead of your global settings.
-
-For teams, prefer a committed `.pi/settings.json` so pi can auto-install the same package set on startup:
+For teams, prefer a committed `.pi/settings.json` pinned to the release tag so pi can auto-install the same reproducible package set on startup:
 
 ```json
 {
   "packages": [
-    "npm:@agentic-config/pi-all@0.2.6"
+    "git:github.com/WaterplanAI/agentic-config@v0.2.6"
   ]
 }
 ```
 
-Use selective package entries instead when rolling out plugin families incrementally. Local-path installs remain useful for local pre-distribution testing, not as the primary team rollout path for this monorepo. See the [Pi Package Adoption Guide](../packages/README.md) for the full install matrix.
+### Local testing and development: use a branch ref
+
+```bash
+pi install "git:github.com/WaterplanAI/agentic-config@main" -l
+```
+
+Use a feature branch name instead of `main` when testing unpublished pi changes.
+
+### Package-root testing during development
+
+The git root install exposes the full shipped pi surface. When you need to validate individual package roots during development, use local package paths such as:
+
+```bash
+pi install ./packages/pi-compat -l
+pi install ./packages/pi-ac-meta -l
+pi install ./packages/pi-ac-workflow -l
+```
+
+For bundled package roots such as `pi-all`, use the staged local testing flow from the [Pi Package Adoption Guide](../packages/README.md#local-package-testing-before-distribution).
+
+Publishing the per-package npm surface remains future work. See the [Pi Package Adoption Guide](../packages/README.md) for the full install matrix.
 
 ## Enable Auto-Updates (Recommended)
 
@@ -197,7 +211,7 @@ claude
 ## See Also
 
 - [Plugin Catalog](plugin-catalog.md) -- All skills by plugin
-- [Distribution Guide](distribution.md) -- Claude marketplace rollout plus pi package team adoption
-- [Pi Package Adoption Guide](../packages/README.md) -- npm installs, committed `.pi/settings.json`, and local pre-distribution testing
+- [Distribution Guide](distribution.md) -- Claude marketplace rollout plus pi git-tag distribution, dev branch installs, and future npm notes
+- [Pi Package Adoption Guide](../packages/README.md) -- primary git-tag installs, branch-based dev installs, local package-root testing, and future npm distribution notes
 - [Migration Guide v0.2.0](migration-v0.2.0.md) -- Migrate from v0.1.x symlinks
 - [External Specs Storage](external-specs-storage.md) -- Configure external specs repository

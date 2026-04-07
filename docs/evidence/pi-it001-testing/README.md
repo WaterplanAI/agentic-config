@@ -341,6 +341,91 @@ What this proved:
 - the MUX protocol completed with `5/5` signals complete
 - the workflow produced a concrete deliverable path and a structured synthesized result
 
+### Step 10 - Option A root umbrella package PoC setup
+
+Commands run at the repository root on a throwaway PoC branch:
+
+```bash
+cat > package.json <<EOF
+<root-level umbrella pi package manifest>
+EOF
+npm install --ignore-scripts --no-audit --no-fund
+```
+
+Directly observed outcome:
+- root `package.json` and `package-lock.json` were created for the PoC
+- root `npm install` succeeded and reported `added 8 packages`
+- root `node_modules/@agentic-config` was created
+
+What this proved:
+- a root-level umbrella pi package can materialize the existing `packages/pi-*` surfaces through local `file:` dependencies
+- Option A is technically plausible for this monorepo without immediately introducing a root workspace
+
+### Step 11 - Option A local root-package install
+
+Commands run in a fresh temp project:
+
+```bash
+pi install "<repo-root>" -l
+pi list
+```
+
+User-reported and screenshot-backed outcome:
+- install succeeded
+- `pi list` showed the repository root registered as the project package source
+
+Follow-up runtime checks inside pi:
+
+```text
+/skill:ac-workflow-tmux-agent
+/tmux-agent list
+```
+
+User-reported outcome:
+- both commands worked
+
+What this proved:
+- the repository root can function as an installable umbrella pi package
+- the root umbrella package can load both representative skills and representative extensions successfully
+
+### Step 12 - Option A real remote git install
+
+Preparation performed on the throwaway PoC branch:
+- committed only the PoC root `package.json` and `package-lock.json`
+- pushed the branch to a remote fork for a real git-source test
+
+Command shape run in a fresh temp project, anonymized for repo policy:
+
+```bash
+pi install "git:github.com/<owner>/<repo>@<git-install-poc-branch>" -l
+pi list
+```
+
+User-reported and screenshot-backed outcome:
+- pi cloned the remote repository into its project git package cache
+- root `npm install` ran successfully during package installation and reported `added 8 packages`
+- `pi list` showed the git source registered as the project package source
+
+What this proved:
+- pi can install the root umbrella package through a real git source, not only through a local filesystem path
+- Option A is viable as a repo-based install path when the root umbrella package is present in the installed ref
+
+### Step 13 - Option A runtime verification after remote git install
+
+Commands run inside pi after the remote git install:
+
+```text
+/skill:ac-workflow-tmux-agent
+/tmux-agent list
+```
+
+User-reported outcome:
+- both commands worked
+
+What this proved:
+- the remote git-installed root umbrella package loads real skills and extensions end to end
+- Option A is not only installable but operational at runtime
+
 ## Current conclusion
 
 Based on the directly observed results plus the user-reported manual pi interaction evidence captured above:
@@ -352,6 +437,8 @@ Based on the directly observed results plus the user-reported manual pi interact
 - the migrated `/tmux-agent` command is registered and usable
 - the migrated `tmux-agent` runtime can spawn, inspect, capture, complete, report, and clean up a managed worker
 - the shipped `ac-workflow-mux` protocol can complete a real example workflow and produce a deliverable
+- a root-level umbrella pi package PoC can be installed locally from the repository root and load representative skills/extensions
+- a real git-source install of the root umbrella pi package PoC works end to end and can load representative skills/extensions at runtime
 
 ## Remaining planned testing
 

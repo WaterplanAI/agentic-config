@@ -16,7 +16,7 @@ allowed-tools:
 
 # Release Command
 
-Full release workflow: validate changelog, squash commits, create tag, rebase, push, and merge to main.
+Full release workflow: validate changelog, squash commits, create tag, sync the VERSION file and pinned install docs, rebase, push, and merge to main.
 
 **No arguments required** - all values auto-detected.
 
@@ -45,6 +45,52 @@ We will push after rebase to ensure clean history.
 - `SQUASH_SHA`: The squashed commit SHA
 
 If /milestone fails: **STOP** - show error, do not proceed.
+
+## Phase 1.5: Sync `VERSION` and version-pinned install docs
+
+After `/milestone` succeeds, ensure the tracked version file and pinned install examples match the released version.
+
+### 1.5.1 Normalize the plain version
+```bash
+PLAIN_VERSION=$(printf '%s' "{VERSION}" | sed 's/^v//')
+```
+
+### 1.5.2 Update `VERSION`
+Set the `VERSION` file contents to `{PLAIN_VERSION}` exactly.
+
+### 1.5.3 Update the root umbrella package version
+Update the repository root `package.json` version field to `{PLAIN_VERSION}`.
+
+Then refresh the root lockfile so the tracked version stays aligned:
+
+```bash
+npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+```
+
+### 1.5.4 Update version-pinned install docs
+Update these tracked files to use the released version values:
+- `README.md`
+- `docs/getting-started.md`
+- `docs/distribution.md`
+- `packages/README.md`
+
+Required sync rules:
+- primary git-tag examples for this repository must use `WaterplanAI/agentic-config@{VERSION}`
+- branch-based dev examples may keep `@main` or another branch example when the intent is explicitly local testing/dev rather than a release tag
+- keep existing wording intact unless a pinned version string must change
+- npm distribution should remain documented as future work unless the repository has explicitly enabled and validated that path
+
+### 1.5.5 Commit the sync if anything changed
+```bash
+git add VERSION package.json package-lock.json README.md docs/getting-started.md docs/distribution.md packages/README.md
+if ! git diff --cached --quiet; then
+  git commit -m "docs(release): sync version references for {VERSION}"
+fi
+```
+
+Notes:
+- This step is mandatory when the root package version, pinned git-tag examples, or the `VERSION` file changed.
+- If this creates a follow-up commit after `/milestone`, the existing tag re-create step below must move `{VERSION}` to the new `HEAD`.
 
 ## Phase 2: Rebase onto origin/main
 
@@ -180,6 +226,9 @@ Display summary:
 - Tag: {VERSION}
 - Commit: {FINAL_SHA}
 - Message: {commit message first line}
+- VERSION file: synced to {PLAIN_VERSION}
+- Root umbrella package: synced in package.json and package-lock.json
+- Version-pinned docs: synced in README.md, docs/getting-started.md, docs/distribution.md, and packages/README.md
 
 ### Commits Included
 {list from squash - from /milestone output}
@@ -219,8 +268,9 @@ To delete feature branch:
 
 The command will:
 1. Run /milestone (no args) - validates, squashes, tags
-2. Rebase onto origin/main
-3. Re-tag if needed
-4. Push branch and tag
-5. Merge to main (with confirmation)
-6. Report results
+2. Sync VERSION plus pinned install docs
+3. Rebase onto origin/main
+4. Re-tag if needed
+5. Push branch and tag
+6. Merge to main (with confirmation)
+7. Report results

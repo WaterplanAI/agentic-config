@@ -4,6 +4,28 @@ Project-agnostic, composable configuration system for AI-assisted development wo
 
 ## Quick Start
 
+### Pi
+
+Primary install from the current public release tag:
+
+```bash
+pi install "git:github.com/WaterplanAI/agentic-config@v0.2.6" -l
+```
+
+For teams and automation, prefer the tagged git ref in committed `.pi/settings.json` so the rollout stays reproducible.
+
+For local testing or development, use a branch ref instead of a tag, for example:
+
+```bash
+pi install "git:github.com/WaterplanAI/agentic-config@main" -l
+```
+
+If you prefer SSH transport, use the equivalent SSH git source for the same repository and ref.
+
+The current git root install exposes the full shipped pi surface. Individual package-root installs remain useful for local package development and validation. npm publication remains future work.
+
+### Claude Code
+
 ```bash
 claude plugin marketplace add WaterplanAI/agentic-config
 # For dev branch: `claude plugin marketplace add </path/to/dev/branch>` OR `./dev.sh`
@@ -25,15 +47,11 @@ See [Getting Started](docs/getting-started.md) for Claude Code and pi setup.
 
 ## Pi Packages
 
-Pi is also supported through published npm packages. Install the full shipped surface in one step:
+Pi is supported today through a validated root umbrella package installable from git refs, with local package-root installs for development and validation. Publishing the per-package npm surface remains future work.
 
-```bash
-pi install npm:@agentic-config/pi-all@0.2.6
-```
+For teams, prefer a committed `.pi/settings.json` pinned to a release tag. For local testing and development, use branch refs or direct local package paths as appropriate.
 
-For teams, prefer a committed `.pi/settings.json` so pi can auto-install the same package set for everyone. For plugin-by-plugin rollout, install only the package families you need.
-
-See the [Pi Package Adoption Guide](packages/README.md) for one-shot and selective install examples, committed settings guidance, and local pre-distribution testing.
+See the [Pi Package Adoption Guide](packages/README.md) for the primary git-tag install path, branch-based dev installs, local package-root testing, and future npm distribution notes.
 
 ## What is agentic-config?
 
@@ -63,8 +81,8 @@ Core principles:
 
 - [Getting Started](docs/getting-started.md) -- Install, setup, first use
 - [Plugin Catalog](docs/plugin-catalog.md) -- All 42 skills with composition patterns
-- [Distribution Guide](docs/distribution.md) -- Claude marketplace rollout plus pi package team adoption
-- [Pi Package Adoption Guide](packages/README.md) -- npm installs, committed `.pi/settings.json`, selective package rollout, and local pre-distribution testing
+- [Distribution Guide](docs/distribution.md) -- Claude marketplace rollout plus pi git-tag distribution, dev branch installs, and future npm notes
+- [Pi Package Adoption Guide](packages/README.md) -- primary git-tag installs, branch-based dev installs, local package-root testing, and future npm distribution notes
 - [Migration Guide v0.2.0](docs/migration-v0.2.0.md) -- Migrate from v0.1.x
 - [Uninstall Legacy (v0.1.x)](docs/migration-v0.2.0.md#step-1-remove-old-symlinks) -- Remove legacy symlink wiring
 - [Full Documentation Index](docs/index.md)
