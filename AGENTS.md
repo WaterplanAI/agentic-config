@@ -71,4 +71,4 @@ Commits may use personal identity or Claude (`Co-Authored-By: Claude <noreply@an
 `WaterplanAI` may appear in documentation as the public GitHub organization for plugin distribution.
 
 ### Pre-commit PII Audit Model Pin
-`.githooks/pre-commit` may pin a concrete Anthropic model ID for deterministic local PII audit behavior.
+`.githooks/pre-commit` may pin a concrete model ID for deterministic local PII audit behavior, including the current `openai-codex/gpt-5.3-codex:medium` configuration.
