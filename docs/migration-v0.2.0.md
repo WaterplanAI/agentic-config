@@ -93,7 +93,7 @@ claude plugin marketplace add <owner>/agentic-config
 
 ### Step 3: Install Plugins
 
-Install all 5 plugins (or only the ones you need). Run these commands in a **separate terminal**, not inside a Claude Code session:
+Install all 7 plugins (or only the ones you need). Run these commands in a **separate terminal**, not inside a Claude Code session:
 
 ```bash
 claude plugin install ac-workflow@agentic-plugins

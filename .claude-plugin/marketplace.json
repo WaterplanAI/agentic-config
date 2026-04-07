@@ -1,7 +1,5 @@
 {
-  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "agentic-plugins",
-  "description": "Agentic workflow automation plugins for AI-assisted development",
   "owner": {
     "name": "Agentic Config Contributors"
   },

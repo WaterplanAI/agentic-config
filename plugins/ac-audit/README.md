@@ -47,9 +47,22 @@ display_tools:
   - "Write"
 ```
 
-## Usage
+## Usage Examples
 
-No manual invocation needed. Hooks fire automatically on all tool calls when the plugin is installed.
+```bash
+# Create or update audit.yaml interactively
+/configure-audit
+```
+
+```yaml
+# Project-level audit.yaml
+max_words: 75
+display_tools:
+  - "Bash"
+  - "Write"
+```
+
+After configuration, hooks fire automatically on all tool calls when the plugin is installed.
 
 ## License
 

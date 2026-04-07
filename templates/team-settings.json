@@ -18,10 +18,16 @@
     "ac-qa@agentic-plugins": true,
     "ac-tools@agentic-plugins": true,
     "ac-meta@agentic-plugins": true,
+    "ac-safety@agentic-plugins": true,
+    "ac-audit@agentic-plugins": true,
 
     "//tier3-selective": "Or enable only what your team needs (uncomment):",
     "//ac-workflow@agentic-plugins": "Spec + MUX + product management",
     "//ac-git@agentic-plugins": "Git automation (PR, release, branch)",
-    "//ac-qa@agentic-plugins": "QA workflows (E2E, review, testing)"
+    "//ac-qa@agentic-plugins": "QA workflows (E2E, review, testing)",
+    "//ac-tools@agentic-plugins": "Utilities and integrations",
+    "//ac-meta@agentic-plugins": "Meta-prompting and self-improvement",
+    "//ac-safety@agentic-plugins": "Security guardrails and policy enforcement",
+    "//ac-audit@agentic-plugins": "Tool audit logging and visibility"
   }
 }

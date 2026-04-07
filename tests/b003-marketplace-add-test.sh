@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # B-003: Marketplace Add + Plugin Install Test
-# Tests SC-1 (self-hosted marketplace), SC-2 (marketplace add), SC-3 (all 5 installable)
+# Tests SC-1 (self-hosted marketplace), SC-2 (marketplace add), SC-3 (all 7 installable)
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-PLUGINS=(ac-workflow ac-git ac-qa ac-tools ac-meta)
+PLUGINS=(ac-workflow ac-git ac-qa ac-tools ac-meta ac-safety ac-audit)
 
 echo "=== B-003: Marketplace Add + Plugin Install ==="
 echo ""
@@ -19,9 +19,9 @@ echo "VERIFY: Command completes without error"
 echo "VERIFY: claude plugin marketplace list shows 'agentic-plugins'"
 echo ""
 
-echo "=== SC-2: Verify all 5 plugins visible ==="
+echo "=== SC-2: Verify all 7 plugins visible ==="
 echo "RUN: claude plugin search --marketplace agentic-plugins"
-echo "VERIFY: All 5 plugins listed:"
+echo "VERIFY: All 7 plugins listed:"
 for p in "${PLUGINS[@]}"; do
     echo "  - $p"
 done
@@ -48,7 +48,7 @@ echo ""
 
 echo "=== PASS/FAIL Checklist ==="
 echo "[ ] SC-1: Marketplace add succeeds"
-echo "[ ] SC-2: All 5 plugins visible in marketplace"
-echo "[ ] SC-3: All 5 plugins install without error (user scope)"
+echo "[ ] SC-2: All 7 plugins visible in marketplace"
+echo "[ ] SC-3: All 7 plugins install without error (user scope)"
 echo "[ ] SC-3: Multi-scope install works (user, project)"
 echo "[ ] Cleanup: All test installs removed"
