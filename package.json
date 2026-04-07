@@ -1,0 +1,40 @@
+{
+  "name": "agentic-config-pi-root",
+  "private": true,
+  "version": "0.2.6",
+  "description": "Git-installable umbrella pi package PoC for agentic-config.",
+  "license": "MIT",
+  "keywords": ["pi-package", "agentic-config", "pi", "git-install"],
+  "type": "module",
+  "dependencies": {
+    "@agentic-config/pi-compat": "file:packages/pi-compat",
+    "@agentic-config/pi-ac-audit": "file:packages/pi-ac-audit",
+    "@agentic-config/pi-ac-git": "file:packages/pi-ac-git",
+    "@agentic-config/pi-ac-meta": "file:packages/pi-ac-meta",
+    "@agentic-config/pi-ac-qa": "file:packages/pi-ac-qa",
+    "@agentic-config/pi-ac-safety": "file:packages/pi-ac-safety",
+    "@agentic-config/pi-ac-tools": "file:packages/pi-ac-tools",
+    "@agentic-config/pi-ac-workflow": "file:packages/pi-ac-workflow"
+  },
+  "pi": {
+    "skills": [
+      "node_modules/@agentic-config/pi-ac-audit/skills",
+      "node_modules/@agentic-config/pi-ac-git/skills",
+      "node_modules/@agentic-config/pi-ac-meta/skills",
+      "node_modules/@agentic-config/pi-ac-qa/skills",
+      "node_modules/@agentic-config/pi-ac-safety/skills",
+      "node_modules/@agentic-config/pi-ac-tools/skills",
+      "node_modules/@agentic-config/pi-ac-workflow/skills"
+    ],
+    "extensions": [
+      "node_modules/@agentic-config/pi-compat/extensions",
+      "node_modules/@agentic-config/pi-ac-audit/extensions",
+      "node_modules/@agentic-config/pi-ac-git/extensions",
+      "node_modules/@agentic-config/pi-ac-meta/extensions",
+      "node_modules/@agentic-config/pi-ac-qa/extensions",
+      "node_modules/@agentic-config/pi-ac-safety/extensions",
+      "node_modules/@agentic-config/pi-ac-tools/extensions",
+      "node_modules/@agentic-config/pi-ac-workflow/extensions"
+    ]
+  }
+}
