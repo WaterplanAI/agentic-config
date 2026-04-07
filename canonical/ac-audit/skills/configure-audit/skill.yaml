@@ -1,0 +1,29 @@
+skill_id: configure-audit
+kind: standard
+summary: 'Configures audit logging for pi-ac-audit by reviewing defaults, proposing
+  overrides, and updating project-level or user-level audit.yaml. Triggers on keywords:
+  configure audit, audit config, audit yaml'
+project_agnostic: true
+body_file: body.md
+assets: []
+attachment_refs: []
+renders:
+  claude:
+    status: supported
+    output_path: skills/configure-audit/SKILL.md
+    display_name: configure-audit
+    allowed_tools: []
+    frontmatter_enabled: false
+  pi:
+    status: supported
+    output_path: skills/ac-audit-configure-audit/SKILL.md
+    display_name: ac-audit-configure-audit
+    allowed_tools:
+    - Read
+    - Write
+    - Edit
+    frontmatter_enabled: true
+    description: 'Configures audit logging for pi-ac-audit by reviewing defaults,
+      proposing overrides, and updating project-level or user-level audit.yaml. Triggers
+      on keywords: configure audit, audit config, audit yaml'
+    body_file: body.pi.md

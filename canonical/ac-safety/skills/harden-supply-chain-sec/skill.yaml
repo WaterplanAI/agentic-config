@@ -1,0 +1,44 @@
+skill_id: harden-supply-chain-sec
+kind: standard
+summary: 'Hardens package-manager supply chain configuration with minimum release age policies, dry-run gates, and optional
+  dependency security review. Triggers on keywords: harden supply chain, supply chain security, minimum release age, package
+  age gate'
+project_agnostic: true
+body_file: body.md
+assets: []
+attachment_refs: []
+renders:
+  claude:
+    status: supported
+    output_path: skills/harden-supply-chain-sec/SKILL.md
+    display_name: harden-supply-chain-sec
+    allowed_tools:
+    - Read
+    - Write
+    - Edit
+    - Bash
+    - Glob
+    - Grep
+    - Agent
+    - AskUserQuestion
+    frontmatter_enabled: true
+    description: Harden software supply chain security by configuring minimum release age across package managers. Auto-detects
+      active managers or accepts explicit argument.
+  pi:
+    status: supported
+    output_path: skills/ac-safety-harden-supply-chain-sec/SKILL.md
+    display_name: ac-safety-harden-supply-chain-sec
+    allowed_tools:
+    - Read
+    - Write
+    - Edit
+    - Bash
+    - Glob
+    - Grep
+    - AskUserQuestion
+    - subagent
+    frontmatter_enabled: true
+    body_file: body.pi.md
+    description: 'Hardens package-manager supply chain configuration with minimum release age policies, dry-run gates, and
+      optional dependency security review. Triggers on keywords: harden supply chain, supply chain security, minimum release
+      age, package age gate'

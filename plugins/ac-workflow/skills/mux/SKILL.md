@@ -12,10 +12,10 @@ allowed-tools:
   - TaskList
 hooks:
   PreToolUse:
-    - matcher: "Read|Write|Edit|NotebookEdit|Grep|Glob|WebSearch|WebFetch|TaskOutput|Skill|Bash|Task"
-      hooks:
-        - type: command
-          command: "uv run --no-project --script ${CLAUDE_PLUGIN_ROOT}/skills/mux/hooks/mux-orchestrator-guard.py"
+  - matcher: Read|Write|Edit|NotebookEdit|Grep|Glob|WebSearch|WebFetch|TaskOutput|Skill|Bash|Task
+    hooks:
+    - type: command
+      command: uv run --no-project --script ${CLAUDE_PLUGIN_ROOT}/skills/mux/hooks/mux-orchestrator-guard.py
 ---
 
 # MUX - Delegation Protocol

@@ -13,7 +13,6 @@ allowed-tools:
   - AskUserQuestion
 ---
 
-
 Validate section completion in backlog, then either release or identify gaps.
 
 **All arguments are optional** with smart defaults.

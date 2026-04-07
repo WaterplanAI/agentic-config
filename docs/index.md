@@ -7,7 +7,7 @@ Table of contents for agentic-config documentation.
 | Document | Description |
 |----------|-------------|
 | [Getting Started](getting-started.md) | Installation, setup, first use, troubleshooting |
-| [Plugin Catalog](plugin-catalog.md) | All 40 skills across 7 plugins with composition patterns |
+| [Plugin Catalog](plugin-catalog.md) | All 42 skills across 7 plugins with composition patterns |
 | [Distribution Guide](distribution.md) | Team adoption tiers and private marketplace setup |
 | [Migration Guide v0.2.0](migration-v0.2.0.md) | Migrate from v0.1.x symlinks to CC-native plugins |
 

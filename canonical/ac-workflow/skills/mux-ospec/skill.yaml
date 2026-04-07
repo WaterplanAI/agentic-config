@@ -1,0 +1,41 @@
+skill_id: mux-ospec
+kind: standard
+summary: "Stage-based spec orchestration on top of the shared mux foundation. Use for phase-owned GATHER -> SUCCESS_CRITERIA -> PLAN -> IMPLEMENT -> REVIEW/FIX -> TEST -> DOCUMENT -> PHASE_CLOSE workflows."
+project_agnostic: true
+body_file: body.md
+assets: []
+attachment_refs: []
+renders:
+  claude:
+    status: supported
+    output_path: skills/mux-ospec/SKILL.md
+    display_name: mux-ospec
+    allowed_tools:
+      - Task
+      - Bash
+      - AskUserQuestion
+      - mcp__voicemode__converse
+    frontmatter_enabled: true
+    description: "Orchestrates the spec workflow via MUX delegation, combining parallel research-to-deliverable orchestration with spec stage-based execution. Triggers on keywords: mux ospec, ospec"
+    frontmatter_extra:
+      argument-hint: "[modifier] [spec_path|inline_prompt]"
+      requires-skills:
+        - spec
+  pi:
+    status: supported
+    output_path: skills/ac-workflow-mux-ospec/SKILL.md
+    display_name: ac-workflow-mux-ospec
+    allowed_tools:
+      - Read
+      - Write
+      - Edit
+      - Bash
+      - Grep
+      - Glob
+      - subagent
+      - say
+    frontmatter_enabled: true
+    description: "pi-adapted mux spec orchestrator. Owns the phase stage loop with shared mux session/signal tools, sibling -stages artifacts, and one-layer subagent waves."
+    body_file: body.pi.md
+    frontmatter_extra:
+      argument-hint: "[modifier] [spec_path]"

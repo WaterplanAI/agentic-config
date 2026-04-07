@@ -1,0 +1,48 @@
+# ---------- Stage 1: Build ----------
+# Installs dependencies and compiles your app (TypeScript, bundlers, etc.)
+# This stage is thrown away — only the output is kept.
+FROM node:22-alpine AS builder
+
+WORKDIR /app
+
+# Copy dependency manifests first (Docker caches this layer if deps haven't changed)
+COPY package*.json ./
+RUN npm ci --ignore-scripts
+
+# Copy source and build
+COPY . .
+RUN npm run build --if-present
+
+# ---------- Stage 2: Production ----------
+# Minimal image with only what's needed to run the app.
+FROM node:22-alpine
+
+# Non-root user (Cloud Run best practice — never run as root)
+RUN addgroup -g 1001 -S appuser && adduser -S appuser -u 1001
+
+WORKDIR /app
+
+# Copy built app from builder stage
+# TODO(customize): Replace broad COPY below with framework-specific artifacts:
+#   Next.js:  COPY --from=builder /app/.next ./.next && COPY --from=builder /app/public ./public
+#   Remix:    COPY --from=builder /app/build ./build
+#   Generic:  COPY --from=builder /app/dist ./dist
+# The broad COPY below includes source files -- narrow it for production security.
+COPY --from=builder /app .
+
+# Install production dependencies only (excludes devDependencies)
+RUN npm ci --omit=dev --ignore-scripts
+
+# Switch to non-root user
+USER appuser
+
+# Cloud Run injects PORT=8080 — your app MUST listen on this port
+ENV PORT=8080
+EXPOSE 8080
+
+# Start the app — adjust this to match your entry point
+# Examples:
+#   Express:     CMD ["node", "server.js"]
+#   Next.js:     CMD ["npm", "start"]
+#   TypeScript:  CMD ["node", "dist/index.js"]
+CMD ["node", "server.js"]

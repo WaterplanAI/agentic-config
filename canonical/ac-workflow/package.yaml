@@ -1,0 +1,22 @@
+plugin_id: ac-workflow
+claude_plugin_path: plugins/ac-workflow
+pi_package: '@agentic-config/pi-ac-workflow'
+pi_package_path: packages/pi-ac-workflow
+shared_assets:
+- asset_id: shared-package-files
+  source: assets
+  outputs:
+    claude: .
+    pi: assets
+placeholder_values:
+  PACKAGE_ASSETS:
+    claude: ${CLAUDE_PLUGIN_ROOT}
+    pi: ../../assets
+  SPEC_ROOT:
+    claude: specs
+    pi: .specs/specs
+  MUX_ROOT:
+    claude: ${CLAUDE_PLUGIN_ROOT}/mux
+    pi: ../../assets/mux
+runtime_attachments: []
+dependencies: {}

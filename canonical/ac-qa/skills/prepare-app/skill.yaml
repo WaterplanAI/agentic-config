@@ -1,0 +1,32 @@
+skill_id: prepare-app
+kind: standard
+summary: 'Starts development server for E2E testing. Detects package manager and verifies
+  server startup. Triggers on keywords: prepare app, start server, dev server, start
+  app'
+project_agnostic: true
+body_file: body.md
+assets: []
+attachment_refs: []
+renders:
+  claude:
+    status: supported
+    output_path: skills/prepare-app/SKILL.md
+    display_name: prepare-app
+    allowed_tools:
+    - Bash
+    - Read
+    frontmatter_enabled: true
+    description: 'Starts development server for E2E testing. Detects package manager
+      and verifies server startup. Triggers on keywords: prepare app, start server,
+      dev server, start app'
+  pi:
+    status: supported
+    output_path: skills/ac-qa-prepare-app/SKILL.md
+    display_name: ac-qa-prepare-app
+    allowed_tools:
+    - Bash
+    - Read
+    frontmatter_enabled: true
+    description: 'Starts development server for E2E testing. Detects package manager
+      and verifies server startup. Triggers on keywords: prepare app, start server,
+      dev server, start app'

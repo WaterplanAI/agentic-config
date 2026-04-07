@@ -1,0 +1,42 @@
+skill_id: product-manager
+kind: standard
+summary: 'Decomposes large features into concrete development phases with DAG dependencies.
+  Each phase produces fully functional code. Outputs YAML manifest. Triggers on keywords:
+  decompose feature, phase planning, roadmap breakdown, feature phases, PM decomposition,
+  split feature'
+project_agnostic: true
+body_file: body.md
+assets: []
+attachment_refs: []
+renders:
+  claude:
+    status: supported
+    output_path: skills/product-manager/SKILL.md
+    display_name: product-manager
+    allowed_tools:
+    - Read
+    - Write
+    - Glob
+    - Grep
+    - Bash
+    frontmatter_enabled: true
+    description: 'Decomposes large features into concrete development phases with
+      DAG dependencies. Each phase produces fully functional code. Outputs YAML manifest.
+      Triggers on keywords: decompose feature, phase planning, roadmap breakdown,
+      feature phases, PM decomposition, split feature'
+  pi:
+    status: supported
+    output_path: skills/ac-workflow-product-manager/SKILL.md
+    display_name: ac-workflow-product-manager
+    allowed_tools:
+    - Read
+    - Write
+    - Glob
+    - Grep
+    - Bash
+    frontmatter_enabled: true
+    description: 'Decomposes large features into concrete development phases with
+      DAG dependencies. Each phase produces fully functional code. Outputs YAML manifest.
+      Triggers on keywords: decompose feature, phase planning, roadmap breakdown,
+      feature phases, PM decomposition, split feature'
+    body_file: body.pi.md

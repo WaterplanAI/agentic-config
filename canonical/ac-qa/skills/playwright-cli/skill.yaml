@@ -1,0 +1,43 @@
+skill_id: playwright-cli
+kind: standard
+summary: 'Browser automation via playwright-cli. Token-efficient alternative to Playwright
+  MCP - uses CLI commands through Bash instead of MCP tool schemas. Supports navigation,
+  interaction, screenshots, video recording, and session management. Triggers on keywords:
+  browser, e2e, playwright, screenshot, navigate, click, type, test browser, visual
+  test'
+project_agnostic: true
+body_file: body.md
+assets:
+- asset_id: bundled-skill-files
+  source: assets
+  outputs:
+    claude: .
+    pi: .
+attachment_refs: []
+renders:
+  claude:
+    status: supported
+    output_path: skills/playwright-cli/SKILL.md
+    display_name: playwright-cli
+    allowed_tools:
+    - Bash
+    - Read
+    frontmatter_enabled: true
+    description: 'Browser automation via playwright-cli. Token-efficient alternative
+      to Playwright MCP - uses CLI commands through Bash instead of MCP tool schemas.
+      Supports navigation, interaction, screenshots, video recording, and session
+      management. Triggers on keywords: browser, e2e, playwright, screenshot, navigate,
+      click, type, test browser, visual test'
+  pi:
+    status: supported
+    output_path: skills/ac-qa-playwright-cli/SKILL.md
+    display_name: ac-qa-playwright-cli
+    allowed_tools:
+    - Bash
+    - Read
+    frontmatter_enabled: true
+    description: 'Browser automation via playwright-cli. Token-efficient alternative
+      to Playwright MCP - uses CLI commands through Bash instead of MCP tool schemas.
+      Supports navigation, interaction, screenshots, video recording, and session
+      management. Triggers on keywords: browser, e2e, playwright, screenshot, navigate,
+      click, type, test browser, visual test'

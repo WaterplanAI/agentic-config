@@ -1,0 +1,39 @@
+{
+  "name": "@agentic-config/pi-ac-git",
+  "version": "0.2.6",
+  "description": "Pi package for the agentic-config ac-git plugin.",
+  "license": "MIT",
+  "homepage": "https://github.com/WaterplanAI/agentic-config",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/WaterplanAI/agentic-config.git",
+    "directory": "packages/pi-ac-git"
+  },
+  "keywords": [
+    "pi-package",
+    "agentic-config",
+    "pi",
+    "ac-git",
+    "git",
+    "pull-request",
+    "release",
+    "branch",
+    "worktree"
+  ],
+  "type": "module",
+  "pi": {
+    "skills": [
+      "./skills"
+    ],
+    "extensions": [
+      "./extensions",
+      "node_modules/@agentic-config/pi-compat/extensions"
+    ]
+  },
+  "dependencies": {
+    "@agentic-config/pi-compat": "0.2.6"
+  },
+  "bundledDependencies": [
+    "@agentic-config/pi-compat"
+  ]
+}

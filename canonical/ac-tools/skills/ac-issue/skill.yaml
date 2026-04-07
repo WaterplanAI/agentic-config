@@ -1,0 +1,33 @@
+skill_id: ac-issue
+kind: standard
+summary: 'Reports issues to agentic-config repository via GitHub CLI. Supports bug
+  reports and feature requests. Triggers on keywords: issue, report bug, feature request,
+  ac issue'
+project_agnostic: true
+body_file: body.md
+assets: []
+attachment_refs: []
+renders:
+  claude:
+    status: supported
+    output_path: skills/ac-issue/SKILL.md
+    display_name: ac-issue
+    allowed_tools:
+    - Bash
+    - Read
+    frontmatter_enabled: true
+    description: 'Reports issues to agentic-config repository via GitHub CLI. Supports
+      bug reports and feature requests. Triggers on keywords: issue, report bug, feature
+      request, ac issue'
+  pi:
+    status: supported
+    output_path: skills/ac-tools-ac-issue/SKILL.md
+    display_name: ac-tools-ac-issue
+    allowed_tools:
+    - Bash
+    - Read
+    frontmatter_enabled: true
+    description: 'Reports issues to agentic-config repository via GitHub CLI. Supports
+      bug reports and feature requests. Triggers on keywords: issue, report bug, feature
+      request, ac issue'
+    body_file: body.pi.md

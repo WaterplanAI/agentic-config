@@ -1,0 +1,45 @@
+skill_id: worktree
+kind: standard
+summary: 'Creates a git worktree with asset setup, environment bootstrapping, and direnv wiring. Triggers on keywords: worktree,
+  create worktree, new worktree, git worktree'
+project_agnostic: false
+body_file: body.md
+assets:
+- asset_id: bundled-cookbook
+  source: cookbook
+  outputs:
+    claude: cookbook
+    pi: cookbook
+attachment_refs: []
+renders:
+  claude:
+    status: supported
+    output_path: skills/worktree/SKILL.md
+    display_name: worktree
+    allowed_tools:
+    - Bash
+    - Read
+    - Write
+    - Glob
+    - Grep
+    - Task
+    - Skill
+    frontmatter_enabled: true
+    description: 'Creates new git worktree with symlinked/copied assets and independent environment setup. Triggers on keywords:
+      worktree, create worktree, new worktree, git worktree'
+  pi:
+    status: supported
+    output_path: skills/ac-git-worktree/SKILL.md
+    display_name: ac-git-worktree
+    allowed_tools:
+    - Bash
+    - Read
+    - Write
+    - Edit
+    - Grep
+    - AskUserQuestion
+    - subagent
+    frontmatter_enabled: true
+    body_file: body.pi.md
+    description: 'Creates a git worktree with asset setup, serial branch/bootstrap creation, shared worker-wave environment
+      setup, and direnv wiring. Triggers on keywords: worktree, create worktree, new worktree, git worktree'

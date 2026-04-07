@@ -1,0 +1,43 @@
+skill_id: mux-roadmap
+kind: standard
+summary: "Multi-track roadmap orchestration on top of the shared mux foundation. Use for DAG-shaped track/phase execution with roadmap-level progress mirrors and phase-owned stage artifacts."
+project_agnostic: true
+body_file: body.md
+assets: []
+attachment_refs: []
+renders:
+  claude:
+    status: supported
+    output_path: skills/mux-roadmap/SKILL.md
+    display_name: mux-roadmap
+    allowed_tools:
+      - Task
+      - Bash
+      - Read
+      - Write
+      - Edit
+      - Glob
+      - Grep
+      - Skill
+      - AskUserQuestion
+      - mcp__voicemode__converse
+    frontmatter_enabled: true
+    description: "Multi-track roadmap orchestration via MUX skill with file-based state management for cross-session continuity. Triggers on keywords: mux roadmap, roadmap, orchestrate roadmap, multi-track"
+  pi:
+    status: supported
+    output_path: skills/ac-workflow-mux-roadmap/SKILL.md
+    display_name: ac-workflow-mux-roadmap
+    allowed_tools:
+      - Read
+      - Write
+      - Edit
+      - Bash
+      - Grep
+      - Glob
+      - subagent
+      - say
+    frontmatter_enabled: true
+    description: "pi-adapted roadmap coordinator. Uses roadmap-level progress mirrors, phase-owned stage artifacts, and one-layer subagent waves on top of the shared mux foundation."
+    body_file: body.pi.md
+    frontmatter_extra:
+      argument-hint: "[roadmap_path]"

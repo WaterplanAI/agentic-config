@@ -1,0 +1,41 @@
+skill_id: video-query
+kind: standard
+summary: 'Analyzes video files using Google Gemini API and answers questions about
+  content. Triggers on keywords: video query, analyze video, video analysis, query
+  video'
+project_agnostic: true
+body_file: body.md
+assets:
+- asset_id: bundled-claude-skill-files
+  source: assets-claude
+  outputs:
+    claude: ../../scripts
+- asset_id: bundled-pi-skill-files
+  source: assets-pi
+  outputs:
+    pi: .
+attachment_refs: []
+renders:
+  claude:
+    status: supported
+    output_path: skills/video-query/SKILL.md
+    display_name: video-query
+    allowed_tools:
+    - Bash
+    - Read
+    frontmatter_enabled: true
+    description: 'Analyzes video files using Google Gemini API and answers questions
+      about content. Triggers on keywords: video query, analyze video, video analysis,
+      query video'
+  pi:
+    status: supported
+    output_path: skills/ac-tools-video-query/SKILL.md
+    display_name: ac-tools-video-query
+    allowed_tools:
+    - Bash
+    - Read
+    frontmatter_enabled: true
+    description: 'Analyzes video files using Google Gemini API and answers questions
+      about content. Triggers on keywords: video query, analyze video, video analysis,
+      query video'
+    body_file: body.pi.md

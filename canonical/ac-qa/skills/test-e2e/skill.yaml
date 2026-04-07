@@ -1,0 +1,33 @@
+skill_id: test-e2e
+kind: standard
+summary: 'Executes E2E tests from definition files with Playwright browser automation.
+  Triggers on keywords: test e2e, run e2e, execute e2e test, e2e test runner'
+project_agnostic: true
+body_file: body.md
+assets: []
+attachment_refs: []
+renders:
+  claude:
+    status: supported
+    output_path: skills/test-e2e/SKILL.md
+    display_name: test-e2e
+    allowed_tools:
+    - Read
+    - Bash
+    - Glob
+    frontmatter_enabled: true
+    description: 'Executes E2E tests from definition files with Playwright browser
+      automation. Triggers on keywords: test e2e, run e2e, execute e2e test, e2e test
+      runner'
+  pi:
+    status: supported
+    output_path: skills/ac-qa-test-e2e/SKILL.md
+    display_name: ac-qa-test-e2e
+    allowed_tools:
+    - Read
+    - Bash
+    - Glob
+    frontmatter_enabled: true
+    description: 'Executes E2E tests from definition files with Playwright browser
+      automation. Triggers on keywords: test e2e, run e2e, execute e2e test, e2e test
+      runner'

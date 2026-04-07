@@ -1,15 +1,15 @@
 ---
 name: mux-ospec
 description: "Orchestrates the spec workflow via MUX delegation, combining parallel research-to-deliverable orchestration with spec stage-based execution. Triggers on keywords: mux ospec, ospec"
-argument-hint: "[modifier] [spec_path|inline_prompt]"
 project-agnostic: true
-requires-skills:
-  - spec
 allowed-tools:
   - Task
   - Bash
   - AskUserQuestion
   - mcp__voicemode__converse
+argument-hint: '[modifier] [spec_path|inline_prompt]'
+requires-skills:
+- spec
 ---
 
 # MUX Spec Orchestrator

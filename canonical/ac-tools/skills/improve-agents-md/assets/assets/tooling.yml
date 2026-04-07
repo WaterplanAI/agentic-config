@@ -1,0 +1,51 @@
+python-uv:
+  package_manager: uv
+  type_checker: uv run pyright
+  linter: uv run ruff check [--fix] <path>
+  after_edit: uv run ruff check --fix <file> && uv run pyright <file>
+  style: "Type hints for all public functions, descriptive names, small pure functions"
+  extras: [pep723]
+
+python-poetry:
+  package_manager: poetry
+  type_checker: poetry run pyright
+  linter: poetry run ruff check [--fix] <path>
+  after_edit: poetry run ruff check --fix <file> && poetry run pyright <file>
+  style: "Type hints for all public functions, descriptive names, small pure functions"
+  extras: [pep723]
+
+python-pip:
+  package_manager: pip
+  type_checker: null
+  linter: null
+  after_edit: null
+  style: "Type hints for all public functions, descriptive names, small pure functions"
+  extras: [pep723]
+
+typescript:
+  package_manager: pnpm
+  type_checker: tsc --noEmit (never tsc alone)
+  linter: eslint <path> [--fix]
+  after_edit: eslint --fix <file> && tsc --noEmit
+  style: "TypeScript strict mode, functional components, explicit types (no any)"
+
+ts-bun:
+  package_manager: bun
+  type_checker: tsc --noEmit (never tsc alone)
+  linter: eslint <path> [--fix]
+  after_edit: eslint --fix <file> && tsc --noEmit
+  style: "TypeScript strict mode, functional components, explicit types (no any)"
+
+rust:
+  package_manager: cargo
+  type_checker: cargo check
+  linter: cargo clippy
+  after_edit: cargo clippy && cargo check
+  style: "Idiomatic Rust patterns, descriptive names, leverage type system"
+
+generic:
+  package_manager: null
+  type_checker: null
+  linter: null
+  after_edit: null
+  style: null

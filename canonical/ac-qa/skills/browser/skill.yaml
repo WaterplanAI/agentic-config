@@ -1,0 +1,32 @@
+skill_id: browser
+kind: standard
+summary: 'Opens browser at URL for E2E testing via playwright-cli. Provides CLI commands
+  for navigation, screenshots, and interaction. Triggers on keywords: browser, open
+  browser, playwright browser, e2e browser'
+project_agnostic: true
+body_file: body.md
+assets: []
+attachment_refs: []
+renders:
+  claude:
+    status: supported
+    output_path: skills/browser/SKILL.md
+    display_name: browser
+    allowed_tools:
+    - Bash
+    - Read
+    frontmatter_enabled: true
+    description: 'Opens browser at URL for E2E testing via playwright-cli. Provides
+      CLI commands for navigation, screenshots, and interaction. Triggers on keywords:
+      browser, open browser, playwright browser, e2e browser'
+  pi:
+    status: supported
+    output_path: skills/ac-qa-browser/SKILL.md
+    display_name: ac-qa-browser
+    allowed_tools:
+    - Bash
+    - Read
+    frontmatter_enabled: true
+    description: 'Opens browser at URL for E2E testing via playwright-cli. Provides
+      CLI commands for navigation, screenshots, and interaction. Triggers on keywords:
+      browser, open browser, playwright browser, e2e browser'

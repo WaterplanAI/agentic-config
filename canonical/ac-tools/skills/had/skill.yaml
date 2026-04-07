@@ -1,0 +1,31 @@
+skill_id: had
+kind: alias
+summary: 'Shorthand wrapper for human-agentic-design. Treats the current request as
+  a human-agentic-design request. Triggers on keywords: had, human agentic design
+  shorthand'
+project_agnostic: true
+body_file: body.md
+assets: []
+attachment_refs: []
+renders:
+  claude:
+    status: supported
+    output_path: skills/had/SKILL.md
+    display_name: had
+    allowed_tools:
+    - Skill
+    frontmatter_enabled: true
+    description: 'Alias skill that invokes /human-agentic-design with all arguments
+      passed through. Provides shorthand for human-agentic-design. Triggers on keywords:
+      had, human agentic design shorthand'
+  pi:
+    status: supported
+    output_path: skills/ac-tools-had/SKILL.md
+    display_name: ac-tools-had
+    allowed_tools:
+    - Read
+    frontmatter_enabled: true
+    description: 'Shorthand wrapper for human-agentic-design. Treats the current request
+      as a human-agentic-design request. Triggers on keywords: had, human agentic
+      design shorthand'
+    body_file: body.pi.md

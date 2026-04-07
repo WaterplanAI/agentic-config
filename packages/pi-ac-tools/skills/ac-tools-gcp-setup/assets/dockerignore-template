@@ -1,0 +1,37 @@
+# Secrets — NEVER include in Docker image
+.env
+.env.*
+
+# Git
+.git
+.gitignore
+
+# GCP config (no secrets, but not needed in image)
+.gcp-setup.yml
+cloudbuild*.yaml
+cloudbuild*.yml
+
+# Node.js
+node_modules
+
+# Python
+__pycache__
+*.pyc
+.venv
+venv
+
+# Go
+vendor
+
+# Documentation and tests (not needed in production image)
+# Excludes all markdown — override if your app serves .md content at runtime
+*.md
+tests
+test
+spec
+coverage
+
+# IDE and CI
+.github
+.vscode
+.idea

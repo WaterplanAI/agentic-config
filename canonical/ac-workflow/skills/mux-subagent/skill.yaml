@@ -1,0 +1,44 @@
+skill_id: mux-subagent
+kind: standard
+summary: "MUX worker protocol reference. Defines the report, signal, and return-code contract that later mux orchestrators consume."
+project_agnostic: true
+body_file: body.md
+assets: []
+attachment_refs: []
+renders:
+  claude:
+    status: supported
+    output_path: skills/mux-subagent/SKILL.md
+    display_name: mux-subagent
+    allowed_tools:
+      - Read
+      - Write
+      - Edit
+      - Bash
+      - Grep
+      - Glob
+      - WebSearch
+    frontmatter_enabled: true
+    description: "MUX worker protocol reference. Defines the report, signal, and return-code contract that later mux orchestrators consume."
+    frontmatter_extra:
+      hooks:
+        PreToolUse:
+          - matcher: TaskOutput
+            hooks:
+              - type: command
+                command: uv run --no-project --script {{MUX_ROOT}}/subagent-hooks/mux-subagent-guard.py
+  pi:
+    status: supported
+    output_path: skills/ac-workflow-mux-subagent/SKILL.md
+    display_name: ac-workflow-mux-subagent
+    allowed_tools:
+      - Read
+      - Write
+      - Edit
+      - Bash
+      - Grep
+      - Glob
+      - web_search
+    frontmatter_enabled: true
+    description: "MUX worker protocol reference for pi. Defines the report, signal, and return-code contract that later mux orchestrators consume."
+    body_file: body.pi.md

@@ -1,14 +1,6 @@
 ---
 name: harden-supply-chain-sec
-version: 1.0.0
-description: |
-  Harden software supply chain security by configuring minimum release age
-  across package managers. Auto-detects active managers or accepts explicit argument.
-  Supports pnpm, yarn, bun, npm, uv. Warns for unsupported managers (pip, cargo, go).
-  Includes dry-run confirmation, version compatibility check, frozen-lockfile awareness,
-  and optional (--harden) post-config security hardening of CLAUDE.md/AGENTS.md.
-  Default duration: 7 days.
-  Triggers on keywords: harden supply chain, supply chain security, minimum release age, package age gate
+description: "Harden software supply chain security by configuring minimum release age across package managers. Auto-detects active managers or accepts explicit argument."
 project-agnostic: true
 allowed-tools:
   - Read

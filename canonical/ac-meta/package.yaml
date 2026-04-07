@@ -1,0 +1,14 @@
+plugin_id: ac-meta
+claude_plugin_path: plugins/ac-meta
+pi_package: '@agentic-config/pi-ac-meta'
+pi_package_path: packages/pi-ac-meta
+shared_assets: []
+placeholder_values:
+  PACKAGE_ASSETS:
+    claude: ${CLAUDE_PLUGIN_ROOT}
+    pi: ../../assets
+  SPEC_ROOT:
+    claude: specs
+    pi: .specs/specs
+runtime_attachments: []
+dependencies: {}

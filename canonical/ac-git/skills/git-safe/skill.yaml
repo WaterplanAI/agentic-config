@@ -1,0 +1,41 @@
+skill_id: git-safe
+kind: standard
+summary: 'Rewrites git history safely with dry-run-first workflow. Supports commit
+  amending, squashing, rewording, tag updates, and force pushing. Always proposes
+  plan before execution. Triggers on keywords: git safe, rewrite history, squash commits,
+  amend commit, fix commit, update tags, rebase history, clean history, fix tag'
+project_agnostic: true
+body_file: body.md
+assets: []
+attachment_refs: []
+renders:
+  claude:
+    status: supported
+    output_path: skills/git-safe/SKILL.md
+    display_name: git-safe
+    allowed_tools:
+    - Bash
+    - Read
+    - Edit
+    - Write
+    frontmatter_enabled: true
+    description: 'Rewrites git history safely with dry-run-first workflow. Supports
+      commit amending, squashing, rewording, tag updates, and force pushing. Always
+      proposes plan before execution. Triggers on keywords: git safe, rewrite history,
+      squash commits, amend commit, fix commit, update tags, rebase history, clean
+      history, fix tag'
+  pi:
+    status: supported
+    output_path: skills/ac-git-git-safe/SKILL.md
+    display_name: ac-git-git-safe
+    allowed_tools:
+    - Bash
+    - Read
+    - Edit
+    - Write
+    frontmatter_enabled: true
+    description: 'Rewrites git history safely with dry-run-first workflow. Supports
+      commit amending, squashing, rewording, tag updates, and force pushing. Always
+      proposes plan before execution. Triggers on keywords: git safe, rewrite history,
+      squash commits, amend commit, fix commit, update tags, rebase history, clean
+      history, fix tag'

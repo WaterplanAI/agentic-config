@@ -1,0 +1,39 @@
+skill_id: agentic-export
+kind: standard
+summary: Export reusable assets from a project into this repository's v0.2 plugin
+  architecture (skills, templates, agents).
+project_agnostic: false
+body_file: body.md
+assets: []
+attachment_refs: []
+renders:
+  claude:
+    status: supported
+    output_path: skills/agentic-export/SKILL.md
+    display_name: agentic-export
+    allowed_tools:
+    - Read
+    - Write
+    - Edit
+    - Bash
+    - Glob
+    - Grep
+    - Skill
+    frontmatter_enabled: true
+    description: Export reusable assets from a project into this repository's v0.2
+      plugin architecture (skills, templates, agents).
+  pi:
+    status: supported
+    output_path: skills/ac-tools-agentic-export/SKILL.md
+    display_name: ac-tools-agentic-export
+    allowed_tools:
+    - Read
+    - Write
+    - Edit
+    - Bash
+    - Glob
+    - Grep
+    frontmatter_enabled: true
+    description: Export reusable assets from a project into this repository's v0.2
+      plugin architecture (skills, templates, agents).
+    body_file: body.pi.md

@@ -1,0 +1,33 @@
+skill_id: e2e-template
+kind: standard
+summary: 'Template generator for E2E test definitions. Creates structured test files
+  for use with test-e2e skill. Triggers on keywords: e2e template, test template,
+  create test definition'
+project_agnostic: true
+body_file: body.md
+assets: []
+attachment_refs: []
+renders:
+  claude:
+    status: supported
+    output_path: skills/e2e-template/SKILL.md
+    display_name: e2e-template
+    allowed_tools:
+    - Read
+    - Write
+    frontmatter_enabled: true
+    description: 'Template generator for E2E test definitions. Creates structured
+      test files for use with test-e2e skill. Triggers on keywords: e2e template,
+      test template, create test definition'
+  pi:
+    status: supported
+    output_path: skills/ac-qa-e2e-template/SKILL.md
+    display_name: ac-qa-e2e-template
+    allowed_tools:
+    - Read
+    - Write
+    frontmatter_enabled: true
+    description: 'Template generator for E2E test definitions. Creates structured
+      test files for use with test-e2e skill. Triggers on keywords: e2e template,
+      test template, create test definition'
+    body_file: body.pi.md

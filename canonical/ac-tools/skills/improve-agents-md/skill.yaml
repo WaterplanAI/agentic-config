@@ -1,0 +1,50 @@
+skill_id: improve-agents-md
+kind: standard
+summary: "Generate and update AGENTS.md (CLAUDE.md) for projects using a single template with dynamic per-type tooling injection. Auto-detects project type and renders the appropriate Environment & Tooling section. Triggers on keywords: improve agents, generate agents.md, update agents.md, setup claude.md, bootstrap agents"
+project_agnostic: true
+body_file: body.md
+assets:
+  - asset_id: bundled-skill-files
+    source: assets
+    outputs:
+      claude: .
+      pi: .
+attachment_refs: []
+renders:
+  claude:
+    status: supported
+    output_path: skills/improve-agents-md/SKILL.md
+    display_name: improve-agents-md
+    allowed_tools:
+      - Bash
+      - Read
+      - Write
+      - Glob
+      - Grep
+      - AskUserQuestion
+    frontmatter_enabled: true
+    placeholder_values:
+      INTRO_BLOCK: |
+        # improve-agents-md
+      SKILL_EXAMPLE_PATH: plugins/ac-tools/skills/x
+      SKILL_GLOB_ROOT: plugins/*/skills/
+  pi:
+    status: supported
+    output_path: skills/ac-tools-improve-agents-md/SKILL.md
+    display_name: ac-tools-improve-agents-md
+    allowed_tools:
+      - Bash
+      - Read
+      - Write
+      - Glob
+      - Grep
+    frontmatter_enabled: true
+    placeholder_values:
+      INTRO_BLOCK: |
+        # improve-agents-md
+        
+        ## Compatibility Note
+        
+        This pi wrapper preserves the original setup/update workflow while expressing any confirmation points as explicit manual checkpoints in the current chat instead of assuming a runtime interactive-question primitive.
+      SKILL_EXAMPLE_PATH: packages/pi-ac-tools/skills/x
+      SKILL_GLOB_ROOT: packages/pi-*/skills/

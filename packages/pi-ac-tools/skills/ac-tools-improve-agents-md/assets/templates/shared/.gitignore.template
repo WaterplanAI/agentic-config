@@ -1,0 +1,25 @@
+# Agentic Config
+.agentic-config.backup.*
+outputs/
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Secrets (never commit)
+.env
+.env.local
+*.key
+credentials.json
+
+# Agentic config
+.agentic-config.conf.yml
+
+# External specs (tracked in separate repository)
+.specs/

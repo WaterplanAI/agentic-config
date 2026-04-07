@@ -1,0 +1,37 @@
+skill_id: dry-run
+kind: standard
+summary: 'Runs a delegated command or prompt in dry-run mode by setting session status,
+  preserving read-only behavior, and resetting state after execution. Triggers on
+  keywords: dry run, simulate, preview changes, safe mode'
+project_agnostic: true
+body_file: body.md
+assets: []
+attachment_refs: []
+renders:
+  claude:
+    status: supported
+    output_path: skills/dry-run/SKILL.md
+    display_name: dry-run
+    allowed_tools:
+    - Bash
+    - Write
+    - Read
+    frontmatter_enabled: true
+    description: 'Simulates command execution in dry-run mode without file modifications.
+      Sets dry_run flag, executes command with read-only constraint, then resets flag.
+      Useful for testing workflows safely. Triggers on keywords: dry run, simulate,
+      test command, preview changes, safe mode, no write'
+  pi:
+    status: supported
+    output_path: skills/ac-tools-dry-run/SKILL.md
+    display_name: ac-tools-dry-run
+    allowed_tools:
+    - Bash
+    - Read
+    - Write
+    - Edit
+    frontmatter_enabled: true
+    description: 'Runs a delegated command or prompt in dry-run mode by setting session
+      status, preserving read-only behavior, and resetting state after execution.
+      Triggers on keywords: dry run, simulate, preview changes, safe mode'
+    body_file: body.pi.md

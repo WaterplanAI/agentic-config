@@ -1,0 +1,19 @@
+# DO NOT COMMIT .env files — they contain secret values
+# Environment Variables Template
+# Copy to .env for local development
+# Secret values come from GCP Secret Manager in production
+
+# Server config
+PORT=8080
+
+# Google OAuth 2.0 (see cookbook/oauth-setup.md for setup guide)
+# Only needed if oauth.enabled is true in .gcp-setup.yml
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+
+# Session secret — MUST be unique per environment
+# Generate with: openssl rand -hex 32
+SESSION_SECRET=
+
+# Add project-specific env vars below
+# Refer to .gcp-setup.yml secrets manifest for the full list

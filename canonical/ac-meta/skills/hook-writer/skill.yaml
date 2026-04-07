@@ -1,0 +1,47 @@
+skill_id: hook-writer
+kind: standard
+summary: 'Expert assistant for authoring Claude Code hooks. Creates Python hooks with
+  correct JSON output schema, validates against PreToolUse/PostToolUse/UserPromptSubmit
+  formats, and applies fail-open principles. Triggers on keywords: writing hooks,
+  creating hooks, hook authoring, pretooluse hook, posttooluse hook, new hook, hook
+  template, hook validation, hook schema'
+project_agnostic: true
+body_file: body.md
+assets: []
+attachment_refs: []
+renders:
+  claude:
+    status: supported
+    output_path: skills/hook-writer/SKILL.md
+    display_name: hook-writer
+    allowed_tools:
+    - Read
+    - Write
+    - Edit
+    - Glob
+    - Grep
+    - Bash
+    frontmatter_enabled: true
+    description: 'Expert assistant for authoring Claude Code hooks. Creates Python
+      hooks with correct JSON output schema, validates against PreToolUse/PostToolUse/UserPromptSubmit
+      formats, and applies fail-open principles. Triggers on keywords: writing hooks,
+      creating hooks, hook authoring, pretooluse hook, posttooluse hook, new hook,
+      hook template, hook validation, hook schema'
+  pi:
+    status: supported
+    output_path: skills/ac-meta-hook-writer/SKILL.md
+    display_name: ac-meta-hook-writer
+    allowed_tools:
+    - Read
+    - Write
+    - Edit
+    - Glob
+    - Grep
+    - Bash
+    frontmatter_enabled: true
+    description: 'Expert assistant for authoring Claude Code hooks. Creates Python
+      hooks with correct JSON output schema, validates against PreToolUse/PostToolUse/UserPromptSubmit
+      formats, and applies fail-open principles. Triggers on keywords: writing hooks,
+      creating hooks, hook authoring, pretooluse hook, posttooluse hook, new hook,
+      hook template, hook validation, hook schema'
+    body_file: body.pi.md

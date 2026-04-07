@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard</title>
+  <script src="https://cdn.tailwindcss.com/4.0"></script>
+  <link href="https://cdn.jsdelivr.net/npm/daisyui@5/themes.css" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/daisyui@5/full.css" rel="stylesheet" />
+  <style>
+    :focus-visible { outline: 2px solid #4f46e5; outline-offset: 2px; }
+  </style>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebPage",
+    "name": "Dashboard",
+    "description": "Application dashboard with metrics, data table, and navigation"
+  }
+  </script>
+</head>
+<body class="min-h-screen bg-base-100">
+  <div class="drawer lg:drawer-open">
+    <input id="sidebar-toggle" data-testid="sidebar-toggle" type="checkbox" class="drawer-toggle" aria-label="Toggle sidebar">
+
+    <!-- Main Content -->
+    <div class="drawer-content flex flex-col">
+      <!-- Top Bar -->
+      <header class="navbar bg-base-200 lg:hidden">
+        <div class="flex-none">
+          <label for="sidebar-toggle" data-testid="sidebar-open-btn" class="btn btn-square btn-ghost" aria-label="Open sidebar">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+          </label>
+        </div>
+        <div class="flex-1"><span class="text-xl font-bold">Dashboard</span></div>
+      </header>
+
+      <main class="p-6">
+        <h1 class="text-3xl font-bold mb-6">Dashboard Overview</h1>
+
+        <!-- Stat Cards -->
+        <section aria-label="Key metrics" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+          <article class="stat bg-base-200 rounded-box p-4" data-testid="stat-users">
+            <div class="stat-title">Total Users</div>
+            <div class="stat-value">12,450</div>
+            <div class="stat-desc">+12% from last month</div>
+          </article>
+          <article class="stat bg-base-200 rounded-box p-4" data-testid="stat-revenue">
+            <div class="stat-title">Revenue</div>
+            <div class="stat-value">$X</div>
+            <div class="stat-desc">+8% from last month</div>
+          </article>
+          <article class="stat bg-base-200 rounded-box p-4" data-testid="stat-orders">
+            <div class="stat-title">Orders</div>
+            <div class="stat-value">1,234</div>
+            <div class="stat-desc">+3% from last month</div>
+          </article>
+          <article class="stat bg-base-200 rounded-box p-4" data-testid="stat-conversion">
+            <div class="stat-title">Conversion</div>
+            <div class="stat-value">3.2%</div>
+            <div class="stat-desc">-0.1% from last month</div>
+          </article>
+        </section>
+
+        <!-- Data Table -->
+        <section aria-label="Recent orders">
+          <div class="flex justify-between items-center mb-4">
+            <h2 class="text-xl font-semibold">Recent Orders</h2>
+            <div class="flex gap-2">
+              <label for="table-search" class="sr-only">Search orders</label>
+              <input id="table-search" data-testid="table-search-input" type="search" placeholder="Search..." class="input input-bordered input-sm" oninput="filterTable(this.value)">
+              <select data-testid="table-sort-select" class="select select-bordered select-sm" aria-label="Sort by" onchange="updateState('sort', this.value)">
+                <option value="date">Sort by Date</option>
+                <option value="amount">Sort by Amount</option>
+                <option value="status">Sort by Status</option>
+              </select>
+            </div>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="table table-zebra w-full" data-testid="orders-table">
+              <thead>
+                <tr>
+                  <th scope="col">Order ID</th>
+                  <th scope="col">Customer</th>
+                  <th scope="col">Amount</th>
+                  <th scope="col">Status</th>
+                  <th scope="col">Date</th>
+                  <th scope="col"><span class="sr-only">Actions</span></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>#ORD-001</td>
+                  <td>Jane Doe</td>
+                  <td>$X</td>
+                  <td><span class="badge badge-success">Completed</span></td>
+                  <td>2026-02-08</td>
+                  <td><button data-testid="view-order-001" class="btn btn-ghost btn-xs">View</button></td>
+                </tr>
+                <tr>
+                  <td>#ORD-002</td>
+                  <td>John Smith</td>
+                  <td>$X</td>
+                  <td><span class="badge badge-warning">Pending</span></td>
+                  <td>2026-02-07</td>
+                  <td><button data-testid="view-order-002" class="btn btn-ghost btn-xs">View</button></td>
+                </tr>
+                <tr>
+                  <td>#ORD-003</td>
+                  <td>Alice Johnson</td>
+                  <td>$X</td>
+                  <td><span class="badge badge-error">Cancelled</span></td>
+                  <td>2026-02-06</td>
+                  <td><button data-testid="view-order-003" class="btn btn-ghost btn-xs">View</button></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <!-- Sidebar -->
+    <div class="drawer-side">
+      <label for="sidebar-toggle" aria-label="Close sidebar" class="drawer-overlay"></label>
+      <aside class="bg-base-200 w-64 min-h-full p-4">
+        <div class="text-xl font-bold mb-8 px-2">AppName</div>
+        <nav aria-label="Sidebar navigation">
+          <ul class="menu">
+            <li><a data-testid="nav-dashboard" href="?view=dashboard" class="active">Dashboard</a></li>
+            <li><a data-testid="nav-analytics" href="?view=analytics">Analytics</a></li>
+            <li><a data-testid="nav-customers" href="?view=customers">Customers</a></li>
+            <li><a data-testid="nav-products" href="?view=products">Products</a></li>
+            <li><a data-testid="nav-settings" href="?view=settings">Settings</a></li>
+          </ul>
+        </nav>
+      </aside>
+    </div>
+  </div>
+
+  <!-- Footer (inside drawer-content in production; here at bottom for simplicity) -->
+  <footer class="footer footer-center p-4 bg-base-200 text-base-content">
+    <p>Dashboard Prototype</p>
+  </footer>
+
+  <script>
+    // URL-driven state
+    const params = new URLSearchParams(window.location.search);
+    const currentView = params.get('view') || 'dashboard';
+    const currentSort = params.get('sort') || 'date';
+
+    function updateState(key, value) {
+      const url = new URL(window.location);
+      url.searchParams.set(key, value);
+      window.history.pushState({}, '', url);
+    }
+
+    // Highlight active nav item
+    document.querySelectorAll('[data-testid^="nav-"]').forEach(function(link) {
+      if (link.getAttribute('href') === '?view=' + currentView) {
+        link.classList.add('active');
+      } else {
+        link.classList.remove('active');
+      }
+    });
+
+    // Table filter
+    function filterTable(query) {
+      var rows = document.querySelectorAll('[data-testid="orders-table"] tbody tr');
+      var q = query.toLowerCase();
+      rows.forEach(function(row) {
+        row.style.display = row.textContent.toLowerCase().includes(q) ? '' : 'none';
+      });
+      updateState('filter', query);
+    }
+
+    // Apply sort from URL
+    var sortSelect = document.querySelector('[data-testid="table-sort-select"]');
+    if (sortSelect) sortSelect.value = currentSort;
+  </script>
+</body>
+</html>

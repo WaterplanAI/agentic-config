@@ -52,6 +52,7 @@ Core principles:
 - [Getting Started](docs/getting-started.md) -- Install, setup, first use
 - [Plugin Catalog](docs/plugin-catalog.md) -- All 42 skills with composition patterns
 - [Distribution Guide](docs/distribution.md) -- Team adoption and private marketplace
+- [Pi Package Adoption Guide](packages/README.md) -- IT001 pi install guidance, local pre-distribution package testing, availability matrix, and IT002 handoff
 - [Migration Guide v0.2.0](docs/migration-v0.2.0.md) -- Migrate from v0.1.x
 - [Uninstall Legacy (v0.1.x)](docs/migration-v0.2.0.md#step-1-remove-old-symlinks) -- Remove legacy symlink wiring
 - [Full Documentation Index](docs/index.md)
@@ -77,6 +78,8 @@ All plugins in this repository are designed and tested with full tool permission
 ## Contributing
 
 See [Contributing Guidelines](.github/CONTRIBUTING.md).
+
+For local pi package testing before npm distribution is enabled, start with the [Pi Package Adoption Guide](packages/README.md#local-package-testing-before-distribution).
 
 ## License
 

@@ -1,0 +1,63 @@
+skill_id: human-agentic-design
+kind: standard
+summary: 'Generates interactive HTML prototypes optimized for dual human+agent interaction.
+  Produces semantic, accessible designs with Tailwind + DaisyUI (Tier A) or React
+  + shadcn/ui + Vite (Tier B). Triggers on keywords: prototype, design, UI prototype,
+  landing page, dashboard, form design, human-agentic, had, mockup, wireframe'
+project_agnostic: true
+body_file: body.md
+assets:
+- asset_id: bundled-skill-files
+  source: assets
+  outputs:
+    claude: .
+    pi: .
+attachment_refs: []
+renders:
+  claude:
+    status: supported
+    output_path: skills/human-agentic-design/SKILL.md
+    display_name: human-agentic-design
+    allowed_tools:
+    - Read
+    - Write
+    - Edit
+    - Bash
+    - Glob
+    - Grep
+    - mcp__playwright__browser_navigate
+    - mcp__playwright__browser_take_screenshot
+    - mcp__playwright__browser_snapshot
+    - mcp__playwright__browser_resize
+    - mcp__playwright__browser_click
+    - mcp__playwright__browser_type
+    frontmatter_enabled: true
+    description: 'Generates interactive HTML prototypes optimized for dual human+agent
+      interaction. Produces semantic, accessible designs with Tailwind + DaisyUI (Tier
+      A) or React + shadcn/ui + Vite (Tier B). Triggers on keywords: prototype, design,
+      UI prototype, landing page, dashboard, form design, human-agentic, had, mockup,
+      wireframe'
+  pi:
+    status: supported
+    output_path: skills/ac-tools-human-agentic-design/SKILL.md
+    display_name: ac-tools-human-agentic-design
+    allowed_tools:
+    - Read
+    - Write
+    - Edit
+    - Bash
+    - Glob
+    - Grep
+    - mcp__playwright__browser_navigate
+    - mcp__playwright__browser_take_screenshot
+    - mcp__playwright__browser_snapshot
+    - mcp__playwright__browser_resize
+    - mcp__playwright__browser_click
+    - mcp__playwright__browser_type
+    frontmatter_enabled: true
+    description: 'Generates interactive HTML prototypes optimized for dual human+agent
+      interaction. Produces semantic, accessible designs with Tailwind + DaisyUI (Tier
+      A) or React + shadcn/ui + Vite (Tier B). Triggers on keywords: prototype, design,
+      UI prototype, landing page, dashboard, form design, human-agentic, had, mockup,
+      wireframe'
+    body_file: body.pi.md

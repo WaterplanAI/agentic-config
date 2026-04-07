@@ -1,0 +1,35 @@
+skill_id: git-find-fork
+kind: standard
+summary: 'Finds the true merge-base/fork-point of a git branch, detecting history
+  rewrites from rebases and squashes. Handles unknown parent branches. Triggers on
+  keywords: find fork, merge-base, branch fork point, where did branch start, git
+  fork, branch origin'
+project_agnostic: true
+body_file: body.md
+assets: []
+attachment_refs: []
+renders:
+  claude:
+    status: supported
+    output_path: skills/git-find-fork/SKILL.md
+    display_name: git-find-fork
+    allowed_tools:
+    - Bash
+    - Read
+    frontmatter_enabled: true
+    description: 'Finds the true merge-base/fork-point of a git branch, detecting
+      history rewrites from rebases and squashes. Handles unknown parent branches.
+      Triggers on keywords: find fork, merge-base, branch fork point, where did branch
+      start, git fork, branch origin'
+  pi:
+    status: supported
+    output_path: skills/ac-git-git-find-fork/SKILL.md
+    display_name: ac-git-git-find-fork
+    allowed_tools:
+    - Bash
+    - Read
+    frontmatter_enabled: true
+    description: 'Finds the true merge-base/fork-point of a git branch, detecting
+      history rewrites from rebases and squashes. Handles unknown parent branches.
+      Triggers on keywords: find fork, merge-base, branch fork point, where did branch
+      start, git fork, branch origin'

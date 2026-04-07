@@ -8,7 +8,7 @@ Git pre-commit hook for PII compliance verification.
 
 Two-tier approach:
 1. Fast regex checks for obvious violations (fail-closed)
-2. LLM audit via pi for nuanced cases (fail-open)
+2. LLM audit via pi for nuanced cases (fail-closed)
 
 Usage:
     Symlink from .git/hooks/pre-commit to .githooks/pre-commit
@@ -250,24 +250,24 @@ def main() -> int:
         print("Fix the PII issues and re-commit.")
         return 1
 
-    # Tier 2: LLM audit via pi for nuanced cases (fail-open)
+    # Tier 2: LLM audit via pi for nuanced cases (fail-closed)
     if not shutil.which("pi"):
-        print("  pi not found, skipping LLM audit (fail-open)")
+        print("PII_AUDIT: FAIL - pi not found (fail-closed)")
         print("  Install with: npm install -g @mariozechner/pi-coding-agent")
-        return 0
+        return 1
 
     prompt = AUDIT_PROMPT.format(diff_content=diff_content)
 
     try:
         result = subprocess.run(
-            ["pi", "--model", "anthropic/haiku:low", "-p",
+            ["pi", "--model", "openai-codex/gpt-5.3-codex:medium", "-p",
              "--no-tools", "--no-session", "--no-extensions", prompt],
             capture_output=True, text=True, timeout=TIMEOUT_SECONDS, check=False,
         )
 
         if result.returncode != 0:
-            print(f"pi audit failed (fail-open): {result.stderr.strip()}")
-            return 0
+            print(f"PII_AUDIT: FAIL - pi exited with error (fail-closed): {result.stderr.strip()}")
+            return 1
 
         response = result.stdout.strip()
 
@@ -282,15 +282,15 @@ def main() -> int:
                 print("Fix the PII issue and re-commit.")
                 return 1
 
-        print("No clear PII_AUDIT verdict in response (fail-open)")
-        return 0
+        print("PII_AUDIT: FAIL - No clear verdict in response (fail-closed)")
+        return 1
 
     except subprocess.TimeoutExpired:
-        print("pi audit timed out (fail-open)")
-        return 0
+        print("PII_AUDIT: FAIL - pi audit timed out (fail-closed)")
+        return 1
     except Exception as e:
-        print(f"Audit error: {e} (fail-open)")
-        return 0
+        print(f"PII_AUDIT: FAIL - Audit error: {e} (fail-closed)")
+        return 1
 
 
 if __name__ == "__main__":

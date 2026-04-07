@@ -1,0 +1,34 @@
+skill_id: spec
+kind: standard
+summary: "Core specification workflow engine. Triggers stage agents (CREATE, RESEARCH, PLAN, IMPLEMENT, REVIEW, TEST, etc.) for structured development. Triggers on keywords: spec, specification, plan spec, implement spec, review spec"
+project_agnostic: true
+body_file: body.md
+assets: []
+attachment_refs: []
+renders:
+  claude:
+    status: supported
+    output_path: skills/spec/SKILL.md
+    display_name: spec
+    allowed_tools:
+      - Read
+      - Write
+      - Edit
+      - Bash
+      - Grep
+      - Glob
+      - Skill
+    frontmatter_enabled: true
+  pi:
+    status: supported
+    output_path: skills/ac-workflow-spec/SKILL.md
+    display_name: ac-workflow-spec
+    allowed_tools:
+      - Read
+      - Write
+      - Edit
+      - Bash
+      - Grep
+      - Glob
+    frontmatter_enabled: true
+    body_file: body.pi.md

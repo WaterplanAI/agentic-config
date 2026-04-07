@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Portfolio</title>
+  <script src="https://cdn.tailwindcss.com/4.0"></script>
+  <link href="https://cdn.jsdelivr.net/npm/daisyui@5/themes.css" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/daisyui@5/full.css" rel="stylesheet" />
+  <style>
+    :focus-visible { outline: 2px solid #4f46e5; outline-offset: 2px; }
+  </style>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "CollectionPage",
+    "name": "Portfolio",
+    "description": "Project portfolio showcasing work samples",
+    "mainEntity": {
+      "@type": "ItemList",
+      "numberOfItems": 6
+    }
+  }
+  </script>
+</head>
+<body class="min-h-screen bg-base-100">
+  <header class="navbar bg-base-200 sticky top-0 z-50">
+    <div class="navbar-start">
+      <a data-testid="nav-logo" href="/" class="btn btn-ghost text-xl">Portfolio</a>
+    </div>
+    <nav class="navbar-center" aria-label="Main navigation">
+      <ul class="menu menu-horizontal px-1">
+        <li><a data-testid="nav-work" href="#work">Work</a></li>
+        <li><a data-testid="nav-about" href="#about">About</a></li>
+        <li><a data-testid="nav-contact" href="#contact">Contact</a></li>
+      </ul>
+    </nav>
+    <div class="navbar-end">
+      <button data-testid="theme-toggle" class="btn btn-ghost btn-circle" aria-label="Toggle theme" onclick="toggleTheme()">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" /></svg>
+      </button>
+    </div>
+  </header>
+
+  <main class="container mx-auto px-4 py-8">
+    <!-- Hero / Intro -->
+    <section aria-label="Introduction" class="text-center py-16">
+      <h1 class="text-5xl font-bold mb-4">Jane Doe</h1>
+      <p class="text-xl text-base-content/70 max-w-xl mx-auto">Designer and developer crafting digital experiences that work for humans and machines alike.</p>
+    </section>
+
+    <!-- Filter Controls -->
+    <section id="work" aria-label="Portfolio projects">
+      <div class="flex flex-wrap justify-center gap-2 mb-8">
+        <button data-testid="filter-all" class="btn btn-sm btn-primary" onclick="filterProjects('all')">All</button>
+        <button data-testid="filter-web" class="btn btn-sm btn-outline" onclick="filterProjects('web')">Web</button>
+        <button data-testid="filter-mobile" class="btn btn-sm btn-outline" onclick="filterProjects('mobile')">Mobile</button>
+        <button data-testid="filter-branding" class="btn btn-sm btn-outline" onclick="filterProjects('branding')">Branding</button>
+      </div>
+
+      <!-- Project Grid -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6" data-testid="project-grid">
+        <article class="card bg-base-200 shadow-md" data-testid="project-1" data-category="web">
+          <figure class="h-48 bg-base-300 flex items-center justify-center">
+            <span class="text-base-content/40 text-sm">Project Image Placeholder</span>
+          </figure>
+          <div class="card-body">
+            <h2 class="card-title">E-Commerce Platform</h2>
+            <p>Responsive web application for online retail with accessible checkout flow.</p>
+            <div class="card-actions justify-end">
+              <span class="badge badge-outline">Web</span>
+              <button data-testid="project-1-detail" class="btn btn-primary btn-sm" onclick="openModal('project-1')">View Details</button>
+            </div>
+          </div>
+        </article>
+
+        <article class="card bg-base-200 shadow-md" data-testid="project-2" data-category="mobile">
+          <figure class="h-48 bg-base-300 flex items-center justify-center">
+            <span class="text-base-content/40 text-sm">Project Image Placeholder</span>
+          </figure>
+          <div class="card-body">
+            <h2 class="card-title">Fitness Tracker App</h2>
+            <p>Cross-platform mobile application with health metrics and goal tracking.</p>
+            <div class="card-actions justify-end">
+              <span class="badge badge-outline">Mobile</span>
+              <button data-testid="project-2-detail" class="btn btn-primary btn-sm" onclick="openModal('project-2')">View Details</button>
+            </div>
+          </div>
+        </article>
+
+        <article class="card bg-base-200 shadow-md" data-testid="project-3" data-category="branding">
+          <figure class="h-48 bg-base-300 flex items-center justify-center">
+            <span class="text-base-content/40 text-sm">Project Image Placeholder</span>
+          </figure>
+          <div class="card-body">
+            <h2 class="card-title">Acme Inc Rebrand</h2>
+            <p>Complete brand identity redesign including logo, color palette, and guidelines.</p>
+            <div class="card-actions justify-end">
+              <span class="badge badge-outline">Branding</span>
+              <button data-testid="project-3-detail" class="btn btn-primary btn-sm" onclick="openModal('project-3')">View Details</button>
+            </div>
+          </div>
+        </article>
+
+        <article class="card bg-base-200 shadow-md" data-testid="project-4" data-category="web">
+          <figure class="h-48 bg-base-300 flex items-center justify-center">
+            <span class="text-base-content/40 text-sm">Project Image Placeholder</span>
+          </figure>
+          <div class="card-body">
+            <h2 class="card-title">Analytics Dashboard</h2>
+            <p>Real-time data visualization dashboard with keyboard-navigable charts.</p>
+            <div class="card-actions justify-end">
+              <span class="badge badge-outline">Web</span>
+              <button data-testid="project-4-detail" class="btn btn-primary btn-sm" onclick="openModal('project-4')">View Details</button>
+            </div>
+          </div>
+        </article>
+
+        <article class="card bg-base-200 shadow-md" data-testid="project-5" data-category="mobile">
+          <figure class="h-48 bg-base-300 flex items-center justify-center">
+            <span class="text-base-content/40 text-sm">Project Image Placeholder</span>
+          </figure>
+          <div class="card-body">
+            <h2 class="card-title">Recipe Social App</h2>
+            <p>Social media app for sharing recipes with accessible image descriptions.</p>
+            <div class="card-actions justify-end">
+              <span class="badge badge-outline">Mobile</span>
+              <button data-testid="project-5-detail" class="btn btn-primary btn-sm" onclick="openModal('project-5')">View Details</button>
+            </div>
+          </div>
+        </article>
+
+        <article class="card bg-base-200 shadow-md" data-testid="project-6" data-category="branding">
+          <figure class="h-48 bg-base-300 flex items-center justify-center">
+            <span class="text-base-content/40 text-sm">Project Image Placeholder</span>
+          </figure>
+          <div class="card-body">
+            <h2 class="card-title">Test Company Identity</h2>
+            <p>Minimalist brand identity for a tech startup focused on developer tools.</p>
+            <div class="card-actions justify-end">
+              <span class="badge badge-outline">Branding</span>
+              <button data-testid="project-6-detail" class="btn btn-primary btn-sm" onclick="openModal('project-6')">View Details</button>
+            </div>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <!-- Contact Section -->
+    <section id="contact" aria-label="Contact" class="py-16 text-center">
+      <h2 class="text-3xl font-bold mb-4">Get in Touch</h2>
+      <p class="mb-6">Interested in working together?</p>
+      <a data-testid="contact-email" href="mailto:jane@example.com" class="btn btn-primary">Email Me</a>
+    </section>
+  </main>
+
+  <!-- Modal -->
+  <dialog id="project-modal" data-testid="project-modal" class="modal">
+    <div class="modal-box" role="document">
+      <h3 class="font-bold text-lg" id="modal-title">Project Details</h3>
+      <p class="py-4" id="modal-description">Detailed description of the selected project.</p>
+      <div class="modal-action">
+        <button data-testid="modal-close" class="btn" onclick="closeModal()">Close</button>
+      </div>
+    </div>
+    <form method="dialog" class="modal-backdrop"><button aria-label="Close modal">close</button></form>
+  </dialog>
+
+  <footer class="footer footer-center p-4 bg-base-200 text-base-content">
+    <p>Portfolio Prototype</p>
+  </footer>
+
+  <script>
+    var params = new URLSearchParams(window.location.search);
+    var currentFilter = params.get('filter') || 'all';
+
+    function updateState(key, value) {
+      var url = new URL(window.location);
+      url.searchParams.set(key, value);
+      window.history.pushState({}, '', url);
+    }
+
+    function filterProjects(category) {
+      document.querySelectorAll('[data-testid="project-grid"] article').forEach(function(card) {
+        card.style.display = (category === 'all' || card.getAttribute('data-category') === category) ? '' : 'none';
+      });
+      // Update button states
+      document.querySelectorAll('[data-testid^="filter-"]').forEach(function(btn) {
+        btn.classList.toggle('btn-primary', btn.getAttribute('data-testid') === 'filter-' + category);
+        btn.classList.toggle('btn-outline', btn.getAttribute('data-testid') !== 'filter-' + category);
+      });
+      updateState('filter', category);
+    }
+
+    function openModal(projectId) {
+      var card = document.querySelector('[data-testid="' + projectId + '"]');
+      if (card) {
+        document.getElementById('modal-title').textContent = card.querySelector('.card-title').textContent;
+        document.getElementById('modal-description').textContent = card.querySelector('p').textContent;
+      }
+      document.getElementById('project-modal').showModal();
+    }
+
+    function closeModal() {
+      document.getElementById('project-modal').close();
+    }
+
+    // Escape key closes modal
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') closeModal();
+    });
+
+    function toggleTheme() {
+      var html = document.documentElement;
+      var next = html.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+      html.setAttribute('data-theme', next);
+      updateState('theme', next);
+    }
+
+    // Apply filter from URL on load
+    if (currentFilter !== 'all') filterProjects(currentFilter);
+  </script>
+</body>
+</html>

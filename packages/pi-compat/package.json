@@ -1,0 +1,33 @@
+{
+  "name": "@agentic-config/pi-compat",
+  "version": "0.2.6",
+  "description": "Shared pi runtime-compat foundations for agentic-config plugin packages.",
+  "license": "MIT",
+  "homepage": "https://github.com/WaterplanAI/agentic-config",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/WaterplanAI/agentic-config.git",
+    "directory": "packages/pi-compat"
+  },
+  "keywords": [
+    "pi-package",
+    "agentic-config",
+    "pi",
+    "compat",
+    "runtime",
+    "hooks",
+    "interactive",
+    "notebook"
+  ],
+  "type": "module",
+  "exports": {
+    "./extensions/ask-user": "./extensions/ask-user/index.js",
+    "./extensions/hook-compat": "./extensions/hook-compat/index.js",
+    "./extensions/notebook-edit": "./extensions/notebook-edit/index.js"
+  },
+  "pi": {
+    "extensions": [
+      "./extensions"
+    ]
+  }
+}
