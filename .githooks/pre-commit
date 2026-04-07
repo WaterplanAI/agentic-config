@@ -20,6 +20,7 @@ import subprocess
 import sys
 
 TIMEOUT_SECONDS = 30
+PII_AUDIT_PI_MODEL = "openai-codex/gpt-5.3-codex:medium"
 
 # Allowed placeholder domains (case-insensitive)
 ALLOWED_EMAIL_DOMAINS = {
@@ -231,6 +232,26 @@ DIFF:
 {diff_content}"""
 
 
+def get_audit_command(prompt: str) -> tuple[str, list[str]] | None:
+    """Return the pi audit command for the local environment."""
+    if not shutil.which("pi"):
+        return None
+
+    return (
+        "pi",
+        [
+            "pi",
+            "--model",
+            PII_AUDIT_PI_MODEL,
+            "-p",
+            "--no-tools",
+            "--no-session",
+            "--no-extensions",
+            prompt,
+        ],
+    )
+
+
 def main() -> int:
     """Main hook execution."""
     # Get staged diff
@@ -252,22 +273,27 @@ def main() -> int:
         return 1
 
     # Tier 2: LLM audit via pi for nuanced cases (fail-closed)
-    if not shutil.which("pi"):
+    prompt = AUDIT_PROMPT.format(diff_content=diff_content)
+    audit_command = get_audit_command(prompt)
+    if audit_command is None:
         print("PII_AUDIT: FAIL - pi not found (fail-closed)")
-        print("  Install with: npm install -g @mariozechner/pi-coding-agent")
+        print("  Install Pi to enable the LLM PII audit tier.")
         return 1
 
-    prompt = AUDIT_PROMPT.format(diff_content=diff_content)
+    audit_runner, command = audit_command
 
     try:
         result = subprocess.run(
-            ["pi", "--model", "openai-codex/gpt-5.3-codex:medium", "-p",
-             "--no-tools", "--no-session", "--no-extensions", prompt],
-            capture_output=True, text=True, timeout=TIMEOUT_SECONDS, check=False,
+            command,
+            capture_output=True,
+            text=True,
+            timeout=TIMEOUT_SECONDS,
+            check=False,
         )
 
         if result.returncode != 0:
-            print(f"PII_AUDIT: FAIL - pi exited with error (fail-closed): {result.stderr.strip()}")
+            error_output = result.stderr.strip() or result.stdout.strip()
+            print(f"PII_AUDIT: FAIL - {audit_runner} exited with error (fail-closed): {error_output}")
             return 1
 
         response = result.stdout.strip()
@@ -287,7 +313,7 @@ def main() -> int:
         return 1
 
     except subprocess.TimeoutExpired:
-        print("PII_AUDIT: FAIL - pi audit timed out (fail-closed)")
+        print(f"PII_AUDIT: FAIL - {audit_runner} audit timed out (fail-closed)")
         return 1
     except Exception as e:
         print(f"PII_AUDIT: FAIL - Audit error: {e} (fail-closed)")

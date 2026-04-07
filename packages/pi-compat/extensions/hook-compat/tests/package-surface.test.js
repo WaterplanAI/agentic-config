@@ -9,6 +9,7 @@ import hookCompatExtension, {
   registerHookCompatPackage,
 } from "../index.js";
 import { interpretHookDecision } from "../decision.js";
+import { buildClaudeCompatEnv, resolveClaudeSessionId } from "../env.js";
 import { resetHookCompatRegistryForTests } from "../registry.js";
 
 function sampleRegistration(packageId = "package-surface") {
@@ -149,6 +150,50 @@ test("malformed hookSpecificOutput fails before user notification", async () => 
 
   assert.deepEqual(notifications, []);
 });
+
+test("resolveClaudeSessionId preserves safe ids and hashes unsafe session-file fallbacks", () => {
+  const safeId = resolveClaudeSessionId({
+    sessionManager: {
+      getSessionId() {
+        return "hook-compat-session";
+      },
+    },
+  });
+  assert.equal(safeId, "hook-compat-session");
+
+  const hashedId = resolveClaudeSessionId({
+    sessionManager: {
+      getSessionFile() {
+        return "/tmp/pi-compat/../../unsafe/session.json";
+      },
+    },
+  });
+  assert.match(hashedId, /^session-file-[a-f0-9]{24}$/);
+  assert.equal(hashedId.includes("/"), false);
+  assert.equal(
+    hashedId,
+    resolveClaudeSessionId({
+      sessionManager: {
+        getSessionFile() {
+          return "/tmp/pi-compat/../../unsafe/session.json";
+        },
+      },
+    }),
+  );
+});
+
+
+test("buildClaudeCompatEnv normalizes unsafe session ids before exporting CLAUDE_SESSION_ID", () => {
+  const env = buildClaudeCompatEnv({
+    pluginRoot: "/tmp/plugin-root",
+    projectDir: "/tmp/project-root",
+    sessionId: "../../unsafe/session-id",
+  });
+
+  assert.match(env.CLAUDE_SESSION_ID, /^session-[a-f0-9]{24}$/);
+  assert.equal(env.CLAUDE_SESSION_ID.includes("/"), false);
+});
+
 
 test("package.json wires hook-compat export surface", async () => {
   const packageJsonPath = fileURLToPath(new URL("../../../package.json", import.meta.url));
