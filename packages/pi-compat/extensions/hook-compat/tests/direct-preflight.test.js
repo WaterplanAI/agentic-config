@@ -7,6 +7,7 @@ import test from "node:test";
 import {
   HookCompatGuardBlockedError,
   guardedRead,
+  guardedToolExecution,
   guardedWrite,
   listRegisteredHookCompatPackages,
 } from "../index.js";
@@ -149,6 +150,16 @@ test(
           },
         });
         assert.match(guardedReadResult, /demo-app/);
+
+        const guardedPlaywrightResult = await guardedToolExecution("mcp__playwright__browser_snapshot", {
+          input: {},
+          cwd: allowedProjectDir,
+          registrations,
+          async execute() {
+            return "playwright-ok";
+          },
+        });
+        assert.equal(guardedPlaywrightResult, "playwright-ok");
 
         await assert.rejects(
           () =>

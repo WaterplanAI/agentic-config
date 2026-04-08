@@ -53,5 +53,6 @@ export {
   guardedGrep,
   guardedNotebookEdit,
   guardedRead,
+  guardedToolExecution,
   guardedWrite,
 } from "./guarded-execution.js";

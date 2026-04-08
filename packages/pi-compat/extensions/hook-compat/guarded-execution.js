@@ -64,7 +64,7 @@ export class HookCompatGuardBlockedError extends Error {
   }
 }
 
-async function runGuardedExecution(toolName, options) {
+export async function guardedToolExecution(toolName, options) {
   const normalizedOptions = normalizeGuardedOptions(toolName, options);
   const execute = resolveExecutor(toolName, normalizedOptions);
   const request = normalizeGuardedRequest(toolName, normalizedOptions);
@@ -78,29 +78,29 @@ async function runGuardedExecution(toolName, options) {
 }
 
 export async function guardedRead(options) {
-  return await runGuardedExecution("read", options);
+  return await guardedToolExecution("read", options);
 }
 
 export async function guardedGrep(options) {
-  return await runGuardedExecution("grep", options);
+  return await guardedToolExecution("grep", options);
 }
 
 export async function guardedGlob(options) {
-  return await runGuardedExecution("glob", options);
+  return await guardedToolExecution("glob", options);
 }
 
 export async function guardedBash(options) {
-  return await runGuardedExecution("bash", options);
+  return await guardedToolExecution("bash", options);
 }
 
 export async function guardedWrite(options) {
-  return await runGuardedExecution("write", options);
+  return await guardedToolExecution("write", options);
 }
 
 export async function guardedEdit(options) {
-  return await runGuardedExecution("edit", options);
+  return await guardedToolExecution("edit", options);
 }
 
 export async function guardedNotebookEdit(options) {
-  return await runGuardedExecution("NotebookEdit", options);
+  return await guardedToolExecution("NotebookEdit", options);
 }

@@ -12,6 +12,7 @@ import hookCompatExtension, {
   guardedGrep,
   guardedNotebookEdit,
   guardedRead,
+  guardedToolExecution,
   guardedWrite,
   listRegisteredHookCompatPackages,
   registerHookCompatPackage,
@@ -49,6 +50,7 @@ test("hook-compat exports the runtime extension, preflight helpers, guarded wrap
   assert.equal(typeof runHookCompatPreflight, "function");
   assert.equal(typeof runHookCompatToolCall, "function");
   assert.equal(typeof guardedRead, "function");
+  assert.equal(typeof guardedToolExecution, "function");
   assert.equal(typeof guardedGrep, "function");
   assert.equal(typeof guardedGlob, "function");
   assert.equal(typeof guardedBash, "function");
@@ -257,6 +259,7 @@ test("package.json wires hook-compat export surface", async () => {
     "guardedGrep",
     "guardedNotebookEdit",
     "guardedRead",
+    "guardedToolExecution",
     "guardedWrite",
     "listRegisteredHookCompatPackages",
     "registerHookCompatPackage",

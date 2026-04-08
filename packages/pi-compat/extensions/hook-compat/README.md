@@ -24,6 +24,7 @@ Import path: `@agentic-config/pi-compat/extensions/hook-compat`
   - `runHookCompatPreflight({ toolName, input, cwd, ctx, runtime, registrations })`
   - `runHookCompatToolCall(event, ctx, options)`
 - guarded execution wrappers:
+  - `guardedToolExecution(toolName, ...)` for arbitrary/raw tool names
   - `guardedRead(...)`
   - `guardedGrep(...)`
   - `guardedGlob(...)`
@@ -119,7 +120,20 @@ export async function readWithGuards(path, runtime) {
 }
 ```
 
-For raw custom tools such as `mcp__playwright__browser_navigate`, call `runHookCompatPreflight(...)` directly and pass the custom tool name through unchanged.
+For raw custom tools such as `mcp__playwright__browser_navigate`, either call `runHookCompatPreflight(...)` directly or use `guardedToolExecution(...)` and pass the custom tool name through unchanged.
+
+```js
+import { guardedToolExecution } from "@agentic-config/pi-compat/extensions/hook-compat";
+
+await guardedToolExecution("mcp__playwright__browser_navigate", {
+  input: { url: "https://example.com" },
+  cwd: process.cwd(),
+  registrations,
+  async execute({ input }) {
+    return await playwrightNavigate(input.url);
+  },
+});
+```
 
 ## Validation
 Run the current validation suites:
