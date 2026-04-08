@@ -96,6 +96,18 @@ test(
         assert.equal(credentialReadResult?.result?.exitCode, 126);
         assert.match(credentialReadResult?.result?.output ?? "", /blocked|credential|ssh/i);
 
+        const protectedWriteResult = await userBashHandler(
+          {
+            type: "user_bash",
+            command: "touch ~/.ssh/test",
+            excludeFromContext: false,
+            cwd: workspace.projectDir,
+          },
+          blockedContext.ctx,
+        );
+        assert.equal(protectedWriteResult?.result?.exitCode, 126);
+        assert.match(protectedWriteResult?.result?.output ?? "", /blocked|protected directory|ssh/i);
+
         const playwrightBlockedResult = await userBashHandler(
           {
             type: "user_bash",

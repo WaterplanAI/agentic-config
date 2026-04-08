@@ -227,6 +227,19 @@ test(
         assert.equal(bashResult?.block, true);
         assert.match(bashResult?.reason ?? "", /confirm to proceed|unapproved package/i);
 
+        const protectedWriteContext = createTestContext({
+          cwd: workspace.projectDir,
+          hasUI: false,
+        });
+        const protectedWriteResult = await runHookCompatToolCall(
+          createToolCallEvent("bash", { command: "touch ~/.ssh/test" }),
+          protectedWriteContext.ctx,
+          { runtime },
+        );
+
+        assert.equal(protectedWriteResult?.block, true);
+        assert.match(protectedWriteResult?.reason ?? "", /blocked|protected directory|ssh/i);
+
         const playwrightAllowContext = createTestContext({
           cwd: workspace.projectDir,
           hasUI: false,

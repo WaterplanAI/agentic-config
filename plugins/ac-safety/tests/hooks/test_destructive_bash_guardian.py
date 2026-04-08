@@ -1030,6 +1030,71 @@ def test_blocks_cp_ssh_key() -> TestResult:
     return r
 
 
+def test_blocks_touch_ssh_file() -> TestResult:
+    """touch ~/.ssh/test (bash write into protected credential directory)"""
+    r = TestResult("Blocks touch ~/.ssh/test")
+    try:
+        out = run_hook("touch ~/.ssh/test")
+        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+        raise
+    return r
+
+
+def test_blocks_redirect_write_ssh_file() -> TestResult:
+    """echo hi > ~/.ssh/test (shell redirection write into protected directory)"""
+    r = TestResult("Blocks echo hi > ~/.ssh/test")
+    try:
+        out = run_hook("echo hi > ~/.ssh/test")
+        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+        raise
+    return r
+
+
+def test_blocks_redirect_append_ssh_file() -> TestResult:
+    """echo hi >> ~/.ssh/test (shell redirection append into protected directory)"""
+    r = TestResult("Blocks echo hi >> ~/.ssh/test")
+    try:
+        out = run_hook("echo hi >> ~/.ssh/test")
+        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+        raise
+    return r
+
+
+def test_blocks_rm_ssh_file() -> TestResult:
+    """rm ~/.ssh/test (delete within protected credential directory)"""
+    r = TestResult("Blocks rm ~/.ssh/test")
+    try:
+        out = run_hook("rm ~/.ssh/test")
+        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+        raise
+    return r
+
+
+def test_allows_touch_project_file() -> TestResult:
+    """touch ~/projects/myapp/test.txt remains allowed inside project roots"""
+    r = TestResult("Allows touch ~/projects/myapp/test.txt")
+    try:
+        out = run_hook("touch ~/projects/myapp/test.txt")
+        assert out["decision"] == "allow", f"Expected allow, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+        raise
+    return r
+
+
 def test_blocks_rg_aws_credentials() -> TestResult:
     """rg secret ~/.aws/credentials (credential read via ripgrep alias)"""
     r = TestResult("Blocks rg secret ~/.aws/credentials")
@@ -1522,6 +1587,11 @@ def main() -> None:
         test_blocks_base64_ssh_key,
         test_blocks_grep_aws_credentials,
         test_blocks_cp_ssh_key,
+        test_blocks_touch_ssh_file,
+        test_blocks_redirect_write_ssh_file,
+        test_blocks_redirect_append_ssh_file,
+        test_blocks_rm_ssh_file,
+        test_allows_touch_project_file,
         test_blocks_rg_aws_credentials,
         test_blocks_find_ssh_directory,
         test_blocks_ls_ssh_directory,
