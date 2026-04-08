@@ -22,6 +22,7 @@ Usage:
 Output (stdout):
     SESSION_DIR=tmp/mux/20260129-1500-topic
     TRACE_ID=a1b2c3d4e5f67890
+    LEDGER_PATH=tmp/mux/20260129-1500-topic/.mux-ledger.json
     MUX_ACTIVE=outputs/session/<pid>/mux-active
 """
 
@@ -32,6 +33,8 @@ import sys
 import uuid
 from datetime import datetime
 from pathlib import Path
+
+from ledger import init_ledger  # pyright: ignore[reportMissingImports]
 
 
 def find_claude_pid() -> int | None:
@@ -113,6 +116,21 @@ def main() -> int:
         dest="parent_trace",
         help="Parent trace ID for child sessions (propagation)",
     )
+    parser.add_argument(
+        "--phase-id",
+        default="phase-unknown",
+        help="Phase identifier persisted in protocol ledger",
+    )
+    parser.add_argument(
+        "--stage-id",
+        default="stage-unknown",
+        help="Stage identifier persisted in protocol ledger",
+    )
+    parser.add_argument(
+        "--wave-id",
+        default="wave-unknown",
+        help="Wave identifier persisted in protocol ledger",
+    )
 
     args = parser.parse_args()
 
@@ -141,12 +159,23 @@ def main() -> int:
     trace_file = session_dir / ".trace"
     trace_file.write_text(f"{trace_id}\n")
 
+    # Initialize authoritative control-plane ledger
+    ledger_path = init_ledger(
+        session_dir,
+        session_id=session_id,
+        phase_id=args.phase_id,
+        stage_id=args.stage_id,
+        wave_id=args.wave_id,
+        actor="session.py",
+    )
+
     # Create mux-active marker for session observability
     marker_file = activate_mux_enforcement(session_dir)
 
     # Output for shell consumption
     print(f"SESSION_DIR={session_dir}")
     print(f"TRACE_ID={trace_id}")
+    print(f"LEDGER_PATH={ledger_path}")
     if marker_file:
         print(f"MUX_ACTIVE={marker_file}")
         print("MUX session marker created (observability). Hooks are skill-scoped.")
