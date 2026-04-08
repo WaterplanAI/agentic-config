@@ -24,6 +24,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -146,11 +147,81 @@ def get_total_size(session_dir: Path, signals_dir: Path | None = None) -> int:
 
 
 def resolve_artifact_path(path_value: str) -> Path:
-    """Resolve artifact path against current working directory when relative."""
+    """Resolve project-root-relative artifact paths against the current CWD."""
     artifact = Path(path_value)
     if artifact.is_absolute():
         return artifact
     return Path.cwd() / artifact
+
+
+def artifact_path_descriptor(path_value: str | Path) -> str:
+    """Normalize artifact descriptor to project-root-relative when possible."""
+    artifact = Path(path_value)
+    if isinstance(path_value, str) and not artifact.is_absolute():
+        return path_value
+
+    resolved_artifact = artifact.resolve()
+    project_root = Path.cwd().resolve()
+    try:
+        return str(resolved_artifact.relative_to(project_root))
+    except ValueError:
+        return str(resolved_artifact)
+
+
+def _format_modified_at(timestamp: float) -> str:
+    return datetime.fromtimestamp(timestamp, tz=timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+
+
+def _parse_iso8601_timestamp(raw: str) -> datetime:
+    normalized = raw.replace("Z", "+00:00")
+    parsed = datetime.fromisoformat(normalized)
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
+
+
+def _summary_metadata_mismatches(evidence: dict[str, Any], report_path: Path) -> list[str]:
+    report_stat = report_path.stat()
+    report_content = report_path.read_text()
+    report_modified_at = datetime.fromtimestamp(report_stat.st_mtime, tz=timezone.utc)
+
+    mismatches: list[str] = []
+
+    size_bytes = evidence.get("size_bytes")
+    if not isinstance(size_bytes, int):
+        mismatches.append("summary evidence missing integer size_bytes metadata")
+    elif size_bytes != report_stat.st_size:
+        mismatches.append("summary evidence size_bytes does not match report artifact")
+
+    word_count = evidence.get("word_count")
+    current_word_count = len(report_content.split())
+    if not isinstance(word_count, int):
+        mismatches.append("summary evidence missing integer word_count metadata")
+    elif word_count != current_word_count:
+        mismatches.append("summary evidence word_count does not match report artifact")
+
+    modified_at = evidence.get("modified_at")
+    expected_modified_at = _format_modified_at(report_stat.st_mtime)
+    if not isinstance(modified_at, str):
+        mismatches.append("summary evidence missing modified_at metadata")
+    elif modified_at != expected_modified_at:
+        mismatches.append("summary evidence modified_at does not match report artifact")
+
+    generated_at = evidence.get("generated_at")
+    if not isinstance(generated_at, str):
+        mismatches.append("summary evidence missing generated_at metadata")
+    else:
+        try:
+            generated_at_dt = _parse_iso8601_timestamp(generated_at)
+        except ValueError:
+            mismatches.append("summary evidence generated_at is not valid ISO-8601")
+        else:
+            if generated_at_dt < report_modified_at:
+                mismatches.append(
+                    "summary evidence generated_at predates report artifact modification"
+                )
+
+    return mismatches
 
 
 def load_summary_evidence(path: Path) -> dict[str, Any]:
@@ -270,7 +341,8 @@ def run_gate(
     missing_evidence: list[str] = []
     inconsistent_evidence: list[str] = []
 
-    if report_path.exists():
+    report_exists = report_path.exists()
+    if report_exists:
         checked_artifacts.append(report_path_value)
     else:
         missing_evidence.append(f"missing report artifact: {report_path_value}")
@@ -286,16 +358,12 @@ def run_gate(
             inconsistent_evidence.append(
                 "signal path does not match declared report path"
             )
-        else:
-            checked_artifacts.append("signal-report-path-match")
 
         signal_status = signal_data.get("status", "")
         if signal_status != "success":
             inconsistent_evidence.append(
                 f"signal status must be success, found: {signal_status or 'missing'}"
             )
-        else:
-            checked_artifacts.append("signal-status-success")
     else:
         missing_evidence.append(f"missing signal artifact: {signal_path_value}")
 
@@ -309,7 +377,7 @@ def run_gate(
     elif not summary_path.exists():
         missing_evidence.append(f"missing summary evidence artifact: {summary_path}")
     else:
-        summary_path_value = str(summary_path)
+        summary_path_value = artifact_path_descriptor(summary_path)
         checked_artifacts.append(summary_path_value)
         try:
             summary_evidence = load_summary_evidence(summary_path)
@@ -322,6 +390,10 @@ def run_gate(
             if not _summary_matches_declared_report(summary_evidence, report_path_value):
                 inconsistent_evidence.append(
                     "summary evidence report path does not match declared dispatch"
+                )
+            elif report_exists:
+                inconsistent_evidence.extend(
+                    _summary_metadata_mismatches(summary_evidence, report_path)
                 )
 
     if inconsistent_evidence:
@@ -396,7 +468,7 @@ def main() -> int:
     )
     parser.add_argument(
         "session_dir",
-        help="Path to session directory",
+        help="Path to session directory (project-root-relative)",
     )
     parser.add_argument(
         "--action",
@@ -412,7 +484,10 @@ def main() -> int:
     parser.add_argument(
         "--summary-evidence",
         type=str,
-        help="Path to extract-summary machine-readable evidence JSON (for --action gate)",
+        help=(
+            "Path to extract-summary machine-readable evidence JSON "
+            "(project-root-relative, for --action gate)"
+        ),
     )
     parser.add_argument(
         "--actor",

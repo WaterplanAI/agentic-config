@@ -54,6 +54,27 @@ LEGAL_TRANSITIONS: dict[ControlState, set[ControlState]] = {
     "RECOVER": {"RESOLVE"},
 }
 
+REQUIRED_LEDGER_FIELDS: tuple[str, ...] = (
+    "session_id",
+    "phase_id",
+    "stage_id",
+    "wave_id",
+    "control_state",
+    "declared_dispatch",
+    "prerequisites",
+    "verification",
+    "blocker",
+    "recovery",
+    "transition_history",
+)
+
+REQUIRED_LEDGER_IDENTIFIER_FIELDS: tuple[str, ...] = (
+    "session_id",
+    "phase_id",
+    "stage_id",
+    "wave_id",
+)
+
 
 class DeclaredDispatch(TypedDict):
     worker_type: str
@@ -72,6 +93,13 @@ class Prerequisites(TypedDict):
 
 
 class Verification(TypedDict):
+    """Persisted verification evidence for a completed gate evaluation.
+
+    checked_artifacts stores concrete artifact-path descriptors that were
+    successfully validated (for example report/signal/summary paths). It does
+    not store synthetic sentinel check markers.
+    """
+
     status: VerificationStatus
     checked_artifacts: list[str]
     summary_path: str
@@ -79,6 +107,12 @@ class Verification(TypedDict):
 
 
 class Blocker(TypedDict):
+    """Persisted blocker details for BLOCK control-state transitions.
+
+    missing_prerequisites stores unresolved prerequisite identifiers and/or
+    missing evidence descriptors required to clear the blocker.
+    """
+
     active: bool
     reason: str
     missing_prerequisites: list[str]
@@ -94,12 +128,16 @@ class Recovery(TypedDict):
     completed_at: str
 
 
-class TransitionRecord(TypedDict):
-    from_state: str
-    to_state: str
-    reason: str
-    actor: str
-    timestamp: str
+TransitionRecord = TypedDict(
+    "TransitionRecord",
+    {
+        "from": str,
+        "to": str,
+        "reason": str,
+        "actor": str,
+        "timestamp": str,
+    },
+)
 
 
 class ProtocolLedger(TypedDict):
@@ -224,8 +262,8 @@ def create_ledger_state(
         "recovery": _default_recovery(),
         "transition_history": [
             {
-                "from_state": "INIT",
-                "to_state": "LOCK",
+                "from": "INIT",
+                "to": "LOCK",
                 "reason": "session ledger initialized",
                 "actor": actor,
                 "timestamp": timestamp,
@@ -266,6 +304,19 @@ def _require_str(value: object, *, field: str) -> str:
     raise LedgerValidationError(f"Invalid ledger field '{field}': expected string")
 
 
+def _require_non_empty_str(value: object, *, field: str) -> str:
+    text = _require_str(value, field=field)
+    if not text.strip():
+        raise LedgerValidationError(f"Invalid ledger field '{field}': expected non-empty string")
+    return text
+
+
+def _require_dict(value: object, *, field: str) -> dict[str, Any]:
+    if isinstance(value, dict):
+        return cast(dict[str, Any], value)
+    raise LedgerValidationError(f"Invalid ledger field '{field}': expected object")
+
+
 def _require_bool(value: object, *, field: str) -> bool:
     if isinstance(value, bool):
         return value
@@ -278,6 +329,14 @@ def _require_list_of_str(value: object, *, field: str) -> list[str]:
     return cast(list[str], value)
 
 
+def _require_required_fields(raw: dict[str, Any]) -> None:
+    missing = [field for field in REQUIRED_LEDGER_FIELDS if field not in raw]
+    if missing:
+        raise LedgerValidationError(
+            f"Missing required ledger field(s): {', '.join(sorted(missing))}"
+        )
+
+
 def _validate_control_state(value: object) -> ControlState:
     if value in LEGAL_TRANSITIONS:
         return cast(ControlState, value)
@@ -285,77 +344,72 @@ def _validate_control_state(value: object) -> ControlState:
 
 
 def _normalize_dispatch(raw: object) -> DeclaredDispatch:
-    if not isinstance(raw, dict):
-        raise LedgerValidationError("Invalid declared_dispatch: expected object")
+    dispatch = _require_dict(raw, field="declared_dispatch")
     return {
-        "worker_type": _require_str(raw.get("worker_type", ""), field="declared_dispatch.worker_type"),
-        "objective": _require_str(raw.get("objective", ""), field="declared_dispatch.objective"),
-        "scope": _require_str(raw.get("scope", ""), field="declared_dispatch.scope"),
-        "report_path": _require_str(raw.get("report_path", ""), field="declared_dispatch.report_path"),
-        "signal_path": _require_str(raw.get("signal_path", ""), field="declared_dispatch.signal_path"),
+        "worker_type": _require_str(dispatch.get("worker_type", ""), field="declared_dispatch.worker_type"),
+        "objective": _require_str(dispatch.get("objective", ""), field="declared_dispatch.objective"),
+        "scope": _require_str(dispatch.get("scope", ""), field="declared_dispatch.scope"),
+        "report_path": _require_str(dispatch.get("report_path", ""), field="declared_dispatch.report_path"),
+        "signal_path": _require_str(dispatch.get("signal_path", ""), field="declared_dispatch.signal_path"),
         "expected_artifacts": _require_list_of_str(
-            raw.get("expected_artifacts", []),
+            dispatch.get("expected_artifacts", []),
             field="declared_dispatch.expected_artifacts",
         ),
         "no_nested_subagents": _require_bool(
-            raw.get("no_nested_subagents", True),
+            dispatch.get("no_nested_subagents", True),
             field="declared_dispatch.no_nested_subagents",
         ),
     }
 
 
 def _normalize_prerequisites(raw: object) -> Prerequisites:
-    if not isinstance(raw, dict):
-        raise LedgerValidationError("Invalid prerequisites: expected object")
+    prerequisites = _require_dict(raw, field="prerequisites")
     return {
-        "required": _require_list_of_str(raw.get("required", []), field="prerequisites.required"),
-        "missing": _require_list_of_str(raw.get("missing", []), field="prerequisites.missing"),
-        "status": _require_str(raw.get("status", "pending"), field="prerequisites.status"),
+        "required": _require_list_of_str(prerequisites.get("required", []), field="prerequisites.required"),
+        "missing": _require_list_of_str(prerequisites.get("missing", []), field="prerequisites.missing"),
+        "status": _require_str(prerequisites.get("status", "pending"), field="prerequisites.status"),
     }
 
 
 def _normalize_verification(raw: object) -> Verification:
-    if not isinstance(raw, dict):
-        raise LedgerValidationError("Invalid verification: expected object")
-    status = _require_str(raw.get("status", "pending"), field="verification.status")
+    verification = _require_dict(raw, field="verification")
+    status = _require_str(verification.get("status", "pending"), field="verification.status")
     if status not in {"pending", "pass", "blocked", "fail"}:
         raise LedgerValidationError(f"Invalid verification.status: {status}")
 
     return {
         "status": cast(VerificationStatus, status),
         "checked_artifacts": _require_list_of_str(
-            raw.get("checked_artifacts", []),
+            verification.get("checked_artifacts", []),
             field="verification.checked_artifacts",
         ),
-        "summary_path": _require_str(raw.get("summary_path", ""), field="verification.summary_path"),
-        "verified_at": _require_str(raw.get("verified_at", ""), field="verification.verified_at"),
+        "summary_path": _require_str(verification.get("summary_path", ""), field="verification.summary_path"),
+        "verified_at": _require_str(verification.get("verified_at", ""), field="verification.verified_at"),
     }
 
 
 def _normalize_blocker(raw: object) -> Blocker:
-    if not isinstance(raw, dict):
-        raise LedgerValidationError("Invalid blocker: expected object")
+    blocker = _require_dict(raw, field="blocker")
     return {
-        "active": _require_bool(raw.get("active", False), field="blocker.active"),
-        "reason": _require_str(raw.get("reason", ""), field="blocker.reason"),
+        "active": _require_bool(blocker.get("active", False), field="blocker.active"),
+        "reason": _require_str(blocker.get("reason", ""), field="blocker.reason"),
         "missing_prerequisites": _require_list_of_str(
-            raw.get("missing_prerequisites", []),
+            blocker.get("missing_prerequisites", []),
             field="blocker.missing_prerequisites",
         ),
-        "opened_at": _require_str(raw.get("opened_at", ""), field="blocker.opened_at"),
-        "cleared_at": _require_str(raw.get("cleared_at", ""), field="blocker.cleared_at"),
+        "opened_at": _require_str(blocker.get("opened_at", ""), field="blocker.opened_at"),
+        "cleared_at": _require_str(blocker.get("cleared_at", ""), field="blocker.cleared_at"),
     }
 
 
 def _normalize_recovery(raw: object) -> Recovery:
-    if not isinstance(raw, dict):
-        raise LedgerValidationError("Invalid recovery: expected object")
+    recovery = _require_dict(raw, field="recovery")
     return {
-        "required": _require_bool(raw.get("required", False), field="recovery.required"),
-        "trigger": _require_str(raw.get("trigger", ""), field="recovery.trigger"),
-        "plan": _require_str(raw.get("plan", ""), field="recovery.plan"),
-        "started_at": _require_str(raw.get("started_at", ""), field="recovery.started_at"),
-        "completed_at": _require_str(raw.get("completed_at", ""), field="recovery.completed_at"),
+        "required": _require_bool(recovery.get("required", False), field="recovery.required"),
+        "trigger": _require_str(recovery.get("trigger", ""), field="recovery.trigger"),
+        "plan": _require_str(recovery.get("plan", ""), field="recovery.plan"),
+        "started_at": _require_str(recovery.get("started_at", ""), field="recovery.started_at"),
+        "completed_at": _require_str(recovery.get("completed_at", ""), field="recovery.completed_at"),
     }
 
 
@@ -365,18 +419,60 @@ def _normalize_transition_history(raw: object) -> list[TransitionRecord]:
 
     normalized: list[TransitionRecord] = []
     for idx, item in enumerate(raw):
-        if not isinstance(item, dict):
-            raise LedgerValidationError(f"Invalid transition_history[{idx}]: expected object")
+        transition = _require_dict(item, field=f"transition_history[{idx}]")
+
+        if "from" in transition:
+            from_value = transition["from"]
+        elif "from_state" in transition:
+            from_value = transition["from_state"]
+        else:
+            raise LedgerValidationError(
+                f"Missing required ledger field: transition_history[{idx}].from"
+            )
+
+        if "to" in transition:
+            to_value = transition["to"]
+        elif "to_state" in transition:
+            to_value = transition["to_state"]
+        else:
+            raise LedgerValidationError(
+                f"Missing required ledger field: transition_history[{idx}].to"
+            )
+
         normalized.append(
             {
-                "from_state": _require_str(item.get("from_state", ""), field=f"transition_history[{idx}].from_state"),
-                "to_state": _require_str(item.get("to_state", ""), field=f"transition_history[{idx}].to_state"),
-                "reason": _require_str(item.get("reason", ""), field=f"transition_history[{idx}].reason"),
-                "actor": _require_str(item.get("actor", ""), field=f"transition_history[{idx}].actor"),
-                "timestamp": _require_str(item.get("timestamp", ""), field=f"transition_history[{idx}].timestamp"),
+                "from": _require_non_empty_str(from_value, field=f"transition_history[{idx}].from"),
+                "to": _require_non_empty_str(to_value, field=f"transition_history[{idx}].to"),
+                "reason": _require_str(transition.get("reason", ""), field=f"transition_history[{idx}].reason"),
+                "actor": _require_str(transition.get("actor", ""), field=f"transition_history[{idx}].actor"),
+                "timestamp": _require_str(transition.get("timestamp", ""), field=f"transition_history[{idx}].timestamp"),
             }
         )
     return normalized
+
+
+def _normalize_ledger_payload(payload: object) -> ProtocolLedger:
+    raw = _require_dict(payload, field="ledger payload")
+    _require_required_fields(raw)
+
+    identifier_values = {
+        field: _require_non_empty_str(raw[field], field=field)
+        for field in REQUIRED_LEDGER_IDENTIFIER_FIELDS
+    }
+
+    return {
+        "session_id": identifier_values["session_id"],
+        "phase_id": identifier_values["phase_id"],
+        "stage_id": identifier_values["stage_id"],
+        "wave_id": identifier_values["wave_id"],
+        "control_state": _validate_control_state(raw["control_state"]),
+        "declared_dispatch": _normalize_dispatch(raw["declared_dispatch"]),
+        "prerequisites": _normalize_prerequisites(raw["prerequisites"]),
+        "verification": _normalize_verification(raw["verification"]),
+        "blocker": _normalize_blocker(raw["blocker"]),
+        "recovery": _normalize_recovery(raw["recovery"]),
+        "transition_history": _normalize_transition_history(raw["transition_history"]),
+    }
 
 
 def load_ledger(session_dir_or_ledger_path: Path | str) -> ProtocolLedger:
@@ -386,48 +482,20 @@ def load_ledger(session_dir_or_ledger_path: Path | str) -> ProtocolLedger:
         raise LedgerValidationError(f"Ledger does not exist: {ledger_path}")
 
     raw = json.loads(ledger_path.read_text())
-    if not isinstance(raw, dict):
-        raise LedgerValidationError("Invalid ledger payload: expected object")
-
-    return {
-        "session_id": _require_str(raw.get("session_id", ""), field="session_id"),
-        "phase_id": _require_str(raw.get("phase_id", ""), field="phase_id"),
-        "stage_id": _require_str(raw.get("stage_id", ""), field="stage_id"),
-        "wave_id": _require_str(raw.get("wave_id", ""), field="wave_id"),
-        "control_state": _validate_control_state(raw.get("control_state", "")),
-        "declared_dispatch": _normalize_dispatch(raw.get("declared_dispatch", _default_dispatch())),
-        "prerequisites": _normalize_prerequisites(raw.get("prerequisites", _default_prerequisites())),
-        "verification": _normalize_verification(raw.get("verification", _default_verification())),
-        "blocker": _normalize_blocker(raw.get("blocker", _default_blocker())),
-        "recovery": _normalize_recovery(raw.get("recovery", _default_recovery())),
-        "transition_history": _normalize_transition_history(raw.get("transition_history", [])),
-    }
+    return _normalize_ledger_payload(raw)
 
 
 def save_ledger(session_dir_or_ledger_path: Path | str, state: ProtocolLedger) -> Path:
     """Persist a validated ledger state atomically."""
     ledger_path = resolve_ledger_path(session_dir_or_ledger_path)
-    # Validate before writing so malformed state never persists.
-    _ = load_ledger_payload(state)
-    _atomic_write_json(ledger_path, state)
+    validated_state = load_ledger_payload(state)
+    _atomic_write_json(ledger_path, validated_state)
     return ledger_path
 
 
 def load_ledger_payload(payload: ProtocolLedger | dict[str, Any]) -> ProtocolLedger:
     """Validate a ledger payload already in memory."""
-    return {
-        "session_id": _require_str(payload.get("session_id", ""), field="session_id"),
-        "phase_id": _require_str(payload.get("phase_id", ""), field="phase_id"),
-        "stage_id": _require_str(payload.get("stage_id", ""), field="stage_id"),
-        "wave_id": _require_str(payload.get("wave_id", ""), field="wave_id"),
-        "control_state": _validate_control_state(payload.get("control_state", "")),
-        "declared_dispatch": _normalize_dispatch(payload.get("declared_dispatch", _default_dispatch())),
-        "prerequisites": _normalize_prerequisites(payload.get("prerequisites", _default_prerequisites())),
-        "verification": _normalize_verification(payload.get("verification", _default_verification())),
-        "blocker": _normalize_blocker(payload.get("blocker", _default_blocker())),
-        "recovery": _normalize_recovery(payload.get("recovery", _default_recovery())),
-        "transition_history": _normalize_transition_history(payload.get("transition_history", [])),
-    }
+    return _normalize_ledger_payload(payload)
 
 
 def mutate_ledger(session_dir_or_ledger_path: Path | str, mutator: LedgerMutator) -> ProtocolLedger:
@@ -438,6 +506,10 @@ def mutate_ledger(session_dir_or_ledger_path: Path | str, mutator: LedgerMutator
     validated_state = load_ledger_payload(state)
     _atomic_write_json(ledger_path, validated_state)
     return validated_state
+
+
+def _path_is_project_root_relative(path_value: str) -> bool:
+    return not Path(path_value).is_absolute()
 
 
 def validate_declared_dispatch(dispatch: DeclaredDispatch | dict[str, Any]) -> tuple[bool, str]:
@@ -453,6 +525,14 @@ def validate_declared_dispatch(dispatch: DeclaredDispatch | dict[str, Any]) -> t
         value = dispatch.get(field)
         if not isinstance(value, str) or not value.strip():
             return False, f"declared_dispatch.{field} must be a non-empty string"
+
+    for path_field in ("report_path", "signal_path"):
+        path_value = dispatch.get(path_field)
+        if isinstance(path_value, str) and not _path_is_project_root_relative(path_value.strip()):
+            return (
+                False,
+                f"declared_dispatch.{path_field} must be project-root-relative",
+            )
 
     expected_artifacts = dispatch.get("expected_artifacts")
     if not isinstance(expected_artifacts, list) or not all(
@@ -480,8 +560,8 @@ def _append_transition(
 ) -> None:
     state["transition_history"].append(
         {
-            "from_state": from_state,
-            "to_state": to_state,
+            "from": from_state,
+            "to": to_state,
             "reason": reason,
             "actor": actor,
             "timestamp": utc_now_iso(),

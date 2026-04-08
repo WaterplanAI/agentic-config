@@ -109,7 +109,7 @@ def main() -> int:
     parser.add_argument(
         "--base",
         default="tmp/mux",
-        help="Base directory for mux sessions (default: tmp/mux)",
+        help="Project-root-relative base directory for mux sessions (default: tmp/mux)",
     )
     parser.add_argument(
         "--parent-trace",

@@ -185,6 +185,50 @@ def write_worker_report(path: Path) -> None:
     )
 
 
+def emit_success_signal(workspace: Path, signal_rel: str, report_rel: str) -> None:
+    """Emit deterministic success signal for a report artifact."""
+    signal_result = run_python_script(
+        MUX_TOOLS_ROOT / "signal.py",
+        signal_rel,
+        "--path",
+        report_rel,
+        "--status",
+        "success",
+        cwd=workspace,
+    )
+    assert signal_result.returncode == 0, signal_result.stdout + signal_result.stderr
+
+
+def emit_summary_evidence(workspace: Path, report_rel: str, summary_evidence_rel: str) -> None:
+    """Emit machine-readable summary evidence for a report artifact."""
+    summary_result = run_python_script(
+        MUX_TOOLS_ROOT / "extract-summary.py",
+        report_rel,
+        "--evidence",
+        "--evidence-path",
+        summary_evidence_rel,
+        cwd=workspace,
+    )
+    assert summary_result.returncode == 0, summary_result.stdout + summary_result.stderr
+
+
+def run_verify_gate(
+    workspace: Path,
+    session_dir_rel: str,
+    *,
+    summary_evidence_rel: str | None = None,
+) -> subprocess.CompletedProcess[str]:
+    """Run verify.py gate action with optional summary evidence path."""
+    args: list[str] = [session_dir_rel, "--action", "gate"]
+    if summary_evidence_rel is not None:
+        args.extend(["--summary-evidence", summary_evidence_rel])
+    return run_python_script(
+        MUX_TOOLS_ROOT / "verify.py",
+        *args,
+        cwd=workspace,
+    )
+
+
 def test_generated_mux_claude_frontmatter_survives_generation() -> None:
     """The canonical generator should preserve mux-specific Claude frontmatter extras."""
     mux_text = CLAUDE_MUX_SKILL.read_text()
@@ -333,8 +377,8 @@ def test_session_initializes_mux_protocol_ledger(tmp_path: Path) -> None:
     assert isinstance(transition_history, list)
     assert transition_history
     first_transition = transition_history[0]
-    assert first_transition["from_state"] == "INIT"
-    assert first_transition["to_state"] == "LOCK"
+    assert first_transition["from"] == "INIT"
+    assert first_transition["to"] == "LOCK"
 
 
 def test_mux_ledger_accepts_legal_flow_and_rejects_illegal_transition(tmp_path: Path) -> None:
@@ -383,11 +427,16 @@ def test_mux_ledger_accepts_legal_flow_and_rejects_illegal_transition(tmp_path: 
     assert gate_result.returncode == 0, gate_result.stdout + gate_result.stderr
     gate_payload = parse_json_stdout(gate_result)
     assert gate_payload["gate_status"] == "advance"
+    assert gate_payload["checked_artifacts"] == [
+        report_rel,
+        signal_rel,
+        summary_evidence_rel,
+    ]
 
     ledger = read_ledger(workspace, session_dir_rel)
     assert ledger["control_state"] == "ADVANCE"
     transitions = [
-        (entry["from_state"], entry["to_state"])
+        (entry["from"], entry["to"])
         for entry in ledger["transition_history"]
     ]
     assert transitions == [
@@ -527,8 +576,178 @@ def test_verify_gate_rejects_missing_summary_evidence(tmp_path: Path) -> None:
     assert ledger["blocker"]["active"] is True
 
     transitions = [
-        (entry["from_state"], entry["to_state"])
+        (entry["from"], entry["to"])
         for entry in ledger["transition_history"]
     ]
     assert ("DISPATCH", "VERIFY") in transitions
     assert ("VERIFY", "BLOCK") in transitions
+
+
+def test_verify_gate_recovers_on_invalid_declared_dispatch(tmp_path: Path) -> None:
+    """Gate should move to RECOVER when declared dispatch payload is invalid."""
+    workspace = create_workspace(tmp_path)
+    session_dir_rel = create_session(workspace, topic_slug="invalid-declared-dispatch")
+
+    report_rel = "reports/invalid-dispatch-worker.md"
+    signal_rel = f"{session_dir_rel}/.signals/invalid-dispatch-worker.done"
+    configure_dispatch_state(workspace, session_dir_rel, report_rel, signal_rel)
+
+    ledger_path = workspace / session_dir_rel / LEDGER_FILE_NAME
+    ledger_payload = json.loads(ledger_path.read_text())
+    declared_dispatch = ledger_payload["declared_dispatch"]
+    assert isinstance(declared_dispatch, dict)
+    declared_dispatch["objective"] = ""
+    ledger_path.write_text(json.dumps(ledger_payload, indent=2, sort_keys=True) + "\n")
+
+    gate_result = run_verify_gate(workspace, session_dir_rel)
+    assert gate_result.returncode == 1, gate_result.stdout + gate_result.stderr
+
+    gate_payload = parse_json_stdout(gate_result)
+    assert gate_payload["gate_status"] == "recover"
+    assert "declared_dispatch.objective" in gate_payload["reason"]
+
+    ledger = read_ledger(workspace, session_dir_rel)
+    assert ledger["control_state"] == "RECOVER"
+    assert ledger["verification"]["status"] == "fail"
+
+
+def test_verify_gate_blocks_on_missing_report_artifact(tmp_path: Path) -> None:
+    """Gate should BLOCK when report evidence is missing."""
+    workspace = create_workspace(tmp_path)
+    session_dir_rel = create_session(workspace, topic_slug="missing-report-artifact")
+
+    report_rel = "reports/missing-report-worker.md"
+    signal_rel = f"{session_dir_rel}/.signals/missing-report-worker.done"
+    summary_evidence_rel = f"{session_dir_rel}/research/missing-report-summary.json"
+    configure_dispatch_state(workspace, session_dir_rel, report_rel, signal_rel)
+
+    report_path = workspace / report_rel
+    write_worker_report(report_path)
+    emit_success_signal(workspace, signal_rel, report_rel)
+    emit_summary_evidence(workspace, report_rel, summary_evidence_rel)
+
+    report_path.unlink()
+
+    gate_result = run_verify_gate(
+        workspace,
+        session_dir_rel,
+        summary_evidence_rel=summary_evidence_rel,
+    )
+    assert gate_result.returncode == 1, gate_result.stdout + gate_result.stderr
+
+    gate_payload = parse_json_stdout(gate_result)
+    assert gate_payload["gate_status"] == "block"
+    assert f"missing report artifact: {report_rel}" in gate_payload["missing_evidence"]
+
+    ledger = read_ledger(workspace, session_dir_rel)
+    assert ledger["control_state"] == "BLOCK"
+    assert ledger["verification"]["status"] == "blocked"
+    assert ledger["verification"]["checked_artifacts"] == [
+        signal_rel,
+        summary_evidence_rel,
+    ]
+
+
+def test_verify_gate_blocks_on_missing_signal_artifact(tmp_path: Path) -> None:
+    """Gate should BLOCK when signal evidence is missing."""
+    workspace = create_workspace(tmp_path)
+    session_dir_rel = create_session(workspace, topic_slug="missing-signal-artifact")
+
+    report_rel = "reports/missing-signal-worker.md"
+    signal_rel = f"{session_dir_rel}/.signals/missing-signal-worker.done"
+    summary_evidence_rel = f"{session_dir_rel}/research/missing-signal-summary.json"
+    configure_dispatch_state(workspace, session_dir_rel, report_rel, signal_rel)
+
+    report_path = workspace / report_rel
+    write_worker_report(report_path)
+    emit_summary_evidence(workspace, report_rel, summary_evidence_rel)
+
+    gate_result = run_verify_gate(
+        workspace,
+        session_dir_rel,
+        summary_evidence_rel=summary_evidence_rel,
+    )
+    assert gate_result.returncode == 1, gate_result.stdout + gate_result.stderr
+
+    gate_payload = parse_json_stdout(gate_result)
+    assert gate_payload["gate_status"] == "block"
+    assert f"missing signal artifact: {signal_rel}" in gate_payload["missing_evidence"]
+
+    ledger = read_ledger(workspace, session_dir_rel)
+    assert ledger["control_state"] == "BLOCK"
+    assert ledger["verification"]["status"] == "blocked"
+    assert ledger["verification"]["checked_artifacts"] == [
+        report_rel,
+        summary_evidence_rel,
+    ]
+
+
+def test_verify_gate_recovers_on_inconsistent_summary_metadata(tmp_path: Path) -> None:
+    """Gate should RECOVER when summary evidence metadata is stale for the same report path."""
+    workspace = create_workspace(tmp_path)
+    session_dir_rel = create_session(workspace, topic_slug="inconsistent-summary-evidence")
+
+    report_rel = "reports/inconsistent-summary-worker.md"
+    signal_rel = f"{session_dir_rel}/.signals/inconsistent-summary-worker.done"
+    summary_evidence_rel = f"{session_dir_rel}/research/inconsistent-summary.json"
+    configure_dispatch_state(workspace, session_dir_rel, report_rel, signal_rel)
+
+    report_path = workspace / report_rel
+    write_worker_report(report_path)
+    emit_success_signal(workspace, signal_rel, report_rel)
+    emit_summary_evidence(workspace, report_rel, summary_evidence_rel)
+
+    report_path.write_text(report_path.read_text() + "\nUpdated after summary extraction.\n")
+
+    gate_result = run_verify_gate(
+        workspace,
+        session_dir_rel,
+        summary_evidence_rel=summary_evidence_rel,
+    )
+    assert gate_result.returncode == 1, gate_result.stdout + gate_result.stderr
+
+    gate_payload = parse_json_stdout(gate_result)
+    assert gate_payload["gate_status"] == "recover"
+    assert gate_payload["checked_artifacts"] == [
+        report_rel,
+        signal_rel,
+        summary_evidence_rel,
+    ]
+    assert any(
+        "summary evidence" in issue and "does not match report artifact" in issue
+        for issue in gate_payload["inconsistent_evidence"]
+    )
+
+    ledger = read_ledger(workspace, session_dir_rel)
+    assert ledger["control_state"] == "RECOVER"
+    assert ledger["verification"]["status"] == "fail"
+
+
+def test_mux_ledger_fails_closed_when_required_sections_missing(tmp_path: Path) -> None:
+    """Ledger load should fail closed when a required top-level section is missing."""
+    workspace = create_workspace(tmp_path)
+    session_dir_rel = create_session(workspace, topic_slug="missing-ledger-section")
+
+    ledger_path = workspace / session_dir_rel / LEDGER_FILE_NAME
+    ledger_payload = json.loads(ledger_path.read_text())
+    del ledger_payload["verification"]
+    ledger_path.write_text(json.dumps(ledger_payload, indent=2, sort_keys=True) + "\n")
+
+    show_result = run_ledger_script("show", session_dir_rel, cwd=workspace)
+    assert show_result.returncode == 1
+    assert "Missing required ledger field(s): verification" in show_result.stderr
+
+
+def test_mux_ledger_fails_closed_when_required_identifier_missing(tmp_path: Path) -> None:
+    """Ledger load should fail closed when a required identifier is missing."""
+    workspace = create_workspace(tmp_path)
+    session_dir_rel = create_session(workspace, topic_slug="missing-ledger-identifier")
+
+    ledger_path = workspace / session_dir_rel / LEDGER_FILE_NAME
+    ledger_payload = json.loads(ledger_path.read_text())
+    del ledger_payload["stage_id"]
+    ledger_path.write_text(json.dumps(ledger_payload, indent=2, sort_keys=True) + "\n")
+
+    show_result = run_ledger_script("show", session_dir_rel, cwd=workspace)
+    assert show_result.returncode == 1
+    assert "Missing required ledger field(s): stage_id" in show_result.stderr

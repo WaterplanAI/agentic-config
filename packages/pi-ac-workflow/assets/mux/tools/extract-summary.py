@@ -18,6 +18,8 @@ Usage:
     uv run extract-summary.py <file> --max-bytes 2048
     uv run extract-summary.py <file> --evidence
     uv run extract-summary.py <file> --evidence-path <path>
+
+Artifact paths should be project-root-relative when invoked by mux workers.
 """
 
 from __future__ import annotations
@@ -144,7 +146,7 @@ def main() -> int:
     )
     parser.add_argument(
         "file",
-        help="Path to markdown file with TOC + Executive Summary",
+        help="Path to markdown file with TOC + Executive Summary (project-root-relative)",
     )
     parser.add_argument(
         "--max-bytes",
@@ -165,7 +167,7 @@ def main() -> int:
     parser.add_argument(
         "--evidence-path",
         type=str,
-        help="Optional file path to write machine-readable JSON evidence artifact",
+        help="Optional project-root-relative path for machine-readable JSON evidence artifact",
     )
 
     args = parser.parse_args()

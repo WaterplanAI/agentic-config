@@ -26,12 +26,12 @@ Ledger location: `<session_dir>/.mux-ledger.json`
 Required fields:
 - `session_id`, `phase_id`, `stage_id`, `wave_id`
 - `control_state`
-- `declared_dispatch` `{worker_type, objective, scope, report_path, signal_path, expected_artifacts, no_nested_subagents}`
+- `declared_dispatch` `{worker_type, objective, scope, report_path, signal_path, expected_artifacts, no_nested_subagents}` where `report_path` and `signal_path` are project-root-relative artifact paths.
 - `prerequisites` `{required, missing, status}`
-- `verification` `{status, checked_artifacts, summary_path, verified_at}`
-- `blocker` `{active, reason, missing_prerequisites, opened_at, cleared_at}`
+- `verification` `{status, checked_artifacts, summary_path, verified_at}` where `checked_artifacts` records only concrete validated artifact descriptors (report/signal/summary paths), and `summary_path` is project-root-relative.
+- `blocker` `{active, reason, missing_prerequisites, opened_at, cleared_at}` where `missing_prerequisites` may contain unresolved prerequisite identifiers and/or missing evidence descriptors.
 - `recovery` `{required, trigger, plan, started_at, completed_at}`
-- `transition_history[]` `{from_state, to_state, reason, actor, timestamp}`
+- `transition_history[]` `{from, to, reason, actor, timestamp}`
 
 ## Legal control-plane transitions
 The shared ledger enforces these transitions:
@@ -49,6 +49,11 @@ The shared ledger enforces these transitions:
 - `extract-summary.py --evidence --evidence-path <path>` is the machine-readable summary-evidence producer consumed by gate checks.
 - Missing report/signal/summary evidence yields `BLOCK`.
 - Inconsistent or protocol-invalid evidence yields `RECOVER`.
+
+## Artifact path base rule
+- Persisted mux artifact paths are interpreted as project-root-relative unless explicitly absolute.
+- The contract requires declared dispatch `report_path` / `signal_path` to be project-root-relative.
+- Worker reports and summary-evidence artifacts should use project-root-relative paths so verification stays deterministic across sessions.
 
 ## Boundary for later phases
 - This foundation does not claim automatic task-notification support.
