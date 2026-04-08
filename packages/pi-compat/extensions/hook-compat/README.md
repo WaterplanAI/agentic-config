@@ -5,14 +5,34 @@ Shared hook-adapter foundation for `@agentic-config/pi-compat`.
 ## Purpose
 - Provide one compat-owned runtime for Claude-style pre-tool hook scripts.
 - Keep matcher parsing, payload mapping, env normalization, script execution, and decision handling centralized.
-- Expose a registration helper for package-local wiring.
+- Expose registration helpers, direct preflight helpers, and guarded execution wrappers from one package surface.
+
+## Coverage
+Hook-compat now covers three entry paths:
+- pi `tool_call`
+- pi `user_bash` for interactive `!` / `!!`
+- direct guarded API/harness wrappers imported from `@agentic-config/pi-compat/extensions/hook-compat`
 
 ## Public surface
-- Extension entrypoint: `packages/pi-compat/extensions/hook-compat/index.js`
-  - default export when importing `@agentic-config/pi-compat/extensions/hook-compat`
-- Registration helper export: `@agentic-config/pi-compat/extensions/hook-compat`
+Import path: `@agentic-config/pi-compat/extensions/hook-compat`
+
+- default export: shared extension entrypoint
+- registration helpers:
   - `registerHookCompatPackage(pi, registration)`
   - `listRegisteredHookCompatPackages(pi)`
+- direct preflight helpers:
+  - `runHookCompatPreflight({ toolName, input, cwd, ctx, runtime, registrations })`
+  - `runHookCompatToolCall(event, ctx, options)`
+- guarded execution wrappers:
+  - `guardedRead(...)`
+  - `guardedGrep(...)`
+  - `guardedGlob(...)`
+  - `guardedBash(...)`
+  - `guardedWrite(...)`
+  - `guardedEdit(...)`
+  - `guardedNotebookEdit(...)`
+- direct-wrapper blocked error:
+  - `HookCompatGuardBlockedError`
 
 ## Registration shape
 ```js
@@ -46,28 +66,60 @@ export default function registerGitCompat(pi) {
 ```
 
 ## Locked pi-to-Claude payload mapping
-| pi tool | Claude `tool_name` | Mapping |
+| caller tool name | Claude `tool_name` | Mapping |
 |---|---|---|
-| `read` | `Read` | `input.path -> tool_input.file_path` |
-| `grep` | `Grep` | preserve `pattern`, `path`, `glob` |
-| `find` | `Glob` | preserve `pattern`, `path` |
-| `write` | `Write` | `input.path -> tool_input.file_path` |
-| `edit` | `Edit` | `input.path -> tool_input.file_path` |
-| `bash` | `Bash` | preserve `command` (and optional `timeout`) |
+| `read` / `Read` | `Read` | `input.path -> tool_input.file_path` |
+| `grep` / `Grep` | `Grep` | preserve `pattern`, `path`, `glob` |
+| `find` / `glob` / `Glob` | `Glob` | preserve `pattern`, `path` |
+| `write` / `Write` | `Write` | `input.path -> tool_input.file_path` |
+| `edit` / `Edit` | `Edit` | `input.path -> tool_input.file_path` |
+| `bash` / `Bash` | `Bash` | preserve `command` (and optional `timeout`) |
 | `NotebookEdit` | `NotebookEdit` | `input.path -> tool_input.notebook_path` when needed; preserve notebook-specific fields |
+| raw custom names | unchanged | passthrough `tool_name` + shallow-cloned `tool_input` |
 
 ## Runtime behavior
 - Ordered execution is deterministic within each pi runtime by registration order.
 - For each matched hook:
   - `allow`: continue
   - `deny`: block immediately
-  - `ask`: use UI confirmation when available; otherwise block by default
+  - `ask`: use UI confirmation when available; otherwise apply `askFallback.nonInteractive`
   - no `permissionDecision`: continue (side-effects and optional `systemMessage` are valid)
+- `user_bash` deny paths return a synthetic blocked bash result so pi does not execute the command.
 - Script execution uses:
   - `uv run --no-project --script <scriptPath>`
-  - `cwd = ctx.cwd`
+  - `cwd = resolved project dir`
   - `CLAUDE_PLUGIN_ROOT`, `CLAUDE_PROJECT_DIR`, `CLAUDE_SESSION_ID`
 - Adapter-layer failures follow each hook's `failureMode` (`fail-open` or `fail-close`).
+
+## Non-interactive `ask` behavior
+- If `ctx.hasUI` is true and `ctx.ui.confirm(...)` exists, `ask` opens a confirmation dialog.
+- Otherwise hook-compat treats `ask` as non-interactive and applies the package registration fallback:
+  - `askFallback.nonInteractive: "deny"` blocks by default
+  - `askFallback.nonInteractive: "allow"` continues without prompting
+- The guarded execution wrappers fail closed by throwing `HookCompatGuardBlockedError` when preflight blocks.
+
+## Wrapping a harness tool
+```js
+import {
+  guardedRead,
+  listRegisteredHookCompatPackages,
+} from "@agentic-config/pi-compat/extensions/hook-compat";
+
+export async function readWithGuards(path, runtime) {
+  const registrations = listRegisteredHookCompatPackages(runtime);
+
+  return await guardedRead({
+    path,
+    cwd: process.cwd(),
+    registrations,
+    async execute({ input }) {
+      return await rawRead(input.path);
+    },
+  });
+}
+```
+
+For raw custom tools such as `mcp__playwright__browser_navigate`, call `runHookCompatPreflight(...)` directly and pass the custom tool name through unchanged.
 
 ## Validation
 Run the current validation suites:
@@ -81,11 +133,12 @@ The hook-compat suite currently covers:
 - package export/import wiring through the package `exports` map
 - runtime-object scoping and shutdown cleanup
 - malformed `hookSpecificOutput` handling without premature user notification
-- locked pi-to-Claude mapping and matcher behavior, including explicit `NotebookEdit` mapping
-- representative deny, ask, ordered-chain, side-effect/systemMessage, fail-open/fail-close, and malformed-decision runtime scenarios
+- locked pi-to-Claude mapping and matcher behavior, including explicit `NotebookEdit` mapping and raw custom tool passthrough
+- direct preflight coverage for packaged safety guards
+- representative deny, ask, ordered-chain, side-effect/systemMessage, fail-open/fail-close, `user_bash`, and malformed-decision runtime scenarios
 - packaged asset-root registrations for `pi-ac-audit`, `pi-ac-git`, `pi-ac-safety`, and `pi-ac-tools`
 - packaged dry-run and write-scope coverage for notebook-edit events
-- packaged `playwright-cli` allow/block coverage for `pi-ac-safety`
+- packaged `playwright-cli` and raw Playwright MCP coverage for `pi-ac-safety`
 
 ## Current shipped consumers
 - `pi-ac-audit` — `tool-audit.py`
@@ -95,4 +148,5 @@ The hook-compat suite currently covers:
 
 ## Current limits
 - Plugin packages should import the named helper surface for registration and treat the default export as the shared extension entrypoint already loaded through the package manifest.
+- Raw direct-tool endpoints still need host-side adoption of the guarded wrappers or `runHookCompatPreflight(...)`.
 - Deferred surfaces remain explicit: generic subagent/runtime orchestration and mux hooks.

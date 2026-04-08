@@ -1,10 +1,17 @@
 export const PI_TO_CLAUDE_TOOL_NAME_MAP = Object.freeze({
   read: "Read",
+  Read: "Read",
   grep: "Grep",
+  Grep: "Grep",
   find: "Glob",
+  glob: "Glob",
+  Glob: "Glob",
   write: "Write",
+  Write: "Write",
   edit: "Edit",
+  Edit: "Edit",
   bash: "Bash",
+  Bash: "Bash",
   NotebookEdit: "NotebookEdit",
 });
 
@@ -78,11 +85,18 @@ function mapNotebookEditInput(input) {
 
 const INPUT_MAPPERS = Object.freeze({
   read: mapReadInput,
+  Read: mapReadInput,
   grep: mapGrepInput,
+  Grep: mapGrepInput,
   find: mapFindInput,
+  glob: mapFindInput,
+  Glob: mapFindInput,
   write: mapWriteInput,
+  Write: mapWriteInput,
   edit: mapEditInput,
+  Edit: mapEditInput,
   bash: mapBashInput,
+  Bash: mapBashInput,
   NotebookEdit: mapNotebookEditInput,
 });
 

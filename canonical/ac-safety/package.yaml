@@ -47,6 +47,12 @@ runtime_attachments:
       script_path: scripts/hooks/playwright-guardian.py
       timeout_ms: 5000
       failure_mode: fail-close
+  - matcher: mcp__playwright__*|mcp__plugin_playwright_playwright__*
+    hooks:
+    - id: playwright-guardian
+      script_path: scripts/hooks/playwright-guardian.py
+      timeout_ms: 5000
+      failure_mode: fail-close
   - matcher: Write|Edit|NotebookEdit
     hooks:
     - id: write-scope-guardian

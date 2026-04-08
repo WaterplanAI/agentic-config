@@ -70,12 +70,18 @@ def _rce_patterns() -> list[tuple[re.Pattern[str], str, str]]:
 # File-reading commands that can expose credential file contents
 _FILE_READER_COMMANDS: tuple[str, ...] = (
     "cat", "head", "tail", "less", "more", "od", "xxd", "hexdump",
-    "strings", "base64", "openssl", "sed", "awk", "grep", "sort",
-    "tee", "cp", "scp", "tar", "zip", "rsync", "mv", "ln", "diff",
-    "nl", "cut", "paste", "fold", "fmt", "rev", "pr", "dd", "install",
+    "strings", "base64", "openssl", "sed", "awk", "grep", "rg", "ripgrep",
+    "sort", "tee", "cp", "scp", "tar", "zip", "rsync", "mv", "ln",
+    "diff", "nl", "cut", "paste", "fold", "fmt", "rev", "pr", "dd",
+    "install", "fd", "find", "ls", "tree", "stat",
 )
 _FILE_READER_COMMAND_SET = set(_FILE_READER_COMMANDS)
 _FILE_READERS = r"(?:" + "|".join(re.escape(command) for command in _FILE_READER_COMMANDS) + r")"
+_CREDENTIAL_PATH_FRAGMENT_RE = (
+    r"(?:\.ssh/|\.aws/|\.config/gh/|\.config/gcloud/|\.azure/|\.kube/|"
+    r"\.gnupg/|\.terraform\.d/|\.docker/|/Library/|\.claude/debug/|"
+    r"\.claude/\.claude\.json\b|\.npmrc\b|\.netrc\b)"
+)
 
 # Credential paths: (regex_suffix, description)
 # Kept in sync with safety.default.yaml credential_guardian.blocked_prefixes
@@ -111,16 +117,55 @@ _CREDENTIAL_PATHS: list[tuple[str, str]] = [
 ]
 
 
+def _normalize_credential_path_regex(path_re: str) -> str:
+    """Allow directory roots to match with or without a trailing slash."""
+    if path_re.endswith("/"):
+        return path_re[:-1] + r"(?:/|\b)"
+    return path_re
+
+
 def _credential_read_patterns() -> list[tuple[re.Pattern[str], str, str]]:
     """Build credential-read patterns for all file-reading commands."""
     patterns: list[tuple[re.Pattern[str], str, str]] = []
     for path_re, description in _CREDENTIAL_PATHS:
         patterns.append((
-            re.compile(r"\b" + _FILE_READERS + r"\s+.*" + path_re),
+            re.compile(r"\b" + _FILE_READERS + r"\s+.*" + _normalize_credential_path_regex(path_re)),
             f"file reader accessing {description}",
             "credential-reads",
         ))
     return patterns
+
+
+def _interpreter_credential_read_patterns() -> list[tuple[re.Pattern[str], str, str]]:
+    """Build interpreter one-liner patterns that read blocked credential paths."""
+    return [
+        (
+            re.compile(
+                r"\bpython(?:3)?\s+-c\s+.*(?:open\s*\(|Path\s*\(|read_text\s*\(|read_bytes\s*\().*"
+                + _CREDENTIAL_PATH_FRAGMENT_RE
+            ),
+            "python -c accessing blocked credential path",
+            "credential-reads",
+        ),
+        (
+            re.compile(
+                r"\bnode\s+-e\s+.*(?:readFileSync|readFile\s*\(|createReadStream|openSync).*"
+                + _CREDENTIAL_PATH_FRAGMENT_RE
+            ),
+            "node -e accessing blocked credential path",
+            "credential-reads",
+        ),
+        (
+            re.compile(r"\bperl\s+-e\s+.*(?:open\s*\(|open\s+).*" + _CREDENTIAL_PATH_FRAGMENT_RE),
+            "perl -e accessing blocked credential path",
+            "credential-reads",
+        ),
+        (
+            re.compile(r"\bruby\s+-e\s+.*(?:File\.(?:read|open|binread)|IO\.read).*" + _CREDENTIAL_PATH_FRAGMENT_RE),
+            "ruby -e accessing blocked credential path",
+            "credential-reads",
+        ),
+    ]
 
 
 def _split_args(command: str) -> list[str]:
@@ -255,10 +300,10 @@ PATTERNS: list[tuple[re.Pattern[str], str, str]] = [
     (re.compile(r"\bgit\s+restore\s+\.\s*$"), "git restore . (discard all changes)", "git-destructive"),
     # -- credential-reads --
     # Any file-reading or file-copying command accessing credential paths is blocked.
-    # _FILE_READERS covers: cat, head, tail, less, more, od, xxd, hexdump,
-    # strings, base64, openssl, sed, awk, grep, sort, tee, cp, scp,
-    # diff, nl, cut, paste, fold, fmt, rev, pr, dd, install
+    # _FILE_READERS covers credential readers plus common enumeration tools such as
+    # rg/ripgrep, fd, find, ls, tree, and stat.
     *_credential_read_patterns(),
+    *_interpreter_credential_read_patterns(),
     (re.compile(r"\bsecurity\s+(find|dump)-.*keychain"), "macOS Keychain access", "credential-reads"),
     # -- data-exfiltration --
     (re.compile(r"\bcurl\s+.*-X\s*POST\b"), "curl POST (potential exfiltration)", "data-exfiltration"),
