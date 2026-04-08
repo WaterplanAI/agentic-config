@@ -49,6 +49,7 @@ from ledger import init_ledger  # pyright: ignore[reportMissingImports]
 STRICT_RUNTIME_VERSION = 1
 STRICT_RUNTIME_FILE_NAME = ".mux-runtime.json"
 STRICT_RUNTIME_REGISTRY_DIR = Path("outputs/session/mux-runtime")
+STRICT_COORDINATOR_ALLOWED_WRITE_ROOTS = [".specs"]
 
 
 def find_claude_pid() -> int | None:
@@ -160,11 +161,7 @@ def write_strict_runtime_activation(
     if session_key:
         registry_path = project_root / STRICT_RUNTIME_REGISTRY_DIR / f"{session_key_hash}.json"
 
-    allowed_write_roots = [
-        ".specs",
-        str(session_dir),
-        str(STRICT_RUNTIME_REGISTRY_DIR),
-    ]
+    allowed_write_roots = STRICT_COORDINATOR_ALLOWED_WRITE_ROOTS.copy()
     activation_payload = {
         "version": STRICT_RUNTIME_VERSION,
         "mode": "strict",

@@ -32,6 +32,9 @@ import sys
 from pathlib import Path
 from typing import Any
 
+STRICT_RUNTIME_VERSION = 1
+STRICT_RUNTIME_FILE_NAME = ".mux-runtime.json"
+STRICT_RUNTIME_LEDGER_FILE_NAME = ".mux-ledger.json"
 STRICT_RUNTIME_REGISTRY_DIR = Path("outputs/session/mux-runtime")
 
 
@@ -87,6 +90,98 @@ def load_json(path: Path) -> dict[str, Any]:
     return raw
 
 
+def is_within_root(candidate: Path, root: Path) -> bool:
+    """Return whether candidate resolves inside root (or equals root)."""
+    try:
+        candidate.resolve().relative_to(root.resolve())
+        return True
+    except ValueError:
+        return False
+
+
+def resolve_project_relative_path(project_root: Path, candidate_path: str) -> Path | None:
+    """Resolve candidate_path and ensure it stays within project_root."""
+    normalized = candidate_path.strip()
+    if not normalized:
+        return None
+
+    raw_path = Path(normalized)
+    if raw_path.is_absolute():
+        return None
+
+    resolved_path = (project_root / raw_path).resolve()
+    if not is_within_root(resolved_path, project_root):
+        return None
+    return resolved_path
+
+
+def resolve_safe_activation_file(
+    *,
+    project_root: Path,
+    registry_path: Path,
+    payload: dict[str, Any],
+    session_key: str,
+) -> Path | None:
+    """Resolve a safe strict-runtime activation file path from registry payload."""
+    if payload.get("version") != STRICT_RUNTIME_VERSION:
+        return None
+    if payload.get("mode") != "strict":
+        return None
+
+    payload_session_key = payload.get("session_key")
+    if not isinstance(payload_session_key, str) or payload_session_key != session_key:
+        return None
+
+    payload_session_key_hash = payload.get("session_key_hash")
+    if not isinstance(payload_session_key_hash, str) or payload_session_key_hash != hash_session_key(session_key):
+        return None
+
+    payload_registry_path = payload.get("registry_path")
+    if isinstance(payload_registry_path, str) and payload_registry_path.strip():
+        resolved_registry_path = resolve_project_relative_path(project_root, payload_registry_path)
+        if resolved_registry_path is None or resolved_registry_path != registry_path.resolve():
+            return None
+
+    payload_session_dir = payload.get("session_dir")
+    if not isinstance(payload_session_dir, str):
+        return None
+    resolved_session_dir = resolve_project_relative_path(project_root, payload_session_dir)
+    if resolved_session_dir is None:
+        return None
+
+    expected_ledger_path = resolved_session_dir / STRICT_RUNTIME_LEDGER_FILE_NAME
+    if not expected_ledger_path.exists():
+        return None
+
+    expected_activation_path = (resolved_session_dir / STRICT_RUNTIME_FILE_NAME).resolve()
+    payload_activation_file = payload.get("activation_file")
+    if isinstance(payload_activation_file, str) and payload_activation_file.strip():
+        resolved_activation_path = resolve_project_relative_path(project_root, payload_activation_file)
+        if resolved_activation_path is None or resolved_activation_path != expected_activation_path:
+            return None
+
+    if not expected_activation_path.exists():
+        return None
+
+    activation_payload = load_json(expected_activation_path)
+    if activation_payload.get("version") != STRICT_RUNTIME_VERSION:
+        return None
+    if activation_payload.get("mode") != "strict":
+        return None
+    if activation_payload.get("session_key") != session_key:
+        return None
+    if activation_payload.get("session_key_hash") != hash_session_key(session_key):
+        return None
+    if activation_payload.get("session_dir") != payload_session_dir:
+        return None
+    if activation_payload.get("ledger_path") != payload.get("ledger_path"):
+        return None
+    if activation_payload.get("activation_file") != payload_activation_file:
+        return None
+
+    return expected_activation_path
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Deactivate mux session markers")
     parser.add_argument(
@@ -104,19 +199,25 @@ def main() -> int:
     marker_file = project_root / f"outputs/session/{claude_pid}/mux-active"
 
     strict_deactivated = False
+    strict_activation_file_removed = False
     strict_session_was = ""
-    if args.session_key.strip():
-        registry_path = project_root / STRICT_RUNTIME_REGISTRY_DIR / f"{hash_session_key(args.session_key.strip())}.json"
+    strict_session_key = args.session_key.strip()
+    if strict_session_key:
+        registry_path = project_root / STRICT_RUNTIME_REGISTRY_DIR / f"{hash_session_key(strict_session_key)}.json"
         if registry_path.exists():
             payload = load_json(registry_path)
-            activation_file_value = payload.get("activation_file", "")
             session_dir_value = payload.get("session_dir", "")
             strict_session_was = str(session_dir_value) if isinstance(session_dir_value, str) else ""
 
-            if isinstance(activation_file_value, str) and activation_file_value.strip():
-                activation_file = project_root / activation_file_value
-                if activation_file.exists():
-                    activation_file.unlink()
+            activation_file = resolve_safe_activation_file(
+                project_root=project_root,
+                registry_path=registry_path,
+                payload=payload,
+                session_key=strict_session_key,
+            )
+            if activation_file is not None and activation_file.exists():
+                activation_file.unlink()
+                strict_activation_file_removed = True
 
             registry_path.unlink()
             strict_deactivated = True
@@ -139,7 +240,10 @@ def main() -> int:
     if strict_deactivated:
         if strict_session_was:
             print(f"STRICT_RUNTIME_SESSION_WAS={strict_session_was}")
-        print("Strict runtime activation artifacts removed.")
+        if strict_activation_file_removed:
+            print("Strict runtime activation artifacts removed.")
+        else:
+            print("Strict runtime registry removed; activation file cleanup skipped.")
     else:
         print("WARNING: No strict runtime activation found for the provided session key")
 

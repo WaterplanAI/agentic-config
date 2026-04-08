@@ -440,8 +440,9 @@ def test_session_strict_runtime_writes_activation_artifacts(tmp_path: Path) -> N
     assert activation_payload["ledger_path"] == f"{session_dir_rel}/{LEDGER_FILE_NAME}"
     assert activation_payload["activation_file"] == strict_runtime_file_rel
     assert activation_payload["registry_path"] == strict_runtime_registry_rel
-    assert ".specs" in activation_payload["allowed_write_roots"]
-    assert session_dir_rel in activation_payload["allowed_write_roots"]
+    assert activation_payload["allowed_write_roots"] == [".specs"]
+    assert session_dir_rel not in activation_payload["allowed_write_roots"]
+    assert "outputs/session/mux-runtime" not in activation_payload["allowed_write_roots"]
 
 
 def test_deactivate_removes_strict_runtime_artifacts(tmp_path: Path) -> None:
@@ -466,6 +467,40 @@ def test_deactivate_removes_strict_runtime_artifacts(tmp_path: Path) -> None:
     assert deactivate_result.returncode == 0, deactivate_result.stdout + deactivate_result.stderr
     assert parse_output_value(deactivate_result.stdout, "STRICT_RUNTIME_DEACTIVATED") == "true"
     assert not activation_file.exists()
+    assert not registry_file.exists()
+
+
+def test_deactivate_skips_activation_cleanup_when_registry_payload_is_tampered(tmp_path: Path) -> None:
+    """deactivate.py should fail closed when registry activation_file points outside strict artifacts."""
+    workspace = create_workspace(tmp_path)
+    session_key = "phase-004-deactivate-tampered-session"
+    result = create_strict_session(workspace, topic_slug="strict-runtime-deactivate-tampered", session_key=session_key)
+
+    strict_runtime_file_rel = parse_output_value(result.stdout, "STRICT_RUNTIME_FILE")
+    strict_runtime_registry_rel = parse_output_value(result.stdout, "STRICT_RUNTIME_REGISTRY")
+    activation_file = workspace / strict_runtime_file_rel
+    registry_file = workspace / strict_runtime_registry_rel
+    protected_file = workspace / "do-not-delete.txt"
+    protected_file.write_text("preserve\n")
+
+    assert activation_file.exists()
+    assert registry_file.exists()
+    assert protected_file.exists()
+
+    tampered_registry_payload = json.loads(registry_file.read_text())
+    tampered_registry_payload["activation_file"] = "do-not-delete.txt"
+    registry_file.write_text(json.dumps(tampered_registry_payload, indent=2, sort_keys=True) + "\n")
+
+    deactivate_result = run_python_script(
+        MUX_TOOLS_ROOT / "deactivate.py",
+        "--session-key",
+        session_key,
+        cwd=workspace,
+    )
+    assert deactivate_result.returncode == 0, deactivate_result.stdout + deactivate_result.stderr
+    assert parse_output_value(deactivate_result.stdout, "STRICT_RUNTIME_DEACTIVATED") == "true"
+    assert protected_file.exists()
+    assert activation_file.exists()
     assert not registry_file.exists()
 
 

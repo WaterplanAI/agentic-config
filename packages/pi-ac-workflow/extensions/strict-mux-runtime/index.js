@@ -13,9 +13,8 @@ const STRICT_RUNTIME_FLAG = "--strict-runtime";
 const STRICT_RUNTIME_TOOL_NAME = "strict-mux-runtime";
 const DEFAULT_ALLOWED_WRITE_ROOTS = Object.freeze([
   ".specs",
-  STRICT_RUNTIME_REGISTRY_DIR,
 ]);
-const ALLOWED_MUX_TOOL_BASENAMES = new Set([
+const ALLOWED_MUX_TOOL_BASENAMES = Object.freeze([
   "session.py",
   "deactivate.py",
   "ledger.py",
@@ -24,6 +23,12 @@ const ALLOWED_MUX_TOOL_BASENAMES = new Set([
   "signal.py",
   "check-signals.py",
 ]);
+const ALLOWED_MUX_TOOL_PATH_SET = new Set(
+  ALLOWED_MUX_TOOL_BASENAMES.map((basename) => path.normalize(path.join(MUX_TOOLS_ROOT, basename))),
+);
+const STRICT_SUBAGENT_ALLOWED_INPUT_KEYS = new Set(["agent", "task"]);
+const STRICT_EXPECTED_ARTIFACTS = new Set(["report", "signal", "summary"]);
+const STRICT_BASH_FORBIDDEN_OPERATOR_PATTERN = /(?:&&|\|\||;|\||>|<|&|`|\$\(|\r|\n)/;
 
 function normalizeToolName(toolName) {
   return String(toolName ?? "").trim().toLowerCase();
@@ -90,8 +95,22 @@ function isWithinRoot(candidatePath, rootPath) {
   return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative));
 }
 
+function normalizeCoordinatorWriteRoots(projectRoot, candidateRoots) {
+  const specsRoot = resolveProjectPath(projectRoot, ".specs");
+  const roots = new Set(DEFAULT_ALLOWED_WRITE_ROOTS);
+
+  for (const value of Array.isArray(candidateRoots) ? candidateRoots : []) {
+    if (typeof value !== "string" || !value.trim()) continue;
+    const resolvedRoot = resolveProjectPath(projectRoot, value);
+    if (!isWithinRoot(resolvedRoot, specsRoot)) continue;
+    roots.add(path.relative(projectRoot, resolvedRoot) || ".specs");
+  }
+
+  return [...roots];
+}
+
 function hasSessionKeyFlag(command) {
-  return new RegExp(`${escapeRegExp(SESSION_KEY_FLAG)}(?:=|\s)`).test(String(command ?? "").replace(/\n/g, " "));
+  return new RegExp(`${escapeRegExp(SESSION_KEY_FLAG)}(?:=|\\s)`).test(String(command ?? "").replace(/\n/g, " "));
 }
 
 function injectSessionKeyFlag(command, sessionKey) {
@@ -99,21 +118,363 @@ function injectSessionKeyFlag(command, sessionKey) {
   return `${String(command).trim()} ${SESSION_KEY_FLAG} ${shellQuote(sessionKey)}`;
 }
 
-function isUvRunMuxToolCommand(command, basename) {
-  return /\buv\s+run\b/.test(command)
-    && new RegExp(`(?:^|[\\/])${escapeRegExp(basename)}(?:["'\\s]|$)`).test(command);
+function withForcedSessionKey(parsedCommand, sessionKey) {
+  const filteredArgs = [];
+  for (let index = 0; index < parsedCommand.args.length; index += 1) {
+    const token = parsedCommand.args[index];
+    if (token === SESSION_KEY_FLAG) {
+      const next = parsedCommand.args[index + 1];
+      if (typeof next === "string" && !next.startsWith("--")) {
+        index += 1;
+      }
+      continue;
+    }
+    if (token.startsWith(`${SESSION_KEY_FLAG}=`)) {
+      continue;
+    }
+    filteredArgs.push(token);
+  }
+
+  return ["uv", "run", parsedCommand.toolToken, ...filteredArgs, SESSION_KEY_FLAG, sessionKey]
+    .map((token) => shellQuote(token))
+    .join(" ");
 }
 
 function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-function isStrictSessionBootstrapCommand(command) {
-  return isUvRunMuxToolCommand(command, "session.py") && command.includes(STRICT_RUNTIME_FLAG);
+function splitShellWords(command) {
+  const tokens = [];
+  let current = "";
+  let activeQuote = "";
+  let escaped = false;
+
+  for (const char of String(command ?? "")) {
+    if (escaped) {
+      current += char;
+      escaped = false;
+      continue;
+    }
+
+    if (char === "\\" && activeQuote !== "'") {
+      escaped = true;
+      continue;
+    }
+
+    if (activeQuote) {
+      if (char === activeQuote) {
+        activeQuote = "";
+      } else {
+        current += char;
+      }
+      continue;
+    }
+
+    if (char === "'" || char === '"') {
+      activeQuote = char;
+      continue;
+    }
+
+    if (/\s/.test(char)) {
+      if (current) {
+        tokens.push(current);
+        current = "";
+      }
+      continue;
+    }
+
+    current += char;
+  }
+
+  if (escaped) {
+    return { tokens: [], error: "dangling escape in bash command" };
+  }
+  if (activeQuote) {
+    return { tokens: [], error: "unterminated quote in bash command" };
+  }
+
+  if (current) {
+    tokens.push(current);
+  }
+
+  return { tokens };
 }
 
-function isDeactivateCommand(command) {
-  return isUvRunMuxToolCommand(command, "deactivate.py");
+function parseStrictMuxUvRunCommand(command, projectRoot) {
+  const trimmed = String(command ?? "").trim();
+  if (!trimmed) {
+    return {
+      allow: false,
+      reason: "bash command is empty",
+    };
+  }
+
+  if (STRICT_BASH_FORBIDDEN_OPERATOR_PATTERN.test(trimmed)) {
+    return {
+      allow: false,
+      reason: "bash command must be a single `uv run <package-owned mux tool>` invocation without shell operators or redirections",
+    };
+  }
+
+  const splitResult = splitShellWords(trimmed);
+  if (splitResult.error) {
+    return {
+      allow: false,
+      reason: splitResult.error,
+    };
+  }
+
+  const tokens = splitResult.tokens;
+  if (tokens.length < 3 || tokens[0] !== "uv" || tokens[1] !== "run") {
+    return {
+      allow: false,
+      reason: "bash command must start with exact `uv run <package-owned mux tool>`",
+    };
+  }
+
+  const toolToken = tokens[2];
+  if (!/[\\/]/.test(toolToken)) {
+    return {
+      allow: false,
+      reason: "basename-only mux tool invocations are not allowed",
+    };
+  }
+
+  const resolvedToolPath = path.normalize(path.resolve(projectRoot, toolToken));
+  if (!ALLOWED_MUX_TOOL_PATH_SET.has(resolvedToolPath)) {
+    return {
+      allow: false,
+      reason: "bash command must invoke exactly one package-owned mux tool path",
+    };
+  }
+
+  return {
+    allow: true,
+    args: tokens.slice(3),
+    command: trimmed,
+    toolPath: resolvedToolPath,
+    toolBasename: path.basename(resolvedToolPath),
+    toolToken,
+  };
+}
+
+function getFlagValue(args, flagName) {
+  for (let index = 0; index < args.length; index += 1) {
+    const token = args[index];
+    if (token === flagName) {
+      const next = args[index + 1];
+      return typeof next === "string" ? next : undefined;
+    }
+    if (token.startsWith(`${flagName}=`)) {
+      return token.slice(flagName.length + 1);
+    }
+  }
+  return undefined;
+}
+
+function getPositionals(args) {
+  const positionals = [];
+  for (let index = 0; index < args.length; index += 1) {
+    const token = args[index];
+    if (token.startsWith("--")) {
+      if (!token.includes("=")) {
+        const next = args[index + 1];
+        if (typeof next === "string" && !next.startsWith("--")) {
+          index += 1;
+        }
+      }
+      continue;
+    }
+    positionals.push(token);
+  }
+  return positionals;
+}
+
+function isRelativePathWithin(projectRoot, candidatePath, allowedRoot) {
+  if (typeof candidatePath !== "string" || !candidatePath.trim()) return false;
+  if (path.isAbsolute(candidatePath)) return false;
+  return isWithinRoot(
+    resolveProjectPath(projectRoot, candidatePath),
+    resolveProjectPath(projectRoot, allowedRoot),
+  );
+}
+
+function isDeclaredReportPath(ledger, candidatePath) {
+  return typeof ledger?.declared_dispatch?.report_path === "string"
+    && ledger.declared_dispatch.report_path === candidatePath;
+}
+
+function validateStrictBootstrapCommand(parsedCommand) {
+  const basePath = getFlagValue(parsedCommand.args, "--base") ?? "tmp/mux";
+  if (path.isAbsolute(basePath)) {
+    return {
+      allow: false,
+      reason: "session.py strict bootstrap must keep --base within the project-local tmp/mux tree",
+    };
+  }
+
+  const normalizedBase = path.posix.normalize(basePath.replace(/\\/g, "/"));
+  if (!(normalizedBase === "tmp/mux" || normalizedBase.startsWith("tmp/mux/"))) {
+    return {
+      allow: false,
+      reason: "session.py strict bootstrap must keep --base within the project-local tmp/mux tree",
+    };
+  }
+
+  return { allow: true, command: parsedCommand.command };
+}
+
+function validateStrictBashToolInvocation(parsedCommand, activation, ledger, projectRoot) {
+  const positionals = getPositionals(parsedCommand.args);
+
+  if (parsedCommand.toolBasename === "session.py") {
+    return {
+      allow: false,
+      reason: "session.py bootstrap is only allowed before strict activation is established",
+    };
+  }
+
+  if (parsedCommand.toolBasename === "deactivate.py") {
+    return { allow: true, command: parsedCommand.command };
+  }
+
+  if (parsedCommand.toolBasename === "signal.py") {
+    return {
+      allow: false,
+      reason: "signal.py is a worker/data-plane tool and is not allowed for strict coordinators",
+    };
+  }
+
+  if (parsedCommand.toolBasename === "check-signals.py") {
+    if (positionals[0] !== activation.session_dir) {
+      return {
+        allow: false,
+        reason: "check-signals.py must target the active strict session directory",
+      };
+    }
+    return { allow: true, command: parsedCommand.command };
+  }
+
+  if (parsedCommand.toolBasename === "verify.py") {
+    if (positionals[0] !== activation.session_dir) {
+      return {
+        allow: false,
+        reason: "verify.py must target the active strict session directory",
+      };
+    }
+
+    const summaryEvidencePath = getFlagValue(parsedCommand.args, "--summary-evidence");
+    if (summaryEvidencePath && !isRelativePathWithin(projectRoot, summaryEvidencePath, activation.session_dir)) {
+      return {
+        allow: false,
+        reason: "verify.py summary evidence must stay within the active strict session directory",
+      };
+    }
+    return { allow: true, command: parsedCommand.command };
+  }
+
+  if (parsedCommand.toolBasename === "extract-summary.py") {
+    const reportPath = positionals[0];
+    if (!reportPath) {
+      return {
+        allow: false,
+        reason: "extract-summary.py requires a declared report path",
+      };
+    }
+    if (!isRelativePathWithin(projectRoot, reportPath, ".")) {
+      return {
+        allow: false,
+        reason: "extract-summary.py report path must stay within the project root",
+      };
+    }
+    if (!isDeclaredReportPath(ledger, reportPath) && !isRelativePathWithin(projectRoot, reportPath, activation.session_dir)) {
+      return {
+        allow: false,
+        reason: "extract-summary.py must target the declared report or a report within the active strict session directory",
+      };
+    }
+
+    const evidencePath = getFlagValue(parsedCommand.args, "--evidence-path");
+    if (evidencePath && !isRelativePathWithin(projectRoot, evidencePath, activation.session_dir)) {
+      return {
+        allow: false,
+        reason: "extract-summary.py evidence output must stay within the active strict session directory",
+      };
+    }
+    return { allow: true, command: parsedCommand.command };
+  }
+
+  if (parsedCommand.toolBasename === "ledger.py") {
+    const subcommand = positionals[0];
+    const sessionDir = positionals[1];
+    if (sessionDir !== activation.session_dir) {
+      return {
+        allow: false,
+        reason: "ledger.py must target the active strict session directory",
+      };
+    }
+
+    if (subcommand === "show" || subcommand === "prerequisites") {
+      return { allow: true, command: parsedCommand.command };
+    }
+
+    if (subcommand === "declare") {
+      if (ledger.control_state !== "DECLARE") {
+        return {
+          allow: false,
+          reason: `ledger.py declare requires control_state=DECLARE, found ${String(ledger.control_state ?? "")}`,
+        };
+      }
+
+      const reportPath = getFlagValue(parsedCommand.args, "--report-path");
+      const signalPath = getFlagValue(parsedCommand.args, "--signal-path");
+      if (!isRelativePathWithin(projectRoot, reportPath, ".")) {
+        return {
+          allow: false,
+          reason: "ledger.py declare report_path must stay within the project root",
+        };
+      }
+      if (!isRelativePathWithin(projectRoot, signalPath, ".")) {
+        return {
+          allow: false,
+          reason: "ledger.py declare signal_path must stay within the project root",
+        };
+      }
+      return { allow: true, command: parsedCommand.command };
+    }
+
+    if (subcommand === "transition") {
+      const toState = getFlagValue(parsedCommand.args, "--to");
+      const currentState = String(ledger.control_state ?? "");
+      const transitionAllowed = (
+        (currentState === "LOCK" && toState === "RESOLVE")
+        || (currentState === "RESOLVE" && toState === "DECLARE")
+        || ((currentState === "BLOCK" || currentState === "RECOVER") && toState === "RESOLVE")
+      );
+      if (!transitionAllowed) {
+        return {
+          allow: false,
+          reason: `ledger.py transition to ${String(toState ?? "") || "<missing>"} is not allowed from control_state=${currentState}`,
+        };
+      }
+      return { allow: true, command: parsedCommand.command };
+    }
+
+    if (["blocker-open", "blocker-clear", "recovery-start", "recovery-complete"].includes(subcommand)) {
+      return { allow: true, command: parsedCommand.command };
+    }
+
+    return {
+      allow: false,
+      reason: `ledger.py subcommand ${String(subcommand ?? "<missing>")} is not allowed under strict coordinator mode`,
+    };
+  }
+
+  return {
+    allow: false,
+    reason: `mux tool ${parsedCommand.toolBasename} is not allowed under strict coordinator mode`,
+  };
 }
 
 async function pathExists(filePath) {
@@ -186,15 +547,44 @@ async function readStrictRuntimeActivation(projectRoot, sessionKey) {
   if (typeof activation.activation_file !== "string" || !activation.activation_file.trim()) {
     throw new Error("Strict runtime activation is missing activation_file");
   }
+  if (!isRelativePathWithin(projectRoot, activation.session_dir, ".")) {
+    throw new Error("Strict runtime activation session_dir must stay within the project root");
+  }
+  if (!isRelativePathWithin(projectRoot, activation.ledger_path, activation.session_dir)) {
+    throw new Error("Strict runtime activation ledger_path must stay within the active session directory");
+  }
+  if (!isRelativePathWithin(projectRoot, activation.activation_file, activation.session_dir)) {
+    throw new Error("Strict runtime activation activation_file must stay within the active session directory");
+  }
 
-  const allowedWriteRoots = Array.isArray(activation.allowed_write_roots)
-    ? activation.allowed_write_roots.filter((value) => typeof value === "string" && value.trim())
-    : [];
+  const activationFilePath = resolveProjectPath(projectRoot, activation.activation_file);
+  if (!(await pathExists(activationFilePath))) {
+    throw new Error("Strict runtime activation_file does not exist");
+  }
+  const activationFilePayload = await readJsonFile(activationFilePath);
+  if (!activationFilePayload || typeof activationFilePayload !== "object") {
+    throw new Error("Strict runtime activation_file is not a JSON object");
+  }
+  if (activationFilePayload.session_key !== sessionKey) {
+    throw new Error("Strict runtime activation_file session_key does not match the current pi session");
+  }
+  if (activationFilePayload.session_key_hash !== hashSessionKey(sessionKey)) {
+    throw new Error("Strict runtime activation_file session_key_hash does not match the current pi session");
+  }
+  if (activationFilePayload.session_dir !== activation.session_dir) {
+    throw new Error("Strict runtime activation_file session_dir does not match the session registry");
+  }
+  if (activationFilePayload.ledger_path !== activation.ledger_path) {
+    throw new Error("Strict runtime activation_file ledger_path does not match the session registry");
+  }
+  if (activationFilePayload.activation_file !== activation.activation_file) {
+    throw new Error("Strict runtime activation_file path does not match the session registry");
+  }
 
   return {
     ...activation,
     registry_path: path.relative(projectRoot, registryPath) || path.basename(registryPath),
-    allowed_write_roots: [...new Set([...DEFAULT_ALLOWED_WRITE_ROOTS, ...allowedWriteRoots])],
+    allowed_write_roots: normalizeCoordinatorWriteRoots(projectRoot, DEFAULT_ALLOWED_WRITE_ROOTS),
   };
 }
 
@@ -260,10 +650,24 @@ function isAllowedCoordinatorWritePath(projectRoot, activation, candidatePath) {
   });
 }
 
+function normalizeExpectedArtifacts(expectedArtifacts) {
+  if (!Array.isArray(expectedArtifacts)) {
+    return [];
+  }
+
+  return [...new Set(
+    expectedArtifacts
+      .filter((artifact) => typeof artifact === "string" && artifact.trim())
+      .map((artifact) => artifact.trim().toLowerCase()),
+  )];
+}
+
 function validateStrictSubagentTask(task, declaredDispatch) {
   const issues = [];
   const taskText = String(task ?? "");
   const normalizedTask = collapseWhitespace(taskText);
+  const normalizedTaskPathText = taskText.replace(/\\/g, "/");
+  const protocolReferencePresent = /assets\/mux\/protocol\/subagent\.md/i.test(normalizedTaskPathText);
 
   if (!normalizedTask.includes(collapseWhitespace(declaredDispatch.objective))) {
     issues.push("task is missing the declared objective");
@@ -271,20 +675,46 @@ function validateStrictSubagentTask(task, declaredDispatch) {
   if (!normalizedTask.includes(collapseWhitespace(declaredDispatch.scope))) {
     issues.push("task is missing the declared scope boundary");
   }
-  if (!taskText.includes(declaredDispatch.report_path)) {
-    issues.push("task is missing the declared report path");
-  }
-  if (!taskText.includes(declaredDispatch.signal_path)) {
-    issues.push("task is missing the declared signal path");
-  }
-  if (!/assets\/mux\/protocol\/subagent\.md/i.test(taskText.replace(/\\/g, "/"))) {
+  if (!protocolReferencePresent) {
     issues.push("task is missing the mux subagent protocol reference");
+  }
+  if (declaredDispatch.no_nested_subagents !== true) {
+    issues.push("declared_dispatch.no_nested_subagents must be true");
   }
   if (!/no nested subagents/i.test(taskText)) {
     issues.push("task is missing the no-nested-subagents rule");
   }
   if (!/return exactly\s+`?0`?\s+on success/i.test(taskText)) {
     issues.push("task is missing the exact `0` success rule");
+  }
+
+  const expectedArtifacts = normalizeExpectedArtifacts(declaredDispatch.expected_artifacts);
+  if (expectedArtifacts.length === 0) {
+    issues.push("declared_dispatch.expected_artifacts must declare at least one artifact");
+  }
+
+  for (const artifact of expectedArtifacts) {
+    if (!STRICT_EXPECTED_ARTIFACTS.has(artifact)) {
+      issues.push(`declared_dispatch.expected_artifacts contains unsupported artifact: ${artifact}`);
+      continue;
+    }
+
+    if (artifact === "report" && !taskText.includes(declaredDispatch.report_path)) {
+      issues.push("task is missing the declared report artifact path");
+      continue;
+    }
+
+    if (artifact === "signal" && !taskText.includes(declaredDispatch.signal_path)) {
+      issues.push("task is missing the declared signal artifact path");
+      continue;
+    }
+
+    if (artifact === "summary") {
+      const summaryContractPresent = /executive summary/i.test(taskText) || protocolReferencePresent;
+      if (!summaryContractPresent) {
+        issues.push("task is missing the declared summary artifact contract");
+      }
+    }
   }
 
   return issues;
@@ -297,51 +727,45 @@ function buildStrictViolation(reason) {
   };
 }
 
-function getStrictBashDecision(command, sessionKey, activation) {
-  if (isStrictSessionBootstrapCommand(command)) {
+function getStrictBashDecision(command, sessionKey, projectRoot, activation, ledger, parsedCommand) {
+  const parsed = parsedCommand ?? parseStrictMuxUvRunCommand(command, projectRoot);
+  if (!parsed.allow) {
+    return parsed;
+  }
+
+  if (parsed.toolBasename === "deactivate.py") {
     return {
       allow: true,
-      command: injectSessionKeyFlag(command, sessionKey),
+      command: withForcedSessionKey(parsed, sessionKey),
+      toolBasename: parsed.toolBasename,
     };
   }
 
-  if (isDeactivateCommand(command)) {
-    return {
-      allow: true,
-      command: injectSessionKeyFlag(command, sessionKey),
-    };
-  }
-
-  for (const basename of ALLOWED_MUX_TOOL_BASENAMES) {
-    if (isUvRunMuxToolCommand(command, basename)) {
-      return { allow: true, command };
-    }
-  }
-
-  const trimmed = String(command ?? "").trim();
-  if (/^mkdir\s+-p\s+/.test(trimmed)) {
-    const allowedRoots = [activation.session_dir, ...activation.allowed_write_roots].filter(Boolean);
-    if (allowedRoots.some((rootPath) => trimmed.includes(rootPath))) {
-      return { allow: true, command };
-    }
-  }
-
-  return {
-    allow: false,
-    reason: "bash command is outside the bounded mux control-plane allowlist",
-  };
+  return validateStrictBashToolInvocation(parsed, activation, ledger, projectRoot);
 }
 
 async function enforceStrictSubagentCall(event, projectRoot, activation, ledger) {
-  if (Array.isArray(event?.input?.tasks) && event.input.tasks.length > 0) {
+  const input = event?.input;
+  if (!input || typeof input !== "object" || Array.isArray(input)) {
+    return buildStrictViolation("strict single-dispatch subagent input must be an object with only `agent` and `task`");
+  }
+
+  if (Object.hasOwn(input, "tasks")) {
     return buildStrictViolation("strict mode supports only single subagent dispatches; `tasks` is not allowed");
   }
-  if (Array.isArray(event?.input?.chain) && event.input.chain.length > 0) {
+  if (Object.hasOwn(input, "chain")) {
     return buildStrictViolation("strict mode supports only single subagent dispatches; `chain` is not allowed");
   }
 
-  const agent = String(event?.input?.agent ?? "").trim();
-  const task = String(event?.input?.task ?? "").trim();
+  const unsupportedInputKeys = Object.keys(input).filter((key) => !STRICT_SUBAGENT_ALLOWED_INPUT_KEYS.has(key));
+  if (unsupportedInputKeys.length > 0) {
+    return buildStrictViolation(
+      `strict single-dispatch supports only agent/task; unsupported input field(s): ${unsupportedInputKeys.join(", ")}`,
+    );
+  }
+
+  const agent = String(input.agent ?? "").trim();
+  const task = String(input.task ?? "").trim();
   if (!agent) {
     return buildStrictViolation("single strict subagent dispatch requires `agent`");
   }
@@ -376,12 +800,40 @@ async function enforceStrictSubagentCall(event, projectRoot, activation, ledger)
 }
 
 async function evaluateStrictMuxToolCall(event, ctx) {
+  const toolName = normalizeToolName(event?.toolName);
   const command = String(event?.input?.command ?? "");
   const sessionKey = resolveCurrentSessionKey(ctx);
   const projectRoot = resolveProjectRoot(ctx?.cwd || process.cwd());
 
-  if (normalizeToolName(event?.toolName) === "bash" && isStrictSessionBootstrapCommand(command)) {
-    event.input.command = injectSessionKeyFlag(command, sessionKey);
+  const parsedBashCommand = toolName === "bash"
+    ? parseStrictMuxUvRunCommand(command, projectRoot)
+    : undefined;
+  const isStrictBootstrapAttempt = toolName === "bash"
+    && command.includes(STRICT_RUNTIME_FLAG)
+    && command.includes("session.py");
+
+  if (isStrictBootstrapAttempt) {
+    if (!parsedBashCommand?.allow || parsedBashCommand.toolBasename !== "session.py") {
+      return buildStrictViolation(parsedBashCommand?.reason ?? "strict bootstrap must use the exact package-owned session.py path");
+    }
+
+    const bootstrapDecision = validateStrictBootstrapCommand(parsedBashCommand);
+    if (!bootstrapDecision.allow) {
+      return buildStrictViolation(bootstrapDecision.reason);
+    }
+
+    let existingActivation;
+    try {
+      existingActivation = await readStrictRuntimeActivation(projectRoot, sessionKey);
+    } catch (error) {
+      return buildStrictViolation(error instanceof Error ? error.message : String(error));
+    }
+
+    if (existingActivation) {
+      return buildStrictViolation("session.py strict bootstrap is only allowed before strict activation is established for the current session; run deactivate.py first");
+    }
+
+    event.input.command = withForcedSessionKey(parsedBashCommand, sessionKey);
     return undefined;
   }
 
@@ -396,8 +848,12 @@ async function evaluateStrictMuxToolCall(event, ctx) {
     return undefined;
   }
 
-  if (normalizeToolName(event?.toolName) === "bash" && isDeactivateCommand(command)) {
-    event.input.command = injectSessionKeyFlag(command, sessionKey);
+  if (
+    toolName === "bash"
+    && parsedBashCommand?.allow
+    && parsedBashCommand.toolBasename === "deactivate.py"
+  ) {
+    event.input.command = withForcedSessionKey(parsedBashCommand, sessionKey);
     return undefined;
   }
 
@@ -408,10 +864,8 @@ async function evaluateStrictMuxToolCall(event, ctx) {
     return buildStrictViolation(error instanceof Error ? error.message : String(error));
   }
 
-  const toolName = normalizeToolName(event?.toolName);
-
   if (toolName === "bash") {
-    const decision = getStrictBashDecision(command, sessionKey, activation);
+    const decision = getStrictBashDecision(command, sessionKey, projectRoot, activation, ledger, parsedBashCommand);
     if (!decision.allow) {
       return buildStrictViolation(decision.reason);
     }

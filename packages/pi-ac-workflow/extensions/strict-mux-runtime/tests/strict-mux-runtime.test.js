@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtemp, mkdir, readFile, rm } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -80,7 +80,7 @@ async function bootstrapStrictSession(toolCallHandler, ctx, workspace, topicSlug
     shellQuote(path.join(MUX_TOOLS_ROOT, "session.py")),
     topicSlug,
     "--base",
-    "tmp/mux-smoke",
+    "tmp/mux",
     "--phase-id",
     "it005",
     "--stage-id",
@@ -109,6 +109,40 @@ async function bootstrapStrictSession(toolCallHandler, ctx, workspace, topicSlug
     registryPath: path.join(workspace, parseOutputValue(result.stdout, "STRICT_RUNTIME_REGISTRY")),
     activationFile: path.join(workspace, parseOutputValue(result.stdout, "STRICT_RUNTIME_FILE")),
     stdout: result.stdout,
+  };
+}
+
+async function bootstrapObservabilityOnlySession(toolCallHandler, ctx, workspace, topicSlug = "observability-only") {
+  const sessionCommand = [
+    "uv run",
+    shellQuote(path.join(MUX_TOOLS_ROOT, "session.py")),
+    topicSlug,
+    "--base",
+    "tmp/mux-smoke",
+    "--phase-id",
+    "it005",
+    "--stage-id",
+    "phase-004",
+    "--wave-id",
+    "observability",
+  ].join(" ");
+
+  const event = {
+    toolName: "bash",
+    input: {
+      command: sessionCommand,
+    },
+  };
+  const decision = await toolCallHandler(event, ctx);
+  assert.equal(decision, undefined);
+
+  const result = runShell(event.input.command, workspace);
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+
+  return {
+    sessionDir: parseOutputValue(result.stdout, "SESSION_DIR"),
+    markerPath: path.join(workspace, parseOutputValue(result.stdout, "MUX_ACTIVE")),
+    strictRuntime: parseOutputValue(result.stdout, "STRICT_RUNTIME"),
   };
 }
 
@@ -150,6 +184,31 @@ test("non-strict sessions remain a no-op", async () => {
   }
 });
 
+test("observability marker alone does not activate strict mode", async () => {
+  const workspace = await createWorkspace("strict-mux-runtime-observability-only");
+  try {
+    const { toolCallHandler } = createRuntime();
+    const ctx = createContext(workspace);
+    const markerOnly = await bootstrapObservabilityOnlySession(toolCallHandler, ctx, workspace);
+
+    assert.equal(markerOnly.strictRuntime, "false");
+    const markerContents = await readFile(markerOnly.markerPath, "utf8");
+    assert.match(markerContents, /tmp\/mux-smoke\//);
+
+    const result = await toolCallHandler(
+      {
+        toolName: "write",
+        input: { path: "src/app.py", content: "print('still non-strict')\n" },
+      },
+      ctx,
+    );
+
+    assert.equal(result, undefined);
+  } finally {
+    await cleanupWorkspace(workspace);
+  }
+});
+
 test("strict bootstrap injects session key and writes activation registry", async () => {
   const workspace = await createWorkspace("strict-mux-runtime-bootstrap");
   try {
@@ -168,12 +227,241 @@ test("strict bootstrap injects session key and writes activation registry", asyn
   }
 });
 
+
+test("strict bootstrap overrides a foreign session key with the current session key", async () => {
+  const workspace = await createWorkspace("strict-mux-runtime-bootstrap-override");
+  try {
+    const { toolCallHandler } = createRuntime();
+    const ctx = createContext(workspace);
+    const sessionKey = resolveCurrentSessionKey(ctx);
+
+    const event = {
+      toolName: "bash",
+      input: {
+        command: [
+          "uv run",
+          shellQuote(path.join(MUX_TOOLS_ROOT, "session.py")),
+          "override-key",
+          "--base",
+          "tmp/mux",
+          "--phase-id",
+          "it005",
+          "--stage-id",
+          "phase-004",
+          "--wave-id",
+          "strict-runtime",
+          "--strict-runtime",
+          "--session-key",
+          "foreign-session-key",
+        ].join(" "),
+      },
+    };
+
+    const decision = await toolCallHandler(event, ctx);
+    assert.equal(decision, undefined);
+    assert.ok(event.input.command.includes(sessionKey));
+    assert.doesNotMatch(event.input.command, /foreign-session-key/);
+
+    const result = runShell(event.input.command, workspace);
+    assert.equal(result.status, 0, result.stdout + result.stderr);
+    assert.equal(
+      path.join(workspace, parseOutputValue(result.stdout, "STRICT_RUNTIME_REGISTRY")),
+      getStrictRuntimeRegistryPath(workspace, sessionKey),
+    );
+  } finally {
+    await cleanupWorkspace(workspace);
+  }
+});
+
+
+test("strict bootstrap cannot re-run after strict activation exists for the current session", async () => {
+  const workspace = await createWorkspace("strict-mux-runtime-bootstrap-reentry");
+  try {
+    const { toolCallHandler } = createRuntime();
+    const ctx = createContext(workspace);
+    await bootstrapStrictSession(toolCallHandler, ctx, workspace, "bootstrap-first");
+
+    const reentryDecision = await toolCallHandler(
+      {
+        toolName: "bash",
+        input: {
+          command: [
+            "uv run",
+            shellQuote(path.join(MUX_TOOLS_ROOT, "session.py")),
+            "bootstrap-reentry",
+            "--base",
+            "tmp/mux",
+            "--phase-id",
+            "it005",
+            "--stage-id",
+            "phase-004",
+            "--wave-id",
+            "strict-runtime",
+            "--strict-runtime",
+          ].join(" "),
+        },
+      },
+      ctx,
+    );
+
+    assert.equal(reentryDecision?.block, true);
+    assert.match(reentryDecision?.reason ?? "", /strict bootstrap is only allowed before strict activation is established/i);
+  } finally {
+    await cleanupWorkspace(workspace);
+  }
+});
+
+
+test("strict bootstrap rejects bases outside the project-local tmp/mux tree", async () => {
+  const workspace = await createWorkspace("strict-mux-runtime-bootstrap-base");
+  try {
+    const { toolCallHandler } = createRuntime();
+    const ctx = createContext(workspace);
+
+    const directEscapeDecision = await toolCallHandler(
+      {
+        toolName: "bash",
+        input: {
+          command: [
+            "uv run",
+            shellQuote(path.join(MUX_TOOLS_ROOT, "session.py")),
+            "invalid-base",
+            "--base",
+            "../outside",
+            "--phase-id",
+            "it005",
+            "--stage-id",
+            "phase-004",
+            "--wave-id",
+            "strict-runtime",
+            "--strict-runtime",
+          ].join(" "),
+        },
+      },
+      ctx,
+    );
+
+    assert.equal(directEscapeDecision?.block, true);
+    assert.match(directEscapeDecision?.reason ?? "", /tmp\/mux tree/i);
+
+    const normalizedEscapeDecision = await toolCallHandler(
+      {
+        toolName: "bash",
+        input: {
+          command: [
+            "uv run",
+            shellQuote(path.join(MUX_TOOLS_ROOT, "session.py")),
+            "normalized-base",
+            "--base",
+            "tmp/mux/../outside",
+            "--phase-id",
+            "it005",
+            "--stage-id",
+            "phase-004",
+            "--wave-id",
+            "strict-runtime",
+            "--strict-runtime",
+          ].join(" "),
+        },
+      },
+      ctx,
+    );
+
+    assert.equal(normalizedEscapeDecision?.block, true);
+    assert.match(normalizedEscapeDecision?.reason ?? "", /tmp\/mux tree/i);
+  } finally {
+    await cleanupWorkspace(workspace);
+  }
+});
+
+
+test("strict bootstrap fails closed on chaining and basename-only spoofing before activation exists", async () => {
+  const workspace = await createWorkspace("strict-mux-runtime-bootstrap-fail-closed");
+  try {
+    const { toolCallHandler } = createRuntime();
+    const ctx = createContext(workspace);
+
+    const chainedDecision = await toolCallHandler(
+      {
+        toolName: "bash",
+        input: {
+          command: `uv run ${shellQuote(path.join(MUX_TOOLS_ROOT, "session.py"))} bootstrap-chain --phase-id it005 --stage-id phase-004 --wave-id strict-runtime --strict-runtime && echo bypass`,
+        },
+      },
+      ctx,
+    );
+    assert.equal(chainedDecision?.block, true);
+    assert.match(chainedDecision?.reason ?? "", /without shell operators or redirections/i);
+
+    const basenameDecision = await toolCallHandler(
+      {
+        toolName: "bash",
+        input: {
+          command: "uv run session.py bootstrap-base --phase-id it005 --stage-id phase-004 --wave-id strict-runtime --strict-runtime",
+        },
+      },
+      ctx,
+    );
+    assert.equal(basenameDecision?.block, true);
+    assert.match(basenameDecision?.reason ?? "", /basename-only mux tool invocations are not allowed/i);
+  } finally {
+    await cleanupWorkspace(workspace);
+  }
+});
+
+test("strict bash guard rejects shell chaining, backgrounding, and basename-only bypasses", async () => {
+  const workspace = await createWorkspace("strict-mux-runtime-bash-guard");
+  try {
+    const { toolCallHandler } = createRuntime();
+    const ctx = createContext(workspace);
+    await bootstrapStrictSession(toolCallHandler, ctx, workspace, "bash-guard");
+
+    const chainedDecision = await toolCallHandler(
+      {
+        toolName: "bash",
+        input: {
+          command: `uv run ${shellQuote(path.join(MUX_TOOLS_ROOT, "signal.py"))} tmp/mux-smoke/demo/.signals/demo.done --path reports/demo.md --status success && echo bypass`,
+        },
+      },
+      ctx,
+    );
+    assert.equal(chainedDecision?.block, true);
+    assert.match(chainedDecision?.reason ?? "", /without shell operators or redirections/i);
+
+    const backgroundDecision = await toolCallHandler(
+      {
+        toolName: "bash",
+        input: {
+          command: `uv run ${shellQuote(path.join(MUX_TOOLS_ROOT, "signal.py"))} tmp/mux-smoke/demo/.signals/demo.done --path reports/demo.md --status success &`,
+        },
+      },
+      ctx,
+    );
+    assert.equal(backgroundDecision?.block, true);
+    assert.match(backgroundDecision?.reason ?? "", /without shell operators or redirections/i);
+
+    const basenameDecision = await toolCallHandler(
+      {
+        toolName: "bash",
+        input: {
+          command: "uv run signal.py tmp/mux-smoke/demo/.signals/demo.done --path reports/demo.md --status success",
+        },
+      },
+      ctx,
+    );
+    assert.equal(basenameDecision?.block, true);
+    assert.match(basenameDecision?.reason ?? "", /basename-only mux tool invocations are not allowed/i);
+  } finally {
+    await cleanupWorkspace(workspace);
+  }
+});
+
 test("strict mode blocks coordinator writes outside bounded orchestration paths", async () => {
   const workspace = await createWorkspace("strict-mux-runtime-write-block");
   try {
     const { toolCallHandler } = createRuntime();
     const ctx = createContext(workspace);
-    await bootstrapStrictSession(toolCallHandler, ctx, workspace, "write-block");
+    const bootstrap = await bootstrapStrictSession(toolCallHandler, ctx, workspace, "write-block");
 
     const blocked = await toolCallHandler(
       {
@@ -184,6 +472,36 @@ test("strict mode blocks coordinator writes outside bounded orchestration paths"
     );
     assert.equal(blocked?.block, true);
     assert.match(blocked?.reason ?? "", /outside the bounded orchestration paths/i);
+
+    const blockedLedger = await toolCallHandler(
+      {
+        toolName: "write",
+        input: { path: `${bootstrap.sessionDir}/.mux-ledger.json`, content: "{}\n" },
+      },
+      ctx,
+    );
+    assert.equal(blockedLedger?.block, true);
+    assert.match(blockedLedger?.reason ?? "", /outside the bounded orchestration paths/i);
+
+    const blockedActivation = await toolCallHandler(
+      {
+        toolName: "write",
+        input: { path: path.relative(workspace, bootstrap.activationFile), content: "{}\n" },
+      },
+      ctx,
+    );
+    assert.equal(blockedActivation?.block, true);
+    assert.match(blockedActivation?.reason ?? "", /outside the bounded orchestration paths/i);
+
+    const blockedRegistry = await toolCallHandler(
+      {
+        toolName: "write",
+        input: { path: path.relative(workspace, bootstrap.registryPath), content: "{}\n" },
+      },
+      ctx,
+    );
+    assert.equal(blockedRegistry?.block, true);
+    assert.match(blockedRegistry?.reason ?? "", /outside the bounded orchestration paths/i);
 
     const allowed = await toolCallHandler(
       {
@@ -221,6 +539,119 @@ test("strict mode fails closed when the active ledger is missing", async () => {
     await cleanupWorkspace(workspace);
   }
 });
+
+
+test("strict mode fails closed on tampered activation registry paths", async () => {
+  const workspace = await createWorkspace("strict-mux-runtime-tampered-registry");
+  try {
+    const { toolCallHandler } = createRuntime();
+    const ctx = createContext(workspace);
+    const bootstrap = await bootstrapStrictSession(toolCallHandler, ctx, workspace, "tampered-registry");
+
+    const registry = JSON.parse(await readFile(bootstrap.registryPath, "utf8"));
+    registry.activation_file = "../outside.json";
+    await writeFile(bootstrap.registryPath, `${JSON.stringify(registry, null, 2)}\n`, "utf8");
+
+    const result = await toolCallHandler(
+      {
+        toolName: "write",
+        input: { path: ".specs/specs/demo.md", content: "# blocked\n" },
+      },
+      ctx,
+    );
+
+    assert.equal(result?.block, true);
+    assert.match(result?.reason ?? "", /activation_file must stay within the active session directory/i);
+  } finally {
+    await cleanupWorkspace(workspace);
+  }
+});
+
+
+test("strict bash tool invocations stay within the active session and bounded control-plane contract", async () => {
+  const workspace = await createWorkspace("strict-mux-runtime-bash-paths");
+  try {
+    const { toolCallHandler } = createRuntime();
+    const ctx = createContext(workspace);
+    const bootstrap = await bootstrapStrictSession(toolCallHandler, ctx, workspace, "bash-paths");
+
+    const signalDecision = await toolCallHandler(
+      {
+        toolName: "bash",
+        input: {
+          command: `uv run ${shellQuote(path.join(MUX_TOOLS_ROOT, "signal.py"))} ${shellQuote(`${bootstrap.sessionDir}/.signals/demo.done`)} --path reports/demo.md --status success`,
+        },
+      },
+      ctx,
+    );
+    assert.equal(signalDecision?.block, true);
+    assert.match(signalDecision?.reason ?? "", /signal\.py is a worker\/data-plane tool/i);
+
+    const extractDecision = await toolCallHandler(
+      {
+        toolName: "bash",
+        input: {
+          command: `uv run ${shellQuote(path.join(MUX_TOOLS_ROOT, "extract-summary.py"))} ${shellQuote(`${bootstrap.sessionDir}/research/demo.md`)} --evidence --evidence-path outside-summary.json`,
+        },
+      },
+      ctx,
+    );
+    assert.equal(extractDecision?.block, true);
+    assert.match(extractDecision?.reason ?? "", /evidence output must stay within the active strict session directory/i);
+  } finally {
+    await cleanupWorkspace(workspace);
+  }
+});
+
+test("strict bash ledger declare rejects traversal paths", async () => {
+  const workspace = await createWorkspace("strict-mux-runtime-declare-paths");
+  try {
+    const { toolCallHandler } = createRuntime();
+    const ctx = createContext(workspace);
+    const bootstrap = await bootstrapStrictSession(toolCallHandler, ctx, workspace, "declare-paths");
+
+    runLedgerCommand(workspace, "prerequisites", bootstrap.sessionDir, "--required", "phase-target", "--status", "ready");
+    runLedgerCommand(workspace, "transition", bootstrap.sessionDir, "--to", "RESOLVE", "--reason", "phase target persisted");
+    runLedgerCommand(workspace, "transition", bootstrap.sessionDir, "--to", "DECLARE", "--reason", "prerequisites evaluated");
+
+    const decision = await toolCallHandler(
+      {
+        toolName: "bash",
+        input: {
+          command: [
+            "uv run",
+            shellQuote(path.join(MUX_TOOLS_ROOT, "ledger.py")),
+            "declare",
+            shellQuote(bootstrap.sessionDir),
+            "--worker-type",
+            "worker",
+            "--objective",
+            shellQuote("implement approved bounded change"),
+            "--scope",
+            shellQuote("phase-004 approved files only"),
+            "--report-path",
+            shellQuote("../outside-report.md"),
+            "--signal-path",
+            shellQuote(`${bootstrap.sessionDir}/.signals/strict-worker.done`),
+            "--expected-artifact",
+            "report",
+            "--expected-artifact",
+            "signal",
+            "--expected-artifact",
+            "summary",
+          ].join(" "),
+        },
+      },
+      ctx,
+    );
+
+    assert.equal(decision?.block, true);
+    assert.match(decision?.reason ?? "", /report_path must stay within the project root/i);
+  } finally {
+    await cleanupWorkspace(workspace);
+  }
+});
+
 
 test("strict mode allows one declared single subagent dispatch and transitions to DISPATCH", async () => {
   const workspace = await createWorkspace("strict-mux-runtime-valid-dispatch");
@@ -297,6 +728,162 @@ test("strict mode allows one declared single subagent dispatch and transitions t
   }
 });
 
+test("strict mode fails closed on unsupported single-dispatch input fields", async () => {
+  const workspace = await createWorkspace("strict-mux-runtime-input-shape");
+  try {
+    const { toolCallHandler } = createRuntime();
+    const ctx = createContext(workspace);
+    const bootstrap = await bootstrapStrictSession(toolCallHandler, ctx, workspace, "input-shape");
+
+    const reportPath = "reports/strict-worker.md";
+    const signalPath = `${bootstrap.sessionDir}/.signals/strict-worker.done`;
+    const objective = "implement approved bounded change";
+    const scope = "phase-004 approved files only";
+
+    runLedgerCommand(workspace, "prerequisites", bootstrap.sessionDir, "--required", "phase-target", "--status", "ready");
+    runLedgerCommand(workspace, "transition", bootstrap.sessionDir, "--to", "RESOLVE", "--reason", "phase target persisted");
+    runLedgerCommand(workspace, "transition", bootstrap.sessionDir, "--to", "DECLARE", "--reason", "prerequisites evaluated");
+    runLedgerCommand(
+      workspace,
+      "declare",
+      bootstrap.sessionDir,
+      "--worker-type",
+      "worker",
+      "--objective",
+      objective,
+      "--scope",
+      scope,
+      "--report-path",
+      reportPath,
+      "--signal-path",
+      signalPath,
+      "--expected-artifact",
+      "report",
+      "--expected-artifact",
+      "signal",
+      "--expected-artifact",
+      "summary",
+    );
+
+    const task = [
+      "Read and follow packages/pi-ac-workflow/assets/mux/protocol/subagent.md.",
+      "",
+      "Objective:",
+      `- ${objective}`,
+      "",
+      "Constraints:",
+      `- ${scope}`,
+      "- No nested subagents",
+      "",
+      "Required report path:",
+      `- ${reportPath}`,
+      "",
+      "Required signal path:",
+      `- ${signalPath}`,
+      "",
+      "Before returning:",
+      "- Write the report",
+      "- Create the signal with packages/pi-ac-workflow/assets/mux/tools/signal.py",
+      "- Return exactly 0 on success",
+    ].join("\n");
+
+    const decision = await toolCallHandler(
+      {
+        toolName: "subagent",
+        input: { agent: "worker", task, cwd: workspace },
+      },
+      ctx,
+    );
+
+    assert.equal(decision?.block, true);
+    assert.match(decision?.reason ?? "", /unsupported input field\(s\): cwd/i);
+
+    const ledger = await readLedger(workspace, bootstrap.sessionDir);
+    assert.equal(ledger.control_state, "DECLARE");
+  } finally {
+    await cleanupWorkspace(workspace);
+  }
+});
+
+test("strict mode validates declared expected artifacts in task contract", async () => {
+  const workspace = await createWorkspace("strict-mux-runtime-expected-artifacts");
+  try {
+    const { toolCallHandler } = createRuntime();
+    const ctx = createContext(workspace);
+    const bootstrap = await bootstrapStrictSession(toolCallHandler, ctx, workspace, "expected-artifacts");
+
+    const reportPath = "reports/strict-worker.md";
+    const signalPath = `${bootstrap.sessionDir}/.signals/strict-worker.done`;
+    const objective = "implement approved bounded change";
+    const scope = "phase-004 approved files only";
+
+    runLedgerCommand(workspace, "prerequisites", bootstrap.sessionDir, "--required", "phase-target", "--status", "ready");
+    runLedgerCommand(workspace, "transition", bootstrap.sessionDir, "--to", "RESOLVE", "--reason", "phase target persisted");
+    runLedgerCommand(workspace, "transition", bootstrap.sessionDir, "--to", "DECLARE", "--reason", "prerequisites evaluated");
+    runLedgerCommand(
+      workspace,
+      "declare",
+      bootstrap.sessionDir,
+      "--worker-type",
+      "worker",
+      "--objective",
+      objective,
+      "--scope",
+      scope,
+      "--report-path",
+      reportPath,
+      "--signal-path",
+      signalPath,
+      "--expected-artifact",
+      "report",
+      "--expected-artifact",
+      "signal",
+      "--expected-artifact",
+      "summary",
+      "--expected-artifact",
+      "audit",
+    );
+
+    const task = [
+      "Read and follow packages/pi-ac-workflow/assets/mux/protocol/subagent.md.",
+      "",
+      "Objective:",
+      `- ${objective}`,
+      "",
+      "Constraints:",
+      `- ${scope}`,
+      "- No nested subagents",
+      "",
+      "Required report path:",
+      `- ${reportPath}`,
+      "",
+      "Required signal path:",
+      `- ${signalPath}`,
+      "",
+      "Before returning:",
+      "- Write the report",
+      "- Create the signal with packages/pi-ac-workflow/assets/mux/tools/signal.py",
+      "- Return exactly 0 on success",
+    ].join("\n");
+
+    const decision = await toolCallHandler(
+      {
+        toolName: "subagent",
+        input: { agent: "worker", task },
+      },
+      ctx,
+    );
+
+    assert.equal(decision?.block, true);
+    assert.match(decision?.reason ?? "", /expected_artifacts contains unsupported artifact: audit/i);
+
+    const ledger = await readLedger(workspace, bootstrap.sessionDir);
+    assert.equal(ledger.control_state, "DECLARE");
+  } finally {
+    await cleanupWorkspace(workspace);
+  }
+});
+
 test("strict mode blocks vague subagent dispatches that do not match declared dispatch", async () => {
   const workspace = await createWorkspace("strict-mux-runtime-invalid-dispatch");
   try {
@@ -352,7 +939,7 @@ test("strict mode blocks vague subagent dispatches that do not match declared di
     );
 
     assert.equal(decision?.block, true);
-    assert.match(decision?.reason ?? "", /missing the declared signal path|missing the no-nested-subagents rule/i);
+    assert.match(decision?.reason ?? "", /missing the declared signal artifact path|missing the no-nested-subagents rule/i);
   } finally {
     await cleanupWorkspace(workspace);
   }
