@@ -23,14 +23,23 @@ This tree is the shared mux runtime substrate for canonical `ac-workflow` mux su
 - `verification.checked_artifacts` records concrete artifact descriptors only (no sentinel markers).
 - `blocker.missing_prerequisites` may include missing prerequisite identifiers and missing evidence descriptors.
 
+## Strict runtime activation
+- `tools/session.py --strict-runtime --session-key <key>` writes explicit strict-runtime activation artifacts for the current pi session.
+- Session-local activation file: `<session_dir>/.mux-runtime.json`
+- Session-key registry file: `outputs/session/mux-runtime/<session-key-hash>.json`
+- Those artifacts are the package-local runtime extension handoff for strict sessions.
+- The legacy `mux-active` marker remains observability-only and is not the strict runtime trigger by itself.
+- `tools/deactivate.py --session-key <key>` removes the strict activation artifacts so strict enforcement does not leak after an explicit mux shutdown.
+
 ## Gate helpers
 - `tools/verify.py --action gate` consumes the declared dispatch + persisted prerequisites and writes verification/blocker/recovery outcomes through the shared ledger.
 - `tools/extract-summary.py --evidence --evidence-path <path>` emits machine-readable summary evidence for gate checks.
 - Existing signal summary/count actions remain available for smoke-flow compatibility.
 
-## Phase boundary
-- This asset root now owns shared protocol-state and gate helper behavior.
-- Runtime fail-closed enforcement of coordinator behavior remains Phase 004 scope.
+## Runtime boundary
+- Shared assets own protocol-state and gate-helper behavior.
+- The workflow package-local `strict-mux-runtime` extension consumes the strict activation artifacts plus the shared ledger to enforce fail-closed coordinator behavior for deliberately activated strict sessions.
+- Phase 004 ships the runtime seam only; later IT005 phases still own strict mux skill-family alignment, transcript/checklist artifacts, and final release-surface closeout.
 
 ## Current rendered root
 - `../../assets/mux`

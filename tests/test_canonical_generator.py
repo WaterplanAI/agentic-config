@@ -194,7 +194,8 @@ def test_mux_documentation_surfaces_match_current_generated_boundary() -> None:
     safety_readme = (PROJECT_ROOT / "packages" / "pi-ac-safety" / "README.md").read_text()
     assert "Package surface status: `active`" in safety_readme
     assert "playwright guardian parity" in safety_readme
-    assert "### Deferred surface\n- None." in safety_readme
+    assert "### Deferred surface" in safety_readme
+    assert "External raw-tool host adoption" in safety_readme
 
     safety_skill = (PROJECT_ROOT / "packages" / "pi-ac-safety" / "skills" / "ac-safety-configure-safety" / "SKILL.md").read_text()
     assert "currently shipped guardian" in safety_skill
@@ -214,13 +215,17 @@ def test_mux_documentation_surfaces_match_current_generated_boundary() -> None:
 
     workflow_extensions_readme = (PROJECT_ROOT / "packages" / "pi-ac-workflow" / "extensions" / "README.md").read_text()
     assert "tmux-agent/" in workflow_extensions_readme
+    assert "strict-mux-runtime/" in workflow_extensions_readme
     assert "exact repo-owned migration of the proven global `tmux-agent` extension" in workflow_extensions_readme
+    assert "workflow-owned strict mux runtime guard" in workflow_extensions_readme
     assert "currently documentation-only" not in workflow_extensions_readme
 
     workflow_readme = (PROJECT_ROOT / "packages" / "pi-ac-workflow" / "README.md").read_text()
     assert "ac-workflow-tmux-agent" in workflow_readme
     assert "package-local `tmux-agent` extension" in workflow_readme
+    assert "package-local `strict-mux-runtime` extension" in workflow_readme
     assert "project-agnostic surface instead of relying on a user-global-only install" in workflow_readme
+    assert "session.py --strict-runtime" in workflow_readme
 
     hook_compat_readme = (PROJECT_ROOT / "packages" / "pi-compat" / "extensions" / "hook-compat" / "README.md").read_text()
     assert "Shared hook-adapter foundation" in hook_compat_readme

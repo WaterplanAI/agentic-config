@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import subprocess
 import sys
@@ -33,12 +34,18 @@ def run_python_script(script_path: Path, *args: str, cwd: Path) -> subprocess.Co
     )
 
 
+def parse_output_value(stdout: str, key: str) -> str:
+    """Extract a `KEY=value` line from helper stdout."""
+    prefix = f"{key}="
+    for line in stdout.splitlines():
+        if line.startswith(prefix):
+            return line.removeprefix(prefix).strip()
+    raise AssertionError(f"Missing {key} in output: {stdout}")
+
+
 def parse_session_dir(stdout: str) -> str:
     """Extract the relative session directory from session.py output."""
-    for line in stdout.splitlines():
-        if line.startswith("SESSION_DIR="):
-            return line.removeprefix("SESSION_DIR=").strip()
-    raise AssertionError(f"Missing SESSION_DIR in output: {stdout}")
+    return parse_output_value(stdout, "SESSION_DIR")
 
 
 def parse_json_stdout(result: subprocess.CompletedProcess[str]) -> dict[str, Any]:
@@ -91,6 +98,28 @@ def create_session(workspace: Path, topic_slug: str) -> str:
     )
     assert result.returncode == 0, result.stdout + result.stderr
     return parse_session_dir(result.stdout)
+
+
+def create_strict_session(workspace: Path, topic_slug: str, session_key: str) -> subprocess.CompletedProcess[str]:
+    """Create strict mux session bootstrap output for activation/cleanup tests."""
+    result = run_python_script(
+        MUX_TOOLS_ROOT / "session.py",
+        topic_slug,
+        "--base",
+        "tmp/mux-smoke",
+        "--phase-id",
+        "it005",
+        "--stage-id",
+        "phase-004",
+        "--wave-id",
+        "strict-runtime",
+        "--strict-runtime",
+        "--session-key",
+        session_key,
+        cwd=workspace,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    return result
 
 
 def configure_dispatch_state(
@@ -263,6 +292,7 @@ def test_generated_pi_mux_foundation_assets_exist() -> None:
     assert PI_MUX_OSPEC_SKILL.exists()
     assert PI_MUX_ROADMAP_SKILL.exists()
     assert PI_MUX_SUBAGENT_SKILL.exists()
+    assert (PROJECT_ROOT / "packages" / "pi-ac-workflow" / "extensions" / "strict-mux-runtime" / "index.js").exists()
 
     subagent_text = PI_MUX_SUBAGENT_SKILL.read_text()
     assert "../../assets/mux/tools/signal.py" in subagent_text
@@ -379,6 +409,64 @@ def test_session_initializes_mux_protocol_ledger(tmp_path: Path) -> None:
     first_transition = transition_history[0]
     assert first_transition["from"] == "INIT"
     assert first_transition["to"] == "LOCK"
+
+
+def test_session_strict_runtime_writes_activation_artifacts(tmp_path: Path) -> None:
+    """session.py should write explicit strict-runtime artifacts only when requested."""
+    workspace = create_workspace(tmp_path)
+    session_key = "phase-004-strict-session"
+    result = create_strict_session(workspace, topic_slug="strict-runtime-artifacts", session_key=session_key)
+
+    session_dir_rel = parse_session_dir(result.stdout)
+    strict_runtime_file_rel = parse_output_value(result.stdout, "STRICT_RUNTIME_FILE")
+    strict_runtime_registry_rel = parse_output_value(result.stdout, "STRICT_RUNTIME_REGISTRY")
+    strict_runtime_hash = parse_output_value(result.stdout, "STRICT_RUNTIME_SESSION_KEY_HASH")
+
+    assert parse_output_value(result.stdout, "STRICT_RUNTIME") == "true"
+    assert strict_runtime_hash == hashlib.sha256(session_key.encode("utf-8")).hexdigest()[:24]
+
+    activation_file = workspace / strict_runtime_file_rel
+    registry_file = workspace / strict_runtime_registry_rel
+    assert activation_file.exists()
+    assert registry_file.exists()
+
+    activation_payload = json.loads(activation_file.read_text())
+    registry_payload = json.loads(registry_file.read_text())
+    assert activation_payload == registry_payload
+    assert activation_payload["mode"] == "strict"
+    assert activation_payload["session_key"] == session_key
+    assert activation_payload["session_key_hash"] == strict_runtime_hash
+    assert activation_payload["session_dir"] == session_dir_rel
+    assert activation_payload["ledger_path"] == f"{session_dir_rel}/{LEDGER_FILE_NAME}"
+    assert activation_payload["activation_file"] == strict_runtime_file_rel
+    assert activation_payload["registry_path"] == strict_runtime_registry_rel
+    assert ".specs" in activation_payload["allowed_write_roots"]
+    assert session_dir_rel in activation_payload["allowed_write_roots"]
+
+
+def test_deactivate_removes_strict_runtime_artifacts(tmp_path: Path) -> None:
+    """deactivate.py should remove strict-runtime activation artifacts by session key."""
+    workspace = create_workspace(tmp_path)
+    session_key = "phase-004-deactivate-session"
+    result = create_strict_session(workspace, topic_slug="strict-runtime-deactivate", session_key=session_key)
+
+    strict_runtime_file_rel = parse_output_value(result.stdout, "STRICT_RUNTIME_FILE")
+    strict_runtime_registry_rel = parse_output_value(result.stdout, "STRICT_RUNTIME_REGISTRY")
+    activation_file = workspace / strict_runtime_file_rel
+    registry_file = workspace / strict_runtime_registry_rel
+    assert activation_file.exists()
+    assert registry_file.exists()
+
+    deactivate_result = run_python_script(
+        MUX_TOOLS_ROOT / "deactivate.py",
+        "--session-key",
+        session_key,
+        cwd=workspace,
+    )
+    assert deactivate_result.returncode == 0, deactivate_result.stdout + deactivate_result.stderr
+    assert parse_output_value(deactivate_result.stdout, "STRICT_RUNTIME_DEACTIVATED") == "true"
+    assert not activation_file.exists()
+    assert not registry_file.exists()
 
 
 def test_mux_ledger_accepts_legal_flow_and_rejects_illegal_transition(tmp_path: Path) -> None:
