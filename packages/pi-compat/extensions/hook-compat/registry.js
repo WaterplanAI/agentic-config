@@ -26,17 +26,28 @@ function assertRuntime(runtime) {
   }
 }
 
-function getRuntimeRegistrations(runtime) {
+function resolveRegistryRuntimeKey(runtime) {
   assertRuntime(runtime);
 
+  const sharedEvents = runtime.events;
+  if ((typeof sharedEvents === "object" && sharedEvents !== null) || typeof sharedEvents === "function") {
+    return sharedEvents;
+  }
+
+  return runtime;
+}
+
+function getRuntimeRegistrations(runtime) {
+  const registryKey = resolveRegistryRuntimeKey(runtime);
+
   const state = getRegistryState();
-  const existing = state.registrationsByRuntime.get(runtime);
+  const existing = state.registrationsByRuntime.get(registryKey);
   if (existing) {
     return existing;
   }
 
   const registrations = new Map();
-  state.registrationsByRuntime.set(runtime, registrations);
+  state.registrationsByRuntime.set(registryKey, registrations);
   return registrations;
 }
 
@@ -169,23 +180,23 @@ export function listRegisteredHookCompatPackages(runtime) {
 }
 
 export function markHookCompatRuntimeInstalled(runtime) {
-  assertRuntime(runtime);
+  const registryKey = resolveRegistryRuntimeKey(runtime);
 
   const state = getRegistryState();
-  if (state.installedRuntimes.has(runtime)) {
+  if (state.installedRuntimes.has(registryKey)) {
     return false;
   }
 
-  state.installedRuntimes.add(runtime);
+  state.installedRuntimes.add(registryKey);
   return true;
 }
 
 export function clearHookCompatRuntimeState(runtime) {
-  assertRuntime(runtime);
+  const registryKey = resolveRegistryRuntimeKey(runtime);
 
   const state = getRegistryState();
-  state.installedRuntimes.delete(runtime);
-  state.registrationsByRuntime.delete(runtime);
+  state.installedRuntimes.delete(registryKey);
+  state.registrationsByRuntime.delete(registryKey);
 }
 
 export function resetHookCompatRegistryForTests() {

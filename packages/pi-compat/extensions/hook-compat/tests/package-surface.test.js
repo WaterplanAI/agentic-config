@@ -21,7 +21,11 @@ import hookCompatExtension, {
 } from "../index.js";
 import { interpretHookDecision } from "../decision.js";
 import { buildClaudeCompatEnv, resolveClaudeSessionId } from "../env.js";
-import { resetHookCompatRegistryForTests } from "../registry.js";
+import {
+  clearHookCompatRuntimeState,
+  markHookCompatRuntimeInstalled,
+  resetHookCompatRegistryForTests,
+} from "../registry.js";
 
 function sampleRegistration(packageId = "package-surface") {
   return {
@@ -91,6 +95,45 @@ test("registry state is shared across imports but isolated per runtime object", 
   );
 
   firstModule.resetHookCompatRegistryForTests();
+});
+
+test("registry uses the shared events bus so package registrations and hook runtime handlers can meet in real pi", async () => {
+  resetHookCompatRegistryForTests();
+
+  const sharedEvents = { name: "shared-events" };
+  const hookRuntimeApi = {
+    events: sharedEvents,
+    on() {},
+  };
+  const packageRuntimeApi = {
+    events: sharedEvents,
+    on() {},
+  };
+  const otherRuntimeApi = {
+    events: { name: "other-events" },
+    on() {},
+  };
+
+  const firstResult = registerHookCompatPackage(packageRuntimeApi, sampleRegistration("shared-events-package"));
+  const secondResult = registerHookCompatPackage(hookRuntimeApi, sampleRegistration("shared-events-package"));
+  const thirdResult = registerHookCompatPackage(otherRuntimeApi, sampleRegistration("other-events-package"));
+
+  assert.equal(firstResult.status, "registered");
+  assert.equal(secondResult.status, "replaced");
+  assert.equal(thirdResult.status, "registered");
+
+  assert.equal(listRegisteredHookCompatPackages(hookRuntimeApi).length, 1);
+  assert.equal(listRegisteredHookCompatPackages(packageRuntimeApi).length, 1);
+  assert.equal(listRegisteredHookCompatPackages(otherRuntimeApi).length, 1);
+  assert.notDeepEqual(
+    listRegisteredHookCompatPackages(hookRuntimeApi).map((registration) => registration.packageId),
+    listRegisteredHookCompatPackages(otherRuntimeApi).map((registration) => registration.packageId),
+  );
+
+  assert.equal(markHookCompatRuntimeInstalled(hookRuntimeApi), true);
+  assert.equal(markHookCompatRuntimeInstalled(packageRuntimeApi), false);
+  clearHookCompatRuntimeState(packageRuntimeApi);
+  assert.equal(listRegisteredHookCompatPackages(hookRuntimeApi).length, 0);
 });
 
 test("extension registers one runtime handler set and clears only its own runtime state on shutdown", async () => {
