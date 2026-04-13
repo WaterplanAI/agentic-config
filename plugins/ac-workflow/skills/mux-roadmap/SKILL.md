@@ -222,7 +222,7 @@ YOU (MUX Head Coordinator - high-tier)
  +- PER PHASE: Orchestrator invokes Skill(skill="mux-ospec", args="<modifier> <spec-path>") DIRECTLY
  |   |
  |   |  Orchestrator loads mux-ospec into its own context, then delegates stages:
- |   |  GATHER -> CONFIRM SC -> PLAN -> IMPLEMENT -> REVIEW -> FIX -> TEST -> DOCUMENT -> SENTINEL
+ |   |  GATHER -> CONSOLIDATE -> SUCCESS_CRITERIA -> CONFIRM_SC -> PLAN -> IMPLEMENT -> REVIEW -> FIX -> TEST -> DOCUMENT -> SENTINEL
  |   |  Each stage via Task() subagent as mux-ospec instructs
  |   |
  |   +- mux-ospec stages return completion -> Orchestrator continues to next stage
@@ -791,7 +791,7 @@ FOR each track in dependency order:
          c. Retry stage (never skip)
     6. If no task-notification after extended time:
        a. Run verify.py to check worker status
-       b. If worker stuck, mark FAILED, launch fresh agent
+       b. If worker appears stuck, escalate to user with evidence and wait for direction
        c. If worker still active, continue waiting
     7. If --wait-after-plan flag set:
        After PLAN stage completes, present plan summary via AskUserQuestion
@@ -899,8 +899,8 @@ Authority when CONTINUE.md and signals disagree:
 
 | Scenario | Action |
 |----------|--------|
-| Phase agent timeout | If no task-notification after extended time, run verify.py. If worker stuck, mark FAILED, launch fresh agent |
-| Worker truly stuck | Mark stage FAILED, launch new phase agent |
+| Phase agent timeout | If no task-notification after extended time, run verify.py. If worker appears stuck, escalate to user with evidence and await direction |
+| Worker truly stuck | Escalate to user by default; only replace the worker when an explicit override authorizes restart |
 | mux-ospec internal failure | Phase agent writes refinement, returns NEEDS_REFINEMENT |
 | Type check fails 3x | NEEDS_REFINEMENT with error details |
 | Tests fail 3x | NEEDS_REFINEMENT with failure analysis |
@@ -1407,14 +1407,14 @@ tmp/mux/<session-slug>/
 
 **Invocation:**
 ```
-/mux-roadmap specs/2026/02/feature-branch/001-feature-spec.md start
+/mux-roadmap .specs/specs/2026/02/feature-branch/001-feature-spec.md start
 ```
 
 **Correct flow (what SHOULD happen):**
 ```
 MUX MODE | Action: Skill(mux) | Target: roadmap orchestration | Rationale: mandatory first action
 
-> Skill(skill="mux", args="Orchestrate multi-track roadmap. PATH: specs/2026/02/... Mode: start.")
+> Skill(skill="mux", args="Orchestrate multi-track roadmap. PATH: .specs/specs/2026/02/... Mode: start.")
 
 MUX MODE | Action: uv run session.py | Target: session init | Rationale: mandatory MUX first action
 
@@ -1455,9 +1455,9 @@ Waiting for notifications.
 
 **WRONG flow (what the failing session did):**
 ```
-> Read(specs/2026/02/.../001-spec.md)                         <-- VIOLATION: reading spec yourself
+> Read(.specs/specs/2026/02/.../001-spec.md)                         <-- VIOLATION: reading spec yourself
 > Bash("git branch --show-current")                           <-- VIOLATION: no MUX session
-> Bash("ls specs/2026/02/.../")                               <-- VIOLATION: listing files yourself
+> Bash("ls .specs/specs/2026/02/.../")                               <-- VIOLATION: listing files yourself
 > Read(package.json)                                          <-- VIOLATION: reading project files
 > Read(backlog.md)                                            <-- VIOLATION: more reading
 55s of churning, massive context consumed, no delegation, no work done.

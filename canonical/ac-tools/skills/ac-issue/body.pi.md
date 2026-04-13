@@ -2,7 +2,7 @@
 
 ## Compatibility Note
 
-This pi wrapper preserves the original issue-reporting workflow while replacing the Claude-plugin-root version lookup with a current-checkout `VERSION` fallback when available.
+This pi wrapper preserves the original issue-reporting workflow while replacing the legacy plugin-root version lookup with a current-checkout `VERSION` fallback when available.
 
 
 Creates GitHub issues in the central agentic-config repository (WaterplanAI/agentic-config) for bug reports and feature requests.

@@ -3,7 +3,7 @@
 Shared hook-adapter foundation for `@agentic-config/pi-compat`.
 
 ## Purpose
-- Provide one compat-owned runtime for Claude-style pre-tool hook scripts.
+- Provide one compat-owned runtime for pre-tool hook scripts.
 - Keep matcher parsing, payload mapping, env normalization, script execution, and decision handling centralized.
 - Expose registration helpers, direct preflight helpers, and guarded execution wrappers from one package surface.
 
@@ -66,8 +66,8 @@ export default function registerGitCompat(pi) {
 }
 ```
 
-## Locked pi-to-Claude payload mapping
-| caller tool name | Claude `tool_name` | Mapping |
+## Locked compat payload mapping
+| caller tool name | compat `tool_name` | Mapping |
 |---|---|---|
 | `read` / `Read` | `Read` | `input.path -> tool_input.file_path` |
 | `grep` / `Grep` | `Grep` | preserve `pattern`, `path`, `glob` |
@@ -147,7 +147,7 @@ The hook-compat suite currently covers:
 - package export/import wiring through the package `exports` map
 - runtime-object scoping and shutdown cleanup
 - malformed `hookSpecificOutput` handling without premature user notification
-- locked pi-to-Claude mapping and matcher behavior, including explicit `NotebookEdit` mapping and raw custom tool passthrough
+- locked compat mapping and matcher behavior, including explicit `NotebookEdit` mapping and raw custom tool passthrough
 - direct preflight coverage for packaged safety guards
 - representative deny, ask, ordered-chain, side-effect/systemMessage, fail-open/fail-close, `user_bash`, and malformed-decision runtime scenarios
 - packaged asset-root registrations for `pi-ac-audit`, `pi-ac-git`, `pi-ac-safety`, and `pi-ac-tools`

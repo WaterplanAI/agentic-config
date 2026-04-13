@@ -1,6 +1,6 @@
 ---
 name: mux-subagent
-description: "MUX worker protocol reference. Defines the report, signal, and return-code contract that later mux orchestrators consume."
+description: "MUX data-plane worker protocol reference. Defines the report, signal, and return-code contract that strict mux coordinators consume."
 project-agnostic: true
 allowed-tools:
   - Read
@@ -20,33 +20,46 @@ hooks:
 
 # MUX Subagent Protocol
 
-## MANDATORY COMPLIANCE
+## Purpose
 
-You are operating under the MUX worker protocol. These rules are non-negotiable.
+This is the bounded leaf-worker contract for the mux family.
+
+## Binding activation
+
+If the parent coordinator explicitly invokes `mux-subagent`, or embeds this skill text as the worker runtime for the task, treat this document as a binding runtime contract, not as optional guidance, commentary, or a planning reference.
+
+Workers stay **data-plane only**. Control-plane ownership (`LOCK/RESOLVE/DECLARE/DISPATCH/VERIFY/ADVANCE/BLOCK/RECOVER`) stays with the coordinator plus shared mux tools.
+
+Companion protocol artifacts:
+- `${CLAUDE_PLUGIN_ROOT}/mux/protocol/subagent.md`
+- `${CLAUDE_PLUGIN_ROOT}/mux/protocol/guardrail-policy.md`
+- `${CLAUDE_PLUGIN_ROOT}/mux/protocol/strict-happy-path-transcript.md`
+- `${CLAUDE_PLUGIN_ROOT}/mux/protocol/strict-blocker-path-transcript.md`
+- `${CLAUDE_PLUGIN_ROOT}/mux/protocol/strict-regression-checklist.md`
 
 ## Return Code Convention
 
-Your final response to the parent orchestrator must be exactly: `0`
+Your final textual response to the parent coordinator must be exactly: `0`
 
 - `0` = success
 - Any other final response = protocol violation
 - All substantive content belongs in the report file
 
-## File-Based Communication
+## Mandatory Worker Rules
 
-- Write all findings and results to the report file path given in your task prompt
-- Report files are your only substantive output channel
-- The orchestrator reads only bounded summaries, not the full report body
+- Write all substantive findings and results to the report file path provided by the coordinator.
+- Create a success or failure signal before finishing.
+- Keep final response text exactly `0` on success.
+- Do not launch nested `subagent` calls.
+- Do not call control-plane bridge tools or `report_parent`; worker-to-coordinator communication is report/signal artifacts only.
+- Do not perform control-plane transitions from a worker.
+- Do not use `TaskOutput`.
 
-## Signal File Creation
-
-Before returning `0`, create a signal file:
+## Signal Command
 
 ```bash
-uv run ${CLAUDE_PLUGIN_ROOT}/mux/tools/signal.py <signal-path> --path <your-report-path> --status success
+uv run ${CLAUDE_PLUGIN_ROOT}/mux/tools/signal.py <signal-path> --path <report-path> --status success
 ```
-
-If you fail to create a signal, the orchestrator cannot verify completion.
 
 ## Report Format
 
@@ -72,23 +85,17 @@ If you fail to create a signal, the orchestrator cannot verify completion.
 
 ### Executive Summary Rules
 
-- Bullets only — no paragraphs
-- Each bullet uses `**Label**: keyword-dense value`
-- Include concrete file paths, counts, statuses, and findings
-- Never be vague when a concrete count or path is available
+- Bullets only — no paragraphs.
+- Each bullet uses `**Label**: keyword-dense value`.
+- Include concrete file paths, counts, statuses, and findings.
+- Never be vague when a concrete count or path is available.
 
 ### Next Steps Rules
 
-- Always include the subsection
-- Tell the orchestrator what to do next
-- Reference specific file paths the next worker should read
-- Flag blockers or decisions that need user input
-
-## What Not To Do
-
-- Never put substantive content in the final response
-- Never skip signal creation
-- Never use `TaskOutput`
+- Always include the subsection.
+- Tell the coordinator what to do next.
+- Reference specific file paths the next worker should read.
+- Flag blockers or decisions that need user input.
 
 ## Pre-Return Checklist
 
@@ -98,4 +105,6 @@ Before returning `0`, verify:
 - [ ] Report has an Executive Summary section with bullets only
 - [ ] Executive Summary has a `### Next Steps` subsection
 - [ ] Signal file created via `${CLAUDE_PLUGIN_ROOT}/mux/tools/signal.py`
-- [ ] No substantive content in the final response
+- [ ] No nested `subagent` calls were made
+- [ ] No control-plane bridge tools or `report_parent` calls were made
+- [ ] No substantive content appears in the final response

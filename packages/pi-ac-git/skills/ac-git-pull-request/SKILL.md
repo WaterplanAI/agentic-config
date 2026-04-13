@@ -346,9 +346,9 @@ Next steps:
    - Sections optimized for reviewer experience
    - Test plan with actionable checkboxes
 
-6. **Claude Code Attribution**
+6. **AI Attribution**
    - Footer indicates AI-assisted PR creation
-   - Links to Claude Code for transparency
+   - Links to the generating tool for transparency
 
 ---
 

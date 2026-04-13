@@ -1,5 +1,16 @@
 # Bash Restrictions
 
+
+> Authoritative contract (wins on conflict):
+> - full: CREATE (optional) -> GATHER -> CONSOLIDATE -> SUCCESS_CRITERIA -> CONFIRM_SC -> PLAN -> IMPLEMENT -> REVIEW -> FIX -> TEST -> DOCUMENT -> SENTINEL
+> - lean: CREATE (optional) -> CONFIRM_SC -> PLAN -> IMPLEMENT -> REVIEW -> FIX -> TEST -> DOCUMENT -> SELF_VALIDATION
+> - leanest: CREATE (optional) -> CONFIRM_SC -> PLAN -> IMPLEMENT -> REVIEW -> FIX -> TEST -> SELF_VALIDATION
+> - GATHER = RESEARCH; CONFIRM_SC is mandatory before PLAN
+> - REVIEW/TEST/SENTINEL/SELF_VALIDATION are PASS-only gates
+> - notify-first pacing; no polling loops; blocked/stuck defaults to user escalation
+> - every stage must commit every changed repo and report `repo_scope`, `root_commit`, `spec_commit` (root first, spec second when both changed)
+
+
 Orchestrator Bash usage is LIMITED to these EXACT tools.
 
 ## Allowed Commands
@@ -60,19 +71,19 @@ grep -rn "pattern" specs/ --include="*.md"
 # Reading spec file -> delegate to stage agent
 Task(prompt="""Invoke Skill(skill="spec", args="PLAN {spec_path}").
 CONSTRAINTS: Do NOT read source files directly.""",
-model="opus", run_in_background=True)
+model="high-tier", run_in_background=True)
 
 # Running tests -> delegate to tester agent
 Task(prompt="Read agents/spec-tester.md. Detect framework and run tests.",
-model="sonnet", run_in_background=True)
+model="medium-tier", run_in_background=True)
 
 # Git inspection -> delegate to sentinel
 Task(prompt="Read agents/sentinel.md. Check git status and verify commits.",
-model="opus", run_in_background=True)
+model="high-tier", run_in_background=True)
 
 # Pattern search -> delegate to auditor
 Task(prompt="Search for pattern X in codebase. Report findings.",
-model="sonnet", run_in_background=True)
+model="medium-tier", run_in_background=True)
 ```
 
 ## Rationale

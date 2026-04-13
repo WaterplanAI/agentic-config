@@ -2,7 +2,7 @@
 
 ## Compatibility Note
 
-This pi wrapper preserves the shared import/export workflow directly in pi without relying on Claude-only delegation primitives.
+This pi wrapper preserves the shared import/export workflow directly in pi without relying on non-pi delegation primitives.
 
 
 Core logic for moving reusable assets between projects and this repository.

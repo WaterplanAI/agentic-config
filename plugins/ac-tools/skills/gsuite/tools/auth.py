@@ -23,7 +23,7 @@ from typing import Annotated
 import typer
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
-from google_auth_oauthlib.flow import InstalledAppFlow
+from google_auth_oauthlib.flow import InstalledAppFlow  # pyright: ignore[reportMissingImports]
 from rich.console import Console
 from rich.table import Table
 

@@ -23,7 +23,7 @@ Examples:
 
 Resolve the session status path using the same priority as the dry-run hook:
 1. prefer `CLAUDE_SESSION_ID` when it is available
-2. otherwise fall back to Claude-compatible PID tracing
+2. otherwise fall back to compat PID tracing
 3. use the shared path only as a legacy last resort
 
 ```bash

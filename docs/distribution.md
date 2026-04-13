@@ -105,6 +105,12 @@ Pi package sources generally support npm, git, and local paths. For the current 
 - local package-root installs remain useful for focused package validation
 - per-package npm distribution remains future work
 
+For `@agentic-config/pi-ac-workflow`, open-source users should read the runtime ownership as:
+- `pimux` = package-owned tmux control plane, including generic long-lived non-mux hierarchies
+- `ac-workflow-mux`, `ac-workflow-mux-ospec`, `ac-workflow-mux-roadmap` = structured wrappers on top of `pimux`
+
+See [pimux Workflow Topologies](pimux-workflow-topologies.md) for the practical hierarchy guide.
+
 ### Team and automation rollout: pinned git tag
 
 Use the current public release tag when you want reproducible rollout from the repository itself:

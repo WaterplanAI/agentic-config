@@ -32,14 +32,9 @@ renders:
     output_path: skills/ac-workflow-mux/SKILL.md
     display_name: ac-workflow-mux
     allowed_tools:
-      - Read
-      - Write
-      - Edit
-      - Bash
-      - Grep
-      - Glob
-      - subagent
+      - pimux
+      - AskUserQuestion
       - say
     frontmatter_enabled: true
-    description: "pi-adapted mux coordinator. Uses the shared mux foundation plus one-layer subagent orchestration with explicit session, report, and signal tracking."
+    description: "pi-adapted mux coordinator. Uses pimux as the authoritative runtime while preserving shared mux foundation semantics."
     body_file: body.pi.md

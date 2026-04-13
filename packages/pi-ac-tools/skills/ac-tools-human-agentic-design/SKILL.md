@@ -96,13 +96,13 @@ If page type matches a built-in template, use it as starting point. Read the tem
 
 ### 4. Write Files
 
-Output directory: `/tmp/claude-prototypes/<session-id>/`
+Output directory: `/tmp/pi-prototypes/<session-id>/`
 
 Generate `<session-id>` as: `YYYYMMDD-HHMM-<slug>` where `<slug>` is a 2-3 word kebab-case description of the prototype.
 
 ```bash
 # Create output directory
-mkdir -p /tmp/claude-prototypes/<session-id>
+mkdir -p /tmp/pi-prototypes/<session-id>
 ```
 
 Write all files using the Write tool.
@@ -113,7 +113,7 @@ If Playwright MCP is available:
 
 **Tier A preview:**
 ```
-1. Start server:    python3 -m http.server 8080 -d /tmp/claude-prototypes/<session-id>
+1. Start server:    python3 -m http.server 8080 -d /tmp/pi-prototypes/<session-id>
 2. Navigate:        mcp__playwright__browser_navigate -> http://localhost:8080
 3. Screenshot:      mcp__playwright__browser_take_screenshot (desktop viewport)
 4. A11y snapshot:   mcp__playwright__browser_snapshot
@@ -122,7 +122,7 @@ If Playwright MCP is available:
 
 **Tier B preview:**
 ```
-1. Install deps:    cd /tmp/claude-prototypes/<session-id> && npm install
+1. Install deps:    cd /tmp/pi-prototypes/<session-id> && npm install
 2. Start Vite:      npm run dev (background)
 3. Navigate:        mcp__playwright__browser_navigate -> http://localhost:5173
 4. Screenshot:      mcp__playwright__browser_take_screenshot
@@ -133,11 +133,11 @@ If Playwright MCP is available:
 **If Playwright MCP unavailable:**
 Output file paths and manual open instructions:
 ```
-Prototype ready at: /tmp/claude-prototypes/<session-id>/index.html
+Prototype ready at: /tmp/pi-prototypes/<session-id>/index.html
 
 To preview:
-  Option 1: open /tmp/claude-prototypes/<session-id>/index.html
-  Option 2: cd /tmp/claude-prototypes/<session-id> && python3 -m http.server 8080
+  Option 1: open /tmp/pi-prototypes/<session-id>/index.html
+  Option 2: cd /tmp/pi-prototypes/<session-id> && python3 -m http.server 8080
              Then open http://localhost:8080
 ```
 
@@ -231,13 +231,13 @@ After generation, output a summary:
 **Tier**: A (HTML + Tailwind CDN + DaisyUI CDN)
 **Type**: <page-type>
 **Files**:
-  - /tmp/claude-prototypes/<session-id>/index.html
+  - /tmp/pi-prototypes/<session-id>/index.html
 
 **Preview**: [screenshot if Playwright available]
 **A11y Validation**: PASS | X landmarks detected: main, nav, header, footer
 **Semantic Checks**: PASS | h1 present, heading hierarchy valid, N data-testid attributes
 
-To open: open /tmp/claude-prototypes/<session-id>/index.html
+To open: open /tmp/pi-prototypes/<session-id>/index.html
 ```
 
 ## Responsive Breakpoints

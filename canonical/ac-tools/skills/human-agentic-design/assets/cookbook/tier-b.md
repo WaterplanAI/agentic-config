@@ -10,7 +10,7 @@ Production-grade prototype scaffold with HMR. Activated when Node.js detected.
 ## Scaffold Setup Commands
 
 ```bash
-SESSION_DIR="/tmp/claude-prototypes/<session-id>"
+SESSION_DIR="/tmp/pi-prototypes/<session-id>"
 mkdir -p "$SESSION_DIR"
 cd "$SESSION_DIR"
 
@@ -162,7 +162,7 @@ Place in `index.html` `<head>` section (not in React component):
 ## Start Dev Server
 
 ```bash
-cd /tmp/claude-prototypes/<session-id>
+cd /tmp/pi-prototypes/<session-id>
 npm run dev
 # Opens on http://localhost:5173 (auto-increments if port taken)
 ```

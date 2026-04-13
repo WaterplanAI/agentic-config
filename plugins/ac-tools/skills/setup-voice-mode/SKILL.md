@@ -1,6 +1,6 @@
 ---
 name: setup-voice-mode
-description: "Installs and configures VoiceMode MCP for voice interactions with Claude Code. Triggers on keywords: setup voice, voice mode, install voicemode, configure voice"
+description: "Installs and configures VoiceMode MCP for voice interactions in the target client. Triggers on keywords: setup voice, voice mode, install voicemode, configure voice"
 project-agnostic: true
 allowed-tools:
   - Bash

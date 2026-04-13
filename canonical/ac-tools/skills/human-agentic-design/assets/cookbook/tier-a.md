@@ -72,7 +72,7 @@ Single-file HTML with Tailwind CSS v4 CDN + DaisyUI v5 CDN. Zero build step, zer
 For multi-page prototypes, create multiple HTML files in the same directory:
 
 ```
-/tmp/claude-prototypes/<session-id>/
+/tmp/pi-prototypes/<session-id>/
   index.html        # Home / landing
   about.html        # About page
   contact.html      # Contact page

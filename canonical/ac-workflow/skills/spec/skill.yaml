@@ -1,6 +1,6 @@
 skill_id: spec
 kind: standard
-summary: "Core specification workflow engine. Triggers stage agents (CREATE, RESEARCH, PLAN, IMPLEMENT, REVIEW, TEST, etc.) for structured development. Triggers on keywords: spec, specification, plan spec, implement spec, review spec"
+summary: "Core specification workflow engine. Supports CREATE, GATHER/RESEARCH, CONSOLIDATE, SUCCESS_CRITERIA, CONFIRM_SC, PLAN, IMPLEMENT, REVIEW, FIX, TEST, DOCUMENT, SENTINEL, SELF_VALIDATION, and compatibility stages."
 project_agnostic: true
 body_file: body.md
 assets: []

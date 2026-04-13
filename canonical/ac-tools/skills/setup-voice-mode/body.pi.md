@@ -1,7 +1,7 @@
 
-# Setup VoiceMode for Claude Code
+# Setup VoiceMode
 
-Install and configure VoiceMode MCP for voice interactions with Claude Code.
+Install and configure VoiceMode MCP for voice interactions in the target client.
 
 ## Steps
 
@@ -10,7 +10,7 @@ Install and configure VoiceMode MCP for voice interactions with Claude Code.
 uvx voice-mode-install --yes
 ```
 
-2. Add MCP server to Claude Code:
+2. Add the MCP server to the target client:
 ```bash
 claude mcp add --scope user voicemode -- uvx --refresh voice-mode
 ```
@@ -31,7 +31,7 @@ claude mcp list
 ```
 
 5. Test voice mode:
-- Restart Claude Code
+- Restart the target client
 - If the target runtime exposes a VoiceMode tool, use it to verify; otherwise restart the target client and confirm voice input/output there
 
 ## First Run Note

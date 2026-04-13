@@ -3,6 +3,8 @@
 Design document for the layered composition pattern that builds from the atomic
 `spawn.py` primitive into progressively higher-order agentic tools.
 
+For the current user-facing `pimux` / `ac-workflow-mux*` topology guide in the shipped pi surface, see [pimux Workflow Topologies](pimux-workflow-topologies.md). This document is the deeper composition reference.
+
 ## Table of Contents
 
 1. [Overview](#1-overview)

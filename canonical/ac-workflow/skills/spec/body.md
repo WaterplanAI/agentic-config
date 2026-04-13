@@ -1,20 +1,36 @@
-/spec STAGE SPEC: STRICTLY FOLLOW ${CLAUDE_PLUGIN_ROOT}/agents/spec/{STAGE}.md using STAGE AND SPEC as the variables
+/spec STAGE SPEC: STRICTLY FOLLOW `${CLAUDE_PLUGIN_ROOT}/agents/spec/{STAGE}.md` using stage + spec path arguments.
 
-## Variables
+## Supported public stages
 
-STAGE=$ARGUMENTS
-SPEC=$ARGUMENTS / LAST USED SPEC
+Primary stages:
+- `CREATE`
+- `GATHER` (compatibility alias for `RESEARCH`)
+- `RESEARCH`
+- `CONSOLIDATE`
+- `SUCCESS_CRITERIA`
+- `CONFIRM_SC`
+- `PLAN`
+- `IMPLEMENT`
+- `REVIEW`
+- `FIX`
+- `TEST`
+- `DOCUMENT`
+- `SENTINEL`
+- `SELF_VALIDATION`
 
-## Spec Rules
+Compatibility/internal stages may still exist (`PLAN_REVIEW`, `VALIDATE`, `VALIDATE_INLINE`, `AMEND`), but mux-ospec public flows should use the primary stage names above.
 
-- Default path: specs/<YYYY>/<MM>/<branch>/<NNN>-<title>.md
-- Modify AI Section only; never touch Human Section
-- Commit after each stage: `spec(<NNN>): <STAGE> - <title>`
-- One stage = one commit (do NOT bundle multiple stages)
+## Spec rules
 
-## Conditional Documentation
+- canonical external-spec path convention: `.specs/specs/<YYYY>/<MM>/<branch>/<NNN>-<title>.md`
+- modify AI Section only; never touch Human Section
+- every stage must commit every repo it changed
+- when both repos change: commit root first, then spec repo via resolver
+- stage closeout must include repo-scoped commit evidence (`repo_scope`, `root_commit`, `spec_commit`)
 
-When working with external specs storage, read:
+## External spec routing
+
+When specs are external, use:
 - `${CLAUDE_PLUGIN_ROOT}/scripts/spec-resolver.sh`
 - `${CLAUDE_PLUGIN_ROOT}/scripts/external-specs.sh`
 - `${CLAUDE_PLUGIN_ROOT}/scripts/lib/config-loader.sh`

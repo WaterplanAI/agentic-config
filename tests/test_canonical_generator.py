@@ -49,7 +49,7 @@ def test_generator_covers_current_canonical_scope() -> None:
 
 
 def test_generator_plugin_filter_stays_within_seeded_scope() -> None:
-    """Plugin filtering should cover the canonical workflow scope without touching manual siblings."""
+    """Plugin filtering should cover the canonical workflow scope without reintroducing removed manual siblings."""
     result = run_generator("--check", "--plugin", "ac-workflow")
     assert result.returncode == 0, result.stdout + result.stderr
     assert "product-manager" not in result.stdout
@@ -58,8 +58,117 @@ def test_generator_plugin_filter_stays_within_seeded_scope() -> None:
     assert (PROJECT_ROOT / "packages" / "pi-ac-workflow" / "skills" / "ac-workflow-mux-ospec" / "SKILL.md").exists()
     assert (PROJECT_ROOT / "packages" / "pi-ac-workflow" / "skills" / "ac-workflow-mux-roadmap" / "SKILL.md").exists()
     assert (PROJECT_ROOT / "packages" / "pi-ac-workflow" / "skills" / "ac-workflow-mux-subagent" / "SKILL.md").exists()
-    assert (PROJECT_ROOT / "packages" / "pi-ac-workflow" / "skills" / "ac-workflow-tmux-agent" / "SKILL.md").exists()
-    assert (PROJECT_ROOT / "packages" / "pi-ac-workflow" / "extensions" / "tmux-agent" / "index.ts").exists()
+    assert not (PROJECT_ROOT / "packages" / "pi-ac-workflow" / "skills" / "ac-workflow-tmux-agent" / "SKILL.md").exists()
+    assert (PROJECT_ROOT / "packages" / "pi-ac-workflow" / "extensions" / "pimux" / "index.ts").exists()
+    assert not (PROJECT_ROOT / "packages" / "pi-ac-workflow" / "extensions" / "tmux-agent" / "index.ts").exists()
+
+    protocol_files = [
+        "subagent.md",
+        "foundation.md",
+        "guardrail-policy.md",
+        "strict-happy-path-transcript.md",
+        "strict-blocker-path-transcript.md",
+        "strict-regression-checklist.md",
+    ]
+    for protocol_file in protocol_files:
+        assert (PROJECT_ROOT / "packages" / "pi-ac-workflow" / "assets" / "mux" / "protocol" / protocol_file).exists()
+        assert (PROJECT_ROOT / "plugins" / "ac-workflow" / "mux" / "protocol" / protocol_file).exists()
+
+
+def test_generator_keeps_mux_ospec_pimux_markers_in_sync() -> None:
+    """Canonical and generated mux-ospec surfaces should share pimux runtime markers."""
+    canonical_pi_body = (
+        PROJECT_ROOT / "canonical" / "ac-workflow" / "skills" / "mux-ospec" / "body.pi.md"
+    ).read_text()
+    generated_pi_skill = (
+        PROJECT_ROOT / "packages" / "pi-ac-workflow" / "skills" / "ac-workflow-mux-ospec" / "SKILL.md"
+    ).read_text()
+
+    markers = [
+        "pimux",
+        "binding runtime contract",
+        "pimux`-only cross-stage orchestrator",
+        "The first real move is to spawn the authoritative stage-owning `pimux` child.",
+        "The first observable parent tool call must be `pimux spawn`.",
+        "no-spec invocation starts at Stage `000 CREATE`",
+        "route to `BLOCK`",
+    ]
+    for marker in markers:
+        assert marker in canonical_pi_body
+        assert marker in generated_pi_skill
+
+
+def test_generator_keeps_mux_sibling_pimux_markers_in_sync() -> None:
+    """Canonical and generated mux sibling surfaces should share pimux authority markers."""
+    canonical_mux_body = (
+        PROJECT_ROOT / "canonical" / "ac-workflow" / "skills" / "mux" / "body.pi.md"
+    ).read_text()
+    generated_mux_skill = (
+        PROJECT_ROOT / "packages" / "pi-ac-workflow" / "skills" / "ac-workflow-mux" / "SKILL.md"
+    ).read_text()
+    canonical_roadmap_body = (
+        PROJECT_ROOT / "canonical" / "ac-workflow" / "skills" / "mux-roadmap" / "body.pi.md"
+    ).read_text()
+    generated_roadmap_skill = (
+        PROJECT_ROOT / "packages" / "pi-ac-workflow" / "skills" / "ac-workflow-mux-roadmap" / "SKILL.md"
+    ).read_text()
+
+    mux_markers = [
+        "pimux",
+        "binding runtime contract",
+        "pimux`-only control plane",
+        "The first real move is to spawn the authoritative `pimux` child coordinator.",
+        "The first observable parent tool call must be `pimux spawn`.",
+        "../../assets/mux/protocol/foundation.md",
+        "coordinator -> subagent",
+        "--strict-runtime --session-key <key>",
+    ]
+    for marker in mux_markers:
+        assert marker in canonical_mux_body
+        assert marker in generated_mux_skill
+
+    roadmap_markers = [
+        "pimux",
+        "binding runtime contract",
+        "pimux`-only roadmap orchestrator",
+        "Do not inspect roadmap files, phase docs, or repo targets in the parent before spawn.",
+        "The first observable parent tool call must be `pimux spawn`.",
+        "phase-owning `/mux-ospec` child",
+        "stage-owning `pimux` child",
+        "No silent fallback to non-`pimux` runtime",
+    ]
+    for marker in roadmap_markers:
+        assert marker in canonical_roadmap_body
+        assert marker in generated_roadmap_skill
+
+
+def test_generator_keeps_mux_subagent_data_plane_markers_in_sync() -> None:
+    """Canonical and generated mux-subagent surfaces should share data-plane contract markers."""
+    canonical_pi_body = (
+        PROJECT_ROOT / "canonical" / "ac-workflow" / "skills" / "mux-subagent" / "body.pi.md"
+    ).read_text()
+    generated_pi_skill = (
+        PROJECT_ROOT / "packages" / "pi-ac-workflow" / "skills" / "ac-workflow-mux-subagent" / "SKILL.md"
+    ).read_text()
+    canonical_claude_body = (
+        PROJECT_ROOT / "canonical" / "ac-workflow" / "skills" / "mux-subagent" / "body.md"
+    ).read_text()
+    generated_claude_skill = (
+        PROJECT_ROOT / "plugins" / "ac-workflow" / "skills" / "mux-subagent" / "SKILL.md"
+    ).read_text()
+
+    markers = [
+        "binding runtime contract",
+        "data-plane only",
+        "exactly `0` on success",
+        "Do not launch nested `subagent` calls",
+        "control-plane bridge tools or `report_parent`",
+    ]
+    for marker in markers:
+        assert marker in canonical_pi_body
+        assert marker in generated_pi_skill
+        assert marker in canonical_claude_body
+        assert marker in generated_claude_skill
 
 
 def test_generator_ships_worktree_and_gh_pr_review_on_shared_runtime() -> None:
@@ -132,96 +241,145 @@ def test_generator_package_runtime_output_exists() -> None:
 
 
 def test_mux_documentation_surfaces_match_current_generated_boundary() -> None:
-    """The package and canonical status surfaces should stay aligned with the generated-first plus direct tmux-agent boundary."""
-    canonical_readme = (PROJECT_ROOT / "canonical" / "README.md").read_text()
-    assert "`42` canonical skill definitions" in canonical_readme
-    assert "`42` shipped Claude/pi skill pairs in the current generated package surface" in canonical_readme
-    assert "package-owned direct `tmux-agent` migration" in canonical_readme
-    assert "no explicit deferred pi pressure case remains inside the current canonical skill tree" in canonical_readme
-    assert "The shipped pi `mux-ospec` wrapper assumes an existing spec path" in canonical_readme
-    assert "authoritative maintenance path" in canonical_readme
-    assert "`playwright-guardian.py`" not in canonical_readme
-
+    """Workflow docs should reflect canonical IDs, mux aliases, and runtime-only pimux boundary."""
     packages_readme = (PROJECT_ROOT / "packages" / "README.md").read_text()
-    assert "`43` shipped namespaced skills" in packages_readme
-    assert "Still explicitly deferred in the current shipped surface" in packages_readme
-    assert "The roadmap evidence artifact is" in packages_readme
-    assert "direct package-owned `tmux-agent` migration" in packages_readme
-    assert "ac-workflow-tmux-agent" in packages_readme
-    assert "`playwright-guardian.py`" not in packages_readme
-
-    pi_all_readme = (PROJECT_ROOT / "packages" / "pi-all" / "README.md").read_text()
-    assert "`43` namespaced skills across the plugin packages" in pi_all_readme
-    assert "ac-workflow-mux-roadmap" in pi_all_readme
-    assert "ac-workflow-tmux-agent" in pi_all_readme
-    assert "The shipped pi mux family is an honest adaptation" in pi_all_readme
-    assert "Still explicitly deferred in the current shipped surface" in pi_all_readme
-    assert "generated-first plus one direct package-owned `tmux-agent` surface" in pi_all_readme
-    assert "`playwright-guardian.py`" not in pi_all_readme
-
-    git_readme = (PROJECT_ROOT / "packages" / "pi-ac-git" / "README.md").read_text()
-    assert "Shipped generated skill surface" in git_readme
-    assert "thin-wrapper" not in git_readme
-    assert "`ac-git-worktree`" in git_readme
-    assert "### Deferred surface\n- None." in git_readme
-
-    qa_readme = (PROJECT_ROOT / "packages" / "pi-ac-qa" / "README.md").read_text()
-    assert "Shipped generated skill surface" in qa_readme
-    assert "thin-wrapper" not in qa_readme
-    assert "`ac-qa-gh-pr-review`" in qa_readme
-    assert "worker-wave helpers" in qa_readme
-    assert "### Deferred surface\n- None." in qa_readme
-
-    meta_readme = (PROJECT_ROOT / "packages" / "pi-ac-meta" / "README.md").read_text()
-    assert "Shipped generated skill surface" in meta_readme
-    assert "thin-wrapper" not in meta_readme
-    assert "generated `ac-meta` skill surface" in meta_readme
-
-    audit_readme = (PROJECT_ROOT / "packages" / "pi-ac-audit" / "README.md").read_text()
-    assert "generated pi-facing audit configuration skill" in audit_readme
-    assert "IT001 matrix" not in audit_readme
-    assert "non-IT001" not in audit_readme
-
-    compat_readme = (PROJECT_ROOT / "packages" / "pi-compat" / "README.md").read_text()
-    assert "Package topology status" in compat_readme
-    assert "Compatibility boundary" in compat_readme
-    assert "IT001 topology status" not in compat_readme
-
-    git_assets_readme = (PROJECT_ROOT / "packages" / "pi-ac-git" / "assets" / "scripts" / "README.md").read_text()
-    assert "current generated `ac-git` skill surface" in git_assets_readme
-    assert "thin-wrapper" not in git_assets_readme
-
-    safety_readme = (PROJECT_ROOT / "packages" / "pi-ac-safety" / "README.md").read_text()
-    assert "Package surface status: `active`" in safety_readme
-    assert "playwright guardian parity" in safety_readme
-    assert "### Deferred surface\n- None." in safety_readme
-
-    safety_skill = (PROJECT_ROOT / "packages" / "pi-ac-safety" / "skills" / "ac-safety-configure-safety" / "SKILL.md").read_text()
-    assert "currently shipped guardian" in safety_skill
-    assert "deferred config data" not in safety_skill
-    assert "(credential/destructive_bash/write_scope/supply_chain/playwright/all)" in safety_skill
-    assert "not shipped in IT001" not in safety_skill
-
-    release_skill = (PROJECT_ROOT / "packages" / "pi-ac-git" / "skills" / "ac-git-release" / "SKILL.md").read_text()
-    assert "does not ship as a separate pi wrapper in the current package surface" in release_skill
-    assert "Phase 004" not in release_skill
-
-    meta_extensions_readme = (PROJECT_ROOT / "packages" / "pi-ac-meta" / "extensions" / "README.md").read_text()
-    qa_extensions_readme = (PROJECT_ROOT / "packages" / "pi-ac-qa" / "extensions" / "README.md").read_text()
-    for text in (meta_extensions_readme, qa_extensions_readme):
-        assert "currently documentation-only" in text
-        assert "Phase 003" not in text
+    assert "ac-workflow-mux" in packages_readme
+    assert "mux-ospec" in packages_readme
+    assert "runtime/tooling only" in packages_readme
+    for legacy_name in ("pimux" + "-mux", "pimux" + "-ospec", "pimux" + "-roadmap"):
+        assert legacy_name not in packages_readme
 
     workflow_extensions_readme = (PROJECT_ROOT / "packages" / "pi-ac-workflow" / "extensions" / "README.md").read_text()
-    assert "tmux-agent/" in workflow_extensions_readme
-    assert "exact repo-owned migration of the proven global `tmux-agent` extension" in workflow_extensions_readme
-    assert "currently documentation-only" not in workflow_extensions_readme
+    assert "pimux/" in workflow_extensions_readme
+    assert "strict-mux-runtime/" in workflow_extensions_readme
+    assert "tmux-agent/" not in workflow_extensions_readme
 
     workflow_readme = (PROJECT_ROOT / "packages" / "pi-ac-workflow" / "README.md").read_text()
-    assert "ac-workflow-tmux-agent" in workflow_readme
-    assert "package-local `tmux-agent` extension" in workflow_readme
-    assert "project-agnostic surface instead of relying on a user-global-only install" in workflow_readme
+    assert "ac-workflow-mux" in workflow_readme
+    assert "ac-workflow-mux-ospec" in workflow_readme
+    assert "ac-workflow-mux-roadmap" in workflow_readme
+    assert "pimux" in workflow_readme
+    assert "runtime/tooling only" in workflow_readme
+    for legacy_name in ("pimux" + "-mux", "pimux" + "-ospec", "pimux" + "-roadmap"):
+        assert legacy_name not in workflow_readme
 
-    hook_compat_readme = (PROJECT_ROOT / "packages" / "pi-compat" / "extensions" / "hook-compat" / "README.md").read_text()
-    assert "Shared hook-adapter foundation" in hook_compat_readme
-    assert "Shared Phase 005" not in hook_compat_readme
+
+def test_pi_user_facing_assets_use_pi_first_wording() -> None:
+    """Pi-facing generated/manual assets should avoid unnecessary Claude branding."""
+    forbidden_phrases = {
+        PROJECT_ROOT / "packages" / "pi-ac-meta" / "skills" / "ac-meta-hook-writer" / "SKILL.md": [
+            "Claude Code Hook Writer",
+            "Creates Python hooks for Claude Code",
+            "original Claude Code hook authoring target",
+            "Tool parameters from Claude Code.",
+            "Pretooluse hook for Claude Code",
+            "Claude Code hook format",
+        ],
+        PROJECT_ROOT / "packages" / "pi-ac-meta" / "skills" / "ac-meta-skill-writer" / "SKILL.md": [
+            "authoring Claude Code skills",
+            "code.claude.com/docs/en/skills",
+            "original Claude Code skill authoring target",
+            "Claude Code skill specification",
+        ],
+        PROJECT_ROOT / "packages" / "pi-ac-tools" / "skills" / "ac-tools-setup-voice-mode" / "SKILL.md": [
+            "Setup VoiceMode for Claude Code",
+            "voice interactions with Claude Code",
+            "Add MCP server to Claude Code",
+            "Restart Claude Code",
+        ],
+        PROJECT_ROOT / "packages" / "pi-ac-tools" / "skills" / "ac-tools-human-agentic-design" / "SKILL.md": [
+            "/tmp/claude-prototypes/<session-id>",
+        ],
+        PROJECT_ROOT / "packages" / "pi-ac-tools" / "skills" / "ac-tools-gsuite" / "SKILL.md": [
+            "for Claude Code with multi-account support",
+        ],
+        PROJECT_ROOT / "packages" / "pi-ac-tools" / "skills" / "ac-tools-agentic-export" / "SKILL.md": [
+            "Claude-only delegation primitive",
+        ],
+        PROJECT_ROOT / "packages" / "pi-ac-tools" / "skills" / "ac-tools-agentic-import" / "SKILL.md": [
+            "Claude-only delegation primitive",
+        ],
+        PROJECT_ROOT / "packages" / "pi-ac-tools" / "skills" / "ac-tools-agentic-share" / "SKILL.md": [
+            "Claude-only delegation primitives",
+        ],
+        PROJECT_ROOT / "packages" / "pi-ac-tools" / "skills" / "ac-tools-ac-issue" / "SKILL.md": [
+            "Claude-plugin-root version lookup",
+        ],
+        PROJECT_ROOT / "packages" / "pi-ac-tools" / "skills" / "ac-tools-video-query" / "SKILL.md": [
+            "Claude plugin root",
+        ],
+        PROJECT_ROOT / "packages" / "pi-ac-tools" / "skills" / "ac-tools-had" / "SKILL.md": [
+            "Claude-only delegation primitive",
+        ],
+        PROJECT_ROOT / "packages" / "pi-ac-tools" / "skills" / "ac-tools-dry-run" / "SKILL.md": [
+            "Claude-compatible PID tracing",
+        ],
+        PROJECT_ROOT / "packages" / "pi-ac-tools" / "skills" / "ac-tools-dr" / "SKILL.md": [
+            "<claude_pid>",
+            "raw Claude skill-delegation syntax",
+        ],
+        PROJECT_ROOT / "packages" / "pi-ac-git" / "skills" / "ac-git-pull-request" / "SKILL.md": [
+            "Claude Code Attribution",
+            "Links to Claude Code for transparency",
+        ],
+        PROJECT_ROOT / "packages" / "pi-ac-workflow" / "skills" / "ac-workflow-mux" / "SKILL.md": [
+            "mechanical Claude MUX clone",
+            "Claude-only hooks or task notifications",
+        ],
+        PROJECT_ROOT / "packages" / "pi-ac-workflow" / "skills" / "ac-workflow-mux-ospec" / "SKILL.md": [
+            "original Claude workflow",
+            "Claude-only nested skill execution",
+        ],
+        PROJECT_ROOT / "packages" / "pi-ac-workflow" / "skills" / "ac-workflow-mux-roadmap" / "SKILL.md": [
+            "Claude-only nested skill loading",
+            "original Claude-only `start` / `continue` / `--wait-after-plan` bootstrap surface",
+            "original Claude skill had one",
+            "Claude-only orchestration machinery",
+        ],
+        PROJECT_ROOT / "packages" / "pi-ac-workflow" / "skills" / "ac-workflow-mux-subagent" / "SKILL.md": [
+            "Runtime Differences From Claude",
+            "Claude-style `TaskOutput`",
+        ],
+        PROJECT_ROOT / "packages" / "pi-ac-workflow" / "assets" / "mux" / "README.md": [
+            "pi and Claude mux surfaces",
+        ],
+        PROJECT_ROOT / "packages" / "pi-ac-workflow" / "assets" / "mux" / "protocol" / "subagent.md": [
+            "Claude-style `TaskOutput`",
+        ],
+        PROJECT_ROOT / "packages" / "pi-compat" / "README.md": [
+            "Claude-style pre-tool hook runtime",
+            "pi-to-Claude payload mapping",
+        ],
+        PROJECT_ROOT / "packages" / "pi-compat" / "extensions" / "README.md": [
+            "pi-to-Claude payload mapping",
+        ],
+        PROJECT_ROOT / "packages" / "pi-compat" / "extensions" / "hook-compat" / "README.md": [
+            "Claude-style pre-tool hook scripts",
+            "pi-to-Claude payload mapping",
+        ],
+        PROJECT_ROOT / "packages" / "pi-compat" / "extensions" / "notebook-edit" / "README.md": [
+            "Claude `NotebookEdit` events",
+        ],
+        PROJECT_ROOT / "packages" / "pi-ac-safety" / "README.md": [
+            "pi/Claude runtime",
+            "Claude-package scope",
+            "Claude-parity completion claim",
+        ],
+        PROJECT_ROOT / "packages" / "pi-all" / "README.md": [
+            "Claude orchestration prompts",
+            "every Claude marketplace surface",
+        ],
+    }
+
+    for path, phrases in forbidden_phrases.items():
+        text = path.read_text()
+        for phrase in phrases:
+            assert phrase not in text, f"Unexpected Claude branding in {path}: {phrase}"
+
+    assert "/tmp/pi-prototypes/<session-id>" in (
+        PROJECT_ROOT / "packages" / "pi-ac-tools" / "skills" / "ac-tools-human-agentic-design" / "SKILL.md"
+    ).read_text()
+    assert "compat payload mapping" in (PROJECT_ROOT / "packages" / "pi-compat" / "README.md").read_text()
+    assert "No silent fallback to non-`pimux` runtime for explicit mux-roadmap execution." in (
+        PROJECT_ROOT / "packages" / "pi-ac-workflow" / "skills" / "ac-workflow-mux-roadmap" / "SKILL.md"
+    ).read_text()

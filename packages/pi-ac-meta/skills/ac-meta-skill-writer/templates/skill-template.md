@@ -1,13 +1,13 @@
 # Skill Template
 
-Comprehensive template for creating new Claude Code skills.
+Comprehensive template for creating new SKILL.md skills.
 
 ## YAML Frontmatter
 
 ```yaml
 ---
 name: {skill-name}
-description: {Third-person description of what the skill does}. {Additional capability}. Triggers on keywords: {keyword1}, {keyword2}, {keyword3}
+description: "{Third-person description of what the skill does}. {Additional capability}. Triggers on keywords: {keyword1}, {keyword2}, {keyword3}"
 project-agnostic: {true|false}
 allowed-tools:
   - {Tool1}
@@ -35,9 +35,13 @@ allowed-tools:
 [Action verb] + [what it does] + [how/with what]. [Additional capability]. Triggers on keywords: [comma-separated keywords]
 ```
 
+### Frontmatter Quoting Rule
+- Wrap `description` in double quotes in YAML frontmatter.
+- Wrap any other frontmatter string field in double quotes too when it contains YAML-significant or syntax-looking content, such as `:`, `[]`, `{}`, `#`, `&`, `*`, `?`, `|`, `>`, `@`, backticks, or leading/trailing whitespace.
+
 **Good example:**
 ```yaml
-description: Generates API documentation from source code. Extracts function signatures, docstrings, and usage examples. Triggers on keywords: document API, API docs, generate documentation
+description: "Generates API documentation from source code. Extracts function signatures, docstrings, and usage examples. Triggers on keywords: document API, API docs, generate documentation"
 ```
 
 ### Project-Agnostic Guidelines
@@ -104,7 +108,7 @@ For skills that only read and analyze.
 ```yaml
 ---
 name: code-reviewer
-description: Performs code review on specified files. Analyzes style, patterns, and potential issues. Triggers on keywords: review code, code review, check code quality
+description: "Performs code review on specified files. Analyzes style, patterns, and potential issues. Triggers on keywords: review code, code review, check code quality"
 project-agnostic: true
 allowed-tools:
   - Read
@@ -141,7 +145,7 @@ For skills that read and write documentation.
 ```yaml
 ---
 name: api-documenter
-description: Generates API documentation from source code. Extracts function signatures, docstrings, and usage examples. Triggers on keywords: document API, API docs, generate documentation
+description: "Generates API documentation from source code. Extracts function signatures, docstrings, and usage examples. Triggers on keywords: document API, API docs, generate documentation"
 project-agnostic: true
 allowed-tools:
   - Read
@@ -179,7 +183,7 @@ For skills that edit multiple files.
 ```yaml
 ---
 name: import-organizer
-description: Organizes and sorts imports across Python files. Groups stdlib, third-party, and local imports. Triggers on keywords: organize imports, sort imports, fix imports
+description: "Organizes and sorts imports across Python files. Groups stdlib, third-party, and local imports. Triggers on keywords: organize imports, sort imports, fix imports"
 project-agnostic: true
 allowed-tools:
   - Read
@@ -217,7 +221,7 @@ For skills that run commands.
 ```yaml
 ---
 name: test-runner
-description: Executes test suites and analyzes results. Runs pytest with coverage and reports failures. Triggers on keywords: run tests, execute tests, test suite
+description: "Executes test suites and analyzes results. Runs pytest with coverage and reports failures. Triggers on keywords: run tests, execute tests, test suite"
 project-agnostic: false
 allowed-tools:
   - Read
@@ -265,6 +269,8 @@ Before finalizing any skill:
 - [ ] Description is max 1024 chars
 - [ ] Description is third person (no I/you/we)
 - [ ] Description includes "Triggers on keywords:"
+- [ ] `description` is wrapped in double quotes in YAML frontmatter
+- [ ] Other YAML-sensitive frontmatter string values are double-quoted when needed
 - [ ] `project-agnostic` is explicitly set
 - [ ] SKILL.md is under 500 lines
 - [ ] Only necessary tools granted

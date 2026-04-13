@@ -28,6 +28,9 @@ Critical: AI can ONLY modify this section.
 ## Research
 <!-- Filled by /spec RESEARCH -->
 
+## Success Criteria
+<!-- Filled by /spec SUCCESS_CRITERIA or explicitly during RESEARCH/CONSOLIDATE -->
+
 ## Plan
 <!-- Filled by /spec PLAN -->
 

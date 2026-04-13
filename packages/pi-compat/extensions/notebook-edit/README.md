@@ -4,7 +4,7 @@ Shared `NotebookEdit` compat tool exported by `@agentic-config/pi-compat`.
 
 ## Purpose
 - Close the current pi `NotebookEdit` runtime gap with a reusable notebook-edit tool.
-- Preserve compatibility with existing hook-backed guardrails that already reason about Claude `NotebookEdit` events.
+- Preserve compatibility with existing hook-backed guardrails that already reason about compat `NotebookEdit` events.
 - Give later generated wrappers a narrow, deterministic way to update notebook cell source.
 
 ## Tool name

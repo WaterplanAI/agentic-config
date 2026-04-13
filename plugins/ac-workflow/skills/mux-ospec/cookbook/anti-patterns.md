@@ -1,5 +1,16 @@
 # Anti-Patterns
 
+
+> Authoritative contract (wins on conflict):
+> - full: CREATE (optional) -> GATHER -> CONSOLIDATE -> SUCCESS_CRITERIA -> CONFIRM_SC -> PLAN -> IMPLEMENT -> REVIEW -> FIX -> TEST -> DOCUMENT -> SENTINEL
+> - lean: CREATE (optional) -> CONFIRM_SC -> PLAN -> IMPLEMENT -> REVIEW -> FIX -> TEST -> DOCUMENT -> SELF_VALIDATION
+> - leanest: CREATE (optional) -> CONFIRM_SC -> PLAN -> IMPLEMENT -> REVIEW -> FIX -> TEST -> SELF_VALIDATION
+> - GATHER = RESEARCH; CONFIRM_SC is mandatory before PLAN
+> - REVIEW/TEST/SENTINEL/SELF_VALIDATION are PASS-only gates
+> - notify-first pacing; no polling loops; blocked/stuck defaults to user escalation
+> - every stage must commit every changed repo and report `repo_scope`, `root_commit`, `spec_commit` (root first, spec second when both changed)
+
+
 ## Anti-Pattern 1: Context Suicide (FATAL - NO RECOVERY)
 
 **Violation:** Orchestrator calls `Skill(skill="spec", args="PLAN ...")` directly instead of wrapping in `Task()`. This loads the entire spec workflow into the orchestrator's context, consuming massive token budget and killing the orchestrator before subsequent stages complete.
@@ -29,7 +40,7 @@ CONSTRAINTS:
 - If Skill(spec) fails, return "STAGE_FAILED" - do NOT implement as fallback.
 
 Signal: {session}/.signals/phase-1-plan.done
-FINAL: Return EXACTLY: done""", model="opus", run_in_background=True)
+FINAL: Return EXACTLY: done""", model="high-tier", run_in_background=True)
 ```
 
 ---
@@ -58,7 +69,7 @@ RIGHT:
 ```python
 # CORRECT - passes spec path to agent, agent reads in isolation
 Task(prompt="""Invoke Skill(skill="spec", args="PLAN /path/to/spec.md ultrathink").
-FINAL: Return EXACTLY: done""", model="opus", run_in_background=True)
+FINAL: Return EXACTLY: done""", model="high-tier", run_in_background=True)
 ```
 
 ---
@@ -92,7 +103,7 @@ Bash("uv run ${CLAUDE_PLUGIN_ROOT}/skills/mux/tools/session.py 'mux-ospec-featur
 # Step 2: Launch stage (now protected by hooks)
 Task(prompt="""Invoke Skill(skill="spec", args="PLAN /path/to/spec.md ultrathink").
 Signal: tmp/mux/20260206-1430-mux-ospec-feature-auth/.signals/phase-1-plan.done
-FINAL: Return EXACTLY: done""", model="opus", run_in_background=True)
+FINAL: Return EXACTLY: done""", model="high-tier", run_in_background=True)
 ```
 
 ---
@@ -129,7 +140,7 @@ Bash("git log --oneline -1")  # Output: Previous commit, not PLAN commit
 Task(prompt="""RECOVERY: Previous PLAN agent returned 'done' but produced no commit.
 Invoke Skill(skill="spec", args="PLAN /path/to/spec.md ultrathink").
 Verify commit exists before returning done.
-FINAL: Return EXACTLY: done or STAGE_FAILED""", model="opus", run_in_background=True)
+FINAL: Return EXACTLY: done or STAGE_FAILED""", model="high-tier", run_in_background=True)
 
 # Option B: Halt and report
 AskUserQuestion(question="PLAN stage failed silently (no commit). Re-attempt or abort?")
@@ -154,7 +165,7 @@ WRONG:
 # WRONG - unresolved template variables sent to agent
 Task(prompt="""Invoke Skill(skill="spec", args="PLAN {spec_path} ultrathink").
 Signal: {session}/.signals/phase-{N}-plan.done
-FINAL: Return EXACTLY: done""", model="opus", run_in_background=True)
+FINAL: Return EXACTLY: done""", model="high-tier", run_in_background=True)
 # Agent receives literal string "{spec_path}", has no value to substitute
 ```
 
@@ -167,7 +178,7 @@ phase_num = 1
 
 Task(prompt=f"""Invoke Skill(skill="spec", args="PLAN {spec_path} ultrathink").
 Signal: {session}/.signals/phase-{phase_num}-plan.done
-FINAL: Return EXACTLY: done""", model="opus", run_in_background=True)
+FINAL: Return EXACTLY: done""", model="high-tier", run_in_background=True)
 # Agent receives fully resolved prompt with actual paths
 ```
 
@@ -188,11 +199,11 @@ FINAL: Return EXACTLY: done""", model="opus", run_in_background=True)
 WRONG:
 ```python
 # WRONG - launches all stages at once
-Task(prompt="PLAN...", model="opus", run_in_background=True)  # Phase 1 PLAN
-Task(prompt="IMPLEMENT...", model="sonnet", run_in_background=True)  # Phase 1 IMPLEMENT (no PLAN artifact!)
-Task(prompt="REVIEW...", model="opus", run_in_background=True)  # Phase 1 REVIEW (no IMPLEMENT artifact!)
-Task(prompt="TEST...", model="sonnet", run_in_background=True)  # TEST (no implementation!)
-Task(prompt="DOCUMENT...", model="sonnet", run_in_background=True)  # DOCUMENT (nothing to document!)
+Task(prompt="PLAN...", model="high-tier", run_in_background=True)  # Phase 1 PLAN
+Task(prompt="IMPLEMENT...", model="medium-tier", run_in_background=True)  # Phase 1 IMPLEMENT (no PLAN artifact!)
+Task(prompt="REVIEW...", model="high-tier", run_in_background=True)  # Phase 1 REVIEW (no IMPLEMENT artifact!)
+Task(prompt="TEST...", model="medium-tier", run_in_background=True)  # TEST (no implementation!)
+Task(prompt="DOCUMENT...", model="medium-tier", run_in_background=True)  # DOCUMENT (nothing to document!)
 # All 5 agents running in parallel with unmet dependencies
 ```
 
@@ -202,7 +213,7 @@ RIGHT:
 # Phase 1: PLAN
 Task(prompt=f"""Invoke Skill(skill="spec", args="PLAN {spec_path} ultrathink").
 Signal: {session}/.signals/phase-1-plan.done
-FINAL: Return EXACTLY: done""", model="opus", run_in_background=True)
+FINAL: Return EXACTLY: done""", model="high-tier", run_in_background=True)
 
 # Wait for task-notification from runtime
 # Then verify signal: phase-1-plan.done exists
@@ -211,7 +222,7 @@ FINAL: Return EXACTLY: done""", model="opus", run_in_background=True)
 # Phase 1: IMPLEMENT (only after PLAN signal verified)
 Task(prompt=f"""Invoke Skill(skill="spec", args="IMPLEMENT {spec_path} ultrathink").
 Signal: {session}/.signals/phase-1-implement.done
-FINAL: Return EXACTLY: done""", model="sonnet", run_in_background=True)
+FINAL: Return EXACTLY: done""", model="medium-tier", run_in_background=True)
 
 # ... continue sequentially
 ```
@@ -233,7 +244,7 @@ FINAL: Return EXACTLY: done""", model="sonnet", run_in_background=True)
 WRONG:
 ```python
 # WRONG - blocks orchestrator until PLAN agent completes
-plan_task_id = Task(prompt="PLAN...", model="opus", run_in_background=True)
+plan_task_id = Task(prompt="PLAN...", model="high-tier", run_in_background=True)
 plan_result = TaskOutput(task_id=plan_task_id, block=True)  # BLOCKING - context frozen
 # Orchestrator context consumed for entire PLAN duration (30-60 seconds)
 # Token budget wasted on waiting
@@ -244,7 +255,7 @@ RIGHT:
 # CORRECT - fire-and-forget with signal-based verification
 Task(prompt=f"""Invoke Skill(skill="spec", args="PLAN {spec_path} ultrathink").
 Signal: {session}/.signals/phase-1-plan.done
-FINAL: Return EXACTLY: done""", model="opus", run_in_background=True)
+FINAL: Return EXACTLY: done""", model="high-tier", run_in_background=True)
 
 # Orchestrator continues immediately (context preserved)
 # Runtime delivers task-notification when worker completes
@@ -258,7 +269,7 @@ FINAL: Return EXACTLY: done""", model="opus", run_in_background=True)
 
 **Violation:** Signal reader agent interprets `tmp/mux/20260209-1430-topic/.signals/phase-1-plan.done` as `/tmp/mux/20260209-1430-topic/.signals/phase-1-plan.done` (absolute path under system `/tmp/`). The signal file is not found, and the orchestrator falls back to trusting the task-notification return value directly instead of verifying via the signal file.
 
-**Why it happens:** `session.py` returns `SESSION_DIR=tmp/mux/...` (relative path). When the signal reader agent (haiku/explore) receives a prompt like "Read the signal file at tmp/mux/.../phase-1-plan.done", low-tier models "correct" the path by prepending `/` because `/tmp/` is a well-known system directory. The prompt contains no guidance about path interpretation.
+**Why it happens:** `session.py` returns `SESSION_DIR=tmp/mux/...` (relative path). When the signal reader agent (low-tier/explore) receives a prompt like "Read the signal file at tmp/mux/.../phase-1-plan.done", low-tier models "correct" the path by prepending `/` because `/tmp/` is a well-known system directory. The prompt contains no guidance about path interpretation.
 
 **Impact:** Signal file not found at `/tmp/mux/...`. Signal reader returns error or empty data. Orchestrator falls back to trusting the agent's return value ("STAGE_PLAN_COMPLETE") without signal verification. This defeats the entire signal-based verification architecture. Failures go undetected.
 
@@ -268,12 +279,12 @@ FINAL: Return EXACTLY: done""", model="opus", run_in_background=True)
 
 WRONG:
 ```python
-# WRONG - no path guidance, haiku interprets tmp/ as /tmp/
+# WRONG - no path guidance, low-tier interprets tmp/ as /tmp/
 Task(
     prompt=f"""Read the signal file at {signal_path}.
 Return ONLY this structured routing data...""",
     subagent_type="Explore",
-    model="haiku",
+    model="low-tier",
     run_in_background=True
 )
 # Agent reads /tmp/mux/20260209-1430-topic/.signals/phase-1-plan.done -> FILE NOT FOUND
@@ -290,7 +301,7 @@ Do NOT prepend '/' or convert to an absolute path. 'tmp/' is a project-local dir
 
 Return ONLY this structured routing data...""",
     subagent_type="Explore",
-    model="haiku",
+    model="low-tier",
     run_in_background=True
 )
 # Agent reads tmp/mux/20260209-1430-topic/.signals/phase-1-plan.done -> FOUND
@@ -336,7 +347,7 @@ Task(prompt="Add find subcommand to docs.py ...", run_in_background=True)
 
 ## Anti-Pattern 11: SC Gate Skip in Full Mode (CRITICAL)
 
-**Violation:** In `full` mode, orchestrator jumps from GATHER directly to PLAN, skipping both CONSOLIDATE and CONFIRM SC stages. User has to manually intervene to prevent unreviewed work.
+**Violation:** In `full` mode, orchestrator jumps from GATHER directly to PLAN, skipping both CONSOLIDATE and CONFIRM_SC stages. User has to manually intervene to prevent unreviewed work.
 
 **Why it happens:** The Checkpoint Pattern (Workflow Progress tracker) did not list CONSOLIDATE or CONFIRM_SC as tracked stages. The orchestrator printed `GATHER: COMPLETE` followed by `PLAN: PENDING`, and the visual absence of intermediate stages caused the LLM to route directly from GATHER to PLAN. The execution loop pseudocode had the correct sequence, but the templates (which the LLM references more frequently) reinforced the wrong pattern.
 
@@ -363,9 +374,9 @@ GATHER: COMPLETE
 CONSOLIDATE: IN_PROGRESS
 (wait for consolidate signal)
 CONSOLIDATE: COMPLETE
-CONFIRM SC: IN_PROGRESS
+CONFIRM_SC: IN_PROGRESS
 (present SC to user, wait for approval)
-CONFIRM SC: APPROVED
+CONFIRM_SC: APPROVED
 PLAN: IN_PROGRESS
 ```
 

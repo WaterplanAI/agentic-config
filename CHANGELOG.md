@@ -28,14 +28,16 @@ All notable changes to agentic-config.
 - `pi-ac-safety`: packaged `playwright-guardian.py` parity for the current Bash-based `playwright-cli` surface
   - extends the shared hook-compat registration so safety policy now applies to shipped Playwright browser automation flows in pi
   - keeps domain allowlists, always-blocked actions, and unknown-action prompts explicit without adding a first-party browser tool
-- `pi-ac-workflow`: package-owned `tmux-agent` extension and `ac-workflow-tmux-agent` skill migrated from the proven global surface
-  - preserves the exact `/tmux-agent` command and `tmux_agent` tool logic, including bridge reporting, hierarchy/root coordination, peer debates, managed visuals, registry/audit state, and settled terminal completion delivery
-  - ships as a project-agnostic repo-owned surface instead of a user-global-only extension/skill
 
 ### Changed
 
+- `pi-ac-workflow`: authoritative `pimux` mux-family parent pacing is now notify-first instead of poll-friendly
+  - explicit `mux`, `mux-ospec`, and `mux-roadmap` parents get one initial supervision check and one recovery `send_message` per child-activity window
+  - new child bridge activity or terminal settlement re-arms supervision deliberately, including exactly one final `pimux status` verification after settlement
+  - canonical, packaged, and local skill surfaces now describe the same runtime-enforced supervision contract
 - canonical generator coverage now includes the shipped `ac-git-worktree` and `ac-qa-gh-pr-review` pi renders across the full canonical skill tree
 - package status surfaces now describe the `42`-skill shipped pi surface and the remaining generic runtime boundary honestly
+
 
 ## [0.2.6] - 2026-04-01
 

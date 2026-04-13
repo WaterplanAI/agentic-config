@@ -1,205 +1,100 @@
 ---
 name: ac-workflow-mux-ospec
-description: "pi-adapted mux spec orchestrator. Owns the phase stage loop with shared mux session/signal tools, sibling -stages artifacts, and one-layer subagent waves."
+description: "pi-adapted mux spec orchestrator. Uses pimux as the authoritative stage runtime while preserving mux-ospec semantics."
 project-agnostic: true
 allowed-tools:
-  - Read
-  - Write
-  - Edit
-  - Bash
-  - Grep
-  - Glob
-  - subagent
+  - pimux
+  - AskUserQuestion
   - say
-argument-hint: '[modifier] [spec_path]'
+argument-hint: '[modifier] [spec_path|inline_prompt]'
 ---
 
-# MUX Spec Orchestrator - pi adaptation
+# MUX Spec Orchestrator - pi adaptation (pimux runtime)
 
-Use this skill to execute an existing spec or phase spec through an explicit stage loop while preserving the mux session/report/signal protocol.
+Use this skill to execute explicit spec stages through `pimux` while preserving mux-ospec semantics.
 
-## Purpose
+## Binding activation
 
-This wrapper adapts the original mux-ospec idea to the current pi runtime:
-- one coordinator owns the stage gates directly
-- stage workers run through the runtime `subagent` tool
-- phase state is persisted in the spec file plus a sibling `-stages/` directory
-- verification is synchronous and file-based
-- user escalation happens only for real scope or product decisions
+If the user explicitly invokes `mux-ospec` / `ac-workflow-mux-ospec`, or embeds this skill text as the runtime for the task, treat this document as a binding runtime contract, not as optional guidance, commentary, or a planning reference.
 
-## Current shipped boundary
+## Absolute compliance rule
 
-This pi wrapper assumes you already have a target spec path.
+For explicit `mux-ospec` requests in pi, the current session is a `pimux`-only cross-stage orchestrator.
 
-It does not recreate the original inline CREATE/bootstrap flow inside the orchestrator.
-If you need a brand-new spec, create it first with the repository's normal spec workflow, then invoke this wrapper against the resulting spec path.
+- The authoritative `pimux` extension applies a fail-closed parent control-plane lock for explicit `mux-ospec` execution.
+- Before the first child exists, the parent must not call `Read`, `Bash`, `Edit`, `Write`, `NotebookEdit`, `Grep`, `Glob`, `web_search`, `subagent`, or any other non-`pimux` tool for substantive repo work.
+- Do not execute substantive stage work directly in the parent.
+- Do not read, grep, or inspect repo files in the parent to figure out implementation details.
+- The first real move is to spawn the authoritative stage-owning `pimux` child.
+- The first observable parent tool call must be `pimux spawn`.
+- If the parent does substantive inspection before spawn, stop, acknowledge protocol violation, discard parent-side conclusions, and restart from `pimux spawn`.
 
-## Mandatory first actions
+## Parent tool surface
 
-1. Start a mux session:
+While this skill is active, the parent is runtime-locked to `pimux`, `AskUserQuestion`, and `say` only:
 
-```bash
-uv run ../../assets/mux/tools/session.py "mux-ospec-<topic>"
-```
+- before first child: `pimux spawn` only
+- `AskUserQuestion` is allowed only when the user has not provided an explicit spec path or inline prompt, or when a later required user gate is reached
+- after spawn: `spawn` / `status` / `capture` / `tree` / `list` / `send_message` / `open` / `kill` for supervision or recovery
+- `say` is allowed only for short user-attention prompts
 
-2. Resolve the target spec path.
-3. If the target does not exist yet, create the spec first using the repository's canonical spec location and then continue.
-4. Create or confirm the sibling stage directory:
+## Locked stage model
 
-```text
-<spec>.md
-<spec-stages>/001-gather.md
-...
-<spec-stages>/008-phase_close.md
-```
+- no-spec invocation starts at Stage `000 CREATE`
+- then execute explicit named stages by modifier (below)
+- exactly one direct stage-owning `pimux` child at a time
+- explicit spec paths pass through unchanged; if the canonical target is missing, the authoritative `pimux` runtime creates it before spawn
+- when the user provides an inline prompt without a spec path, the authoritative `pimux` runtime auto-derives and creates the next current-branch spec path by following recent current-branch spec-path patterns and the spec-skill convention `.specs/specs/<YYYY>/<MM>/<branch>/<NNN>-<title>.md`
+- use `AskUserQuestion` only when the user provided neither a spec path nor an inline prompt
+- invalid spec path must route to `BLOCK`
 
-## Runtime differences from the original Claude workflow
+## Workflow by modifier (authoritative)
 
-Assume all of the following:
-- no nested `Skill(...)` or `/skill:` loading inside workers
-- no task-notification event loop
-- no dedicated ask-user tool
-- stage advancement happens only after you inspect the returned worker output plus the report/signal files
+`GATHER` is the mux-ospec name for `RESEARCH`.
 
-So do not try to recreate the original background notification choreography. Run one worker or wave, wait for the result, verify it, and then move to the next stage.
+- `full`: `CREATE (optional) -> GATHER -> CONSOLIDATE -> SUCCESS_CRITERIA -> CONFIRM_SC -> PLAN -> IMPLEMENT -> REVIEW -> FIX -> TEST -> DOCUMENT -> SENTINEL`
+- `lean`: `CREATE (optional) -> CONFIRM_SC -> PLAN -> IMPLEMENT -> REVIEW -> FIX -> TEST -> DOCUMENT -> SELF_VALIDATION`
+- `leanest`: `CREATE (optional) -> CONFIRM_SC -> PLAN -> IMPLEMENT -> REVIEW -> FIX -> TEST -> SELF_VALIDATION`
 
-## Authoritative state model
+## Gate and pacing rules
 
-For a phase spec, the authoritative state lives in two places:
-- the phase spec itself
-- the sibling `-stages/` directory
+- `SUCCESS_CRITERIA` content is required before `CONFIRM_SC`
+- `CONFIRM_SC` is a mandatory user gate before `PLAN`
+- only `PASS` advances through `REVIEW`, `TEST`, `SENTINEL`, and `SELF_VALIDATION`
+- `WARN`/`FAIL` route to `FIX`; retry exhaustion escalates to user
+- child bridge notifications are delivered automatically; default pacing is notify-first
+- after spawn, use at most one initial `status` / `capture` / `tree` / `list` check and at most one recovery `send_message` per activity window, then wait for new child activity or the inactivity watchdog
+- terminal settlement re-arms exactly one final `pimux status` verification before advancing
+- optional watchdog is inactivity-only and concise
+- default blocked/stuck behavior escalates to user unless explicit override exists
 
-Use this default stage set unless the spec explicitly overrides it:
-1. `001 GATHER`
-2. `002 SUCCESS_CRITERIA`
-3. `003 PLAN`
-4. `004 IMPLEMENT`
-5. `005 REVIEW_FIX`
-6. `006 TEST`
-7. `007 DOCUMENT`
-8. `008 PHASE_CLOSE`
+## Stage commit contract (mandatory)
 
-Update the current stage artifact first, then the phase file's progress section, then any roadmap-level mirror that references the phase.
+Every authoritative stage child MUST commit all changed repos.
 
-## Bundled references
+Signal/report metadata must include:
 
-When you need the underlying spec workflow rules, use the bundled assets from this package:
-- `../../assets/agents/spec/`
-- `../../assets/scripts/spec-resolver.sh`
-- `../../assets/scripts/external-specs.sh`
-- `../../assets/scripts/lib/config-loader.sh`
-- `../../assets/scripts/lib/source-helpers.sh`
+- `repo_scope`: `spec-only` | `root-only` | `root+spec`
+- `root_commit`: short hash or `N/A`
+- `spec_commit`: short hash or `N/A`
 
-Those files are the source of truth for stage semantics. This skill owns the orchestration and stage gating around them.
+When both repos changed, commit root first, then commit spec through the resolver.
 
-## Stage execution pattern
+## Child stage contract
 
-### 1. GATHER
-- Inspect only the sources needed to lock the phase boundary.
-- Use `subagent.parallel` for pure inventory or research when file ownership is disjoint.
-- Record both gathered evidence and consolidated findings in `001-gather.md`.
+Each authoritative stage-owning `pimux` child must:
 
-### 2. SUCCESS_CRITERIA
-- Convert the gathered evidence into an explicit evaluation contract.
-- Record the exact shipped, deferred, blocked, or validation expectations in `002-success_criteria.md`.
-- Continue autonomously unless the criteria expose a genuine scope or product ambiguity.
+- read `../../assets/agents/spec/` stage references needed for that stage
+- read `../../assets/mux/protocol/foundation.md` and `../../assets/mux/protocol/subagent.md`
+- read `.pi/skills/pimux/references/patterns.md` (or package-local equivalent)
+- execute only assigned stage scope
+- preserve evidence-gated reporting with repo-scoped commit metadata
+- use `pimux report_parent` exactly once for terminal settlement
+- exit promptly after terminal report
 
-### 3. PLAN
-- Launch a fresh planning worker.
-- Produce a file-by-file implementation and validation plan.
-- Record the approved plan in `003-plan.md` before editing code.
-
-### 4. IMPLEMENT
-- Launch a fresh implementation worker.
-- Split large phases into bounded waves by package or file cluster.
-- Keep shared surfaces serialized.
-- Record concrete outputs and changed files in `004-implement.md`.
-
-### 5. REVIEW / FIX
-- Use a separate reviewer worker.
-- If review finds issues, launch a fresh fixer worker instead of patching from the same context.
-- Record the final verdict, findings, and any fix wave in `005-review_fix.md`.
-- Only a real `PASS` advances the phase.
-
-### 6. TEST
-- Run direct coordinator verification with the repository's required commands.
-- Add phase-specific smoke checks when the phase touches generation, runtime parity, or docs matrices.
-- Record commands and objective results in `006-test.md`.
-
-### 7. DOCUMENT
-- Update package docs, canonical docs, spec notes, and any roadmap mirror that later phases will rely on.
-- Record the documentation outputs in `007-document.md`.
-
-### 8. PHASE_CLOSE
-- Verify the acceptance criteria actually hold.
-- Record the final verdict, accepted outputs, remaining deferred boundary, and next exact action in `008-phase_close.md`.
-- Make the next unblocked phase explicit.
-
-## Worker policy
-
-Use only one worker layer: coordinator -> subagent.
-
-Recommended agent roles when available:
-- `scout` for GATHER
-- `planner` for PLAN
-- `worker` for IMPLEMENT and bounded fix waves
-- `reviewer` for REVIEW
-
-If your runtime only exposes a general-purpose worker, keep the same stage loop and specialize the prompt.
-
-Every worker prompt must include:
-- the stage objective
-- the exact input paths to read first
-- a precise report path
-- a precise signal path
-- the rule to follow `../../assets/mux/protocol/subagent.md`
-- the rule to return exactly `0` on success
-
-## Verification contract
-
-After every worker or worker wave:
-
-```bash
-uv run ../../assets/mux/tools/verify.py <session-dir> --action summary
-uv run ../../assets/mux/tools/extract-summary.py <report-path>
-```
-
-Use `check-signals.py` when you only need an expected-count confirmation.
-
-Do not advance stages on intent alone. Advance only on written artifacts and explicit verification.
-
-## Parallelism policy
-
-Parallelism is safe for:
-- research split by package or topic
-- read-only review across non-overlapping scopes
-- independent documentation drafts
-
-Parallelism is unsafe for:
-- two workers editing the same source file
-- two workers editing the same phase spec
-- shared surfaces such as generator cores, top-level availability docs, or shared runtime packages
-
-When in doubt, serialize.
-
-## Escalation policy
-
-Stay autonomous by default.
-
-Escalate in the main chat only when you hit:
-- a real scope trade-off
-- a product/UX choice that changes the acceptance criteria
-- an external blocker you cannot close from repo evidence and available tools
-
-Use `say` only for short milestone or attention alerts.
+Local helpers under the stage child are data-plane only and must not call `pimux` / `report_parent`.
 
 ## Completion
 
-A phase is complete only when:
-- all required stage artifacts are written
-- the phase progress section matches those artifacts
-- any higher-level roadmap mirror is reconciled
-- tests and validation are recorded honestly
-- the next exact action is explicit
-
-This skill is intentionally honest about current runtime limits. It preserves the spec-owned stage discipline without pretending that pi has Claude-only nested skill execution or task-notification semantics.
+A stage is complete only after terminal report + child exit.
+Cross-stage parent advances only after verifying settlement via `pimux status`.

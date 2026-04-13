@@ -17,7 +17,7 @@ Export assets from a project into this repository.
 
 ## Compatibility Note
 
-This pi wrapper preserves the original export workflow without relying on the original Claude-only delegation primitive.
+This pi wrapper preserves the original export workflow without relying on the original non-pi delegation primitive.
 
 ## Arguments
 

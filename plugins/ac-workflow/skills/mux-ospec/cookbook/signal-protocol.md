@@ -21,7 +21,10 @@ All signal paths are RELATIVE to the project root. The `{session}` variable reso
   "artifacts": ["path/to/output.md"],
   "sc_contributions": {"SC-007": "implemented"},
   "validation": {"tests": {"passed": 10, "failed": 0}},
-  "grade": "PASS"
+  "grade": "PASS",
+  "repo_scope": "root+spec",
+  "root_commit": "abc1234",
+  "spec_commit": "def5678"
 }
 ```
 
@@ -38,6 +41,9 @@ All signal paths are RELATIVE to the project root. The `{session}` variable reso
 | sc_contributions | object | SC-ID to contribution mapping |
 | validation | object | Test/lint results |
 | grade | string | PASS, WARN, FAIL (for review stages) |
+| repo_scope | string | spec-only, root-only, root+spec |
+| root_commit | string | Root repo commit hash or N/A |
+| spec_commit | string | Spec repo commit hash or N/A |
 
 ## Signal Creation
 

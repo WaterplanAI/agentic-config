@@ -1,184 +1,84 @@
 ---
 name: ac-workflow-mux
-description: "pi-adapted mux coordinator. Uses the shared mux foundation plus one-layer subagent orchestration with explicit session, report, and signal tracking."
+description: "pi-adapted mux coordinator. Uses pimux as the authoritative runtime while preserving shared mux foundation semantics."
 project-agnostic: true
 allowed-tools:
-  - Read
-  - Write
-  - Edit
-  - Bash
-  - Grep
-  - Glob
-  - subagent
+  - pimux
+  - AskUserQuestion
   - say
 ---
 
-# MUX - pi coordinator pattern
+# MUX - pi coordinator pattern (pimux runtime)
 
-Use this when the task is too large or too broad for one uninterrupted context window and you need one coordinator plus bounded worker waves.
+Use this when the task is too large for one uninterrupted context window and you need mux wave semantics with tmux-backed long-lived execution.
 
-## Purpose
+## Binding activation
 
-This pi adaptation keeps the important MUX behavior:
-- one coordinator owns the plan
-- worker output lives in explicit report files
-- completion is tracked with explicit signal files
-- parallelism is allowed only when write scopes are disjoint
-- orchestration depth stays at exactly one worker layer: coordinator -> subagent
+If the user explicitly invokes `mux` / `ac-workflow-mux`, or embeds this skill text as the runtime for the task, treat this document as a binding runtime contract, not as optional guidance, commentary, or a planning reference.
 
-Use the shared mux foundation shipped with this package:
-- `../../assets/mux/protocol/foundation.md`
-- `../../assets/mux/protocol/subagent.md`
-- `../../assets/mux/tools/`
+## Absolute compliance rule
+
+For explicit mux-family triggers in pi, the current session is a `pimux`-only control plane.
+
+- The authoritative `pimux` extension applies a fail-closed parent control-plane lock for explicit mux-family wrappers.
+- Before the first child exists, the parent must not call `Read`, `Bash`, `Edit`, `Write`, `NotebookEdit`, `Grep`, `Glob`, `web_search`, `subagent`, or any other non-`pimux` tool for substantive repo work.
+- Do not do substantive repo or domain work in the parent session.
+- Do not use parent-side repo discovery, file inspection, implementation planning, or direct edits before spawn.
+- The first real move is to spawn the authoritative `pimux` child coordinator.
+- The first observable parent tool call must be `pimux spawn`.
+- If you have not spawned that child yet, you are not allowed to analyze, compare, implement, or answer the task from the parent.
+- If the parent performs substantive repo inspection or any forbidden tool call before spawn, stop immediately, acknowledge a protocol violation, discard any parent-side conclusions, and restart from `pimux spawn`.
+
+## Parent tool surface
+
+While this skill is active, the parent session is runtime-locked to `pimux`, `AskUserQuestion`, and `say` only:
+
+- before the first child exists: `pimux spawn` only
+- `AskUserQuestion` is allowed only for explicit user clarification that blocks spawn
+- after spawn: `spawn` / `status` / `capture` / `tree` / `list` / `send_message` / `open` / `kill` only for supervision or recovery
+- child bridge notifications are delivered automatically; use notify-first pacing
+- after spawn, use at most one initial `status` / `capture` / `tree` / `list` check and at most one recovery `send_message` per activity window, then wait for new child activity or the inactivity watchdog
+- terminal settlement re-arms exactly one final `pimux status` verification before advancing
+- `say` is allowed only for short user-attention prompts
+
+The parent does not use repo `Read`, `Bash`, `Edit`, `Write`, `NotebookEdit`, `Grep`, `Glob`, `web_search`, or local helper orchestration for the substantive task.
 
 ## Mandatory first actions
 
-1. Read `../../assets/mux/protocol/foundation.md` and `../../assets/mux/protocol/subagent.md` if they are not already in context.
-2. Start a session immediately:
+1. Build a short handoff from the user request only.
+2. `pimux spawn` the bounded mux coordinator before any substantive analysis or implementation.
+3. Pass the raw objective, constraints, and any explicit file paths from the user into that child.
+4. Let the child read mux foundation assets and repo context.
 
-```bash
-uv run ../../assets/mux/tools/session.py "<topic-slug>"
-```
+## Semantics to preserve
 
-3. Treat the returned `SESSION_DIR=tmp/mux/...` path as project-local state.
-4. Create any additional session subdirectories you need before launching workers.
+The migration is runtime/orchestration adaptation only. Preserve mux semantics:
 
-## pi runtime contract
+- strict control-plane vs data-plane discipline
+- declared dispatch before worker execution
+- report/signal/summary evidence gates for advancement
+- strict `ADVANCE | BLOCK | RECOVER` routing
+- no manual fallback outside protocol
 
-This is not a mechanical Claude MUX clone.
+## Child coordinator contract
 
-Assume all of the following are true:
-- the runtime gives you synchronous `subagent` calls, not task notifications
-- there is no nested skill loader inside a worker
-- user approvals happen in the main chat, not through a dedicated ask-user tool
-- voice alerts, when needed, use the current runtime `say` tool
+The authoritative `pimux` child owns the substantive mux run:
 
-That means you launch a worker wave, wait for the `subagent` call to return, then verify the report and signal files yourself.
+- child reads `../../assets/mux/protocol/foundation.md` and `../../assets/mux/protocol/subagent.md`
+- child initializes strict session state with `../../assets/mux/tools/session.py --strict-runtime --session-key <key>`
+- child declares worker dispatch payloads before execution
+- child requires report + signal + summary evidence for advancement
+- child keeps one worker layer (`coordinator -> subagent`) inside the child
+- child keeps workers data-plane only; no `pimux` / `report_parent` from helpers
 
-## Coordinator rules
+## Parent/session contract
 
-- You are the only coordinator.
-- Keep direct coordinator edits limited to orchestration state, consolidation, and small shared-surface reconciliations.
-- Delegate domain work, research, and large implementation chunks to fresh subagents whenever isolated context helps.
-- Never let a worker launch another worker.
-- Prefer one fresh worker per wave or per review/fix retry.
-- Reuse the shared mux tools instead of inventing ad hoc session or signal helpers.
-
-## Worker contract
-
-Every worker you launch must follow the bundled mux-subagent protocol.
-
-At minimum, every worker prompt must tell the worker to:
-- read or follow `../../assets/mux/protocol/subagent.md`
-- write substantive output to a report file path you provide
-- create a success or failure signal with `../../assets/mux/tools/signal.py`
-- return exactly `0` on success
-- avoid nested `subagent` calls
-
-## Recommended worker roles
-
-Use any functionally equivalent agents available in the runtime. If your environment provides dedicated roles, prefer:
-- `scout` for inventory and targeted codebase recon
-- `planner` for turning gathered evidence into a file-by-file plan
-- `worker` for implementation or consolidation
-- `reviewer` for independent review
-
-If only one general-purpose worker exists, keep the same protocol and specialize the prompt instead of inventing another coordinator layer.
-
-## Prompt scaffold for every worker
-
-Use this structure in every worker task:
-
-```text
-Read and follow ../../assets/mux/protocol/subagent.md.
-
-Objective:
-- <exact outcome>
-
-Inputs to read first:
-- <paths>
-
-Constraints:
-- <scope boundaries>
-- No nested subagents
-- Write only the files in scope
-
-Required report path:
-- <session-relative or repo-relative report path>
-
-Required signal path:
-- <session-relative signal path>
-
-Before returning:
-- Write the report
-- Create the signal with ../../assets/mux/tools/signal.py
-- Return exactly 0 on success
-```
-
-## Wave pattern
-
-### Single worker
-Use a single `subagent` call when one worker owns the entire bounded task.
-
-### Parallel wave
-Use `subagent.parallel` only when the workers write to disjoint files or to separate report artifacts.
-
-Good parallel examples:
-- research split by topic
-- inventories split by package
-- reviews split by non-overlapping file sets
-
-Bad parallel examples:
-- two workers editing the same source file
-- two workers producing competing plans for the same stage artifact
-- two workers mutating the same shared package surface
-
-If the same source file or shared asset root might change in more than one task, serialize the wave.
-
-## Verification loop
-
-After each worker or worker wave:
-
-1. Check the signal state:
-
-```bash
-uv run ../../assets/mux/tools/verify.py <session-dir> --action summary
-```
-
-2. When you only need a completion count, you may use:
-
-```bash
-uv run ../../assets/mux/tools/check-signals.py <session-dir> --expected <N>
-```
-
-3. Prefer bounded report inspection through:
-
-```bash
-uv run ../../assets/mux/tools/extract-summary.py <report-path>
-```
-
-4. Route the next wave from the report's Executive Summary and Next Steps section.
-
-## User gates
-
-Stay autonomous by default.
-
-Only stop for the user when one of these appears:
-- a real scope trade-off
-- a product or UX decision that changes the plan materially
-- a blocker you cannot resolve with the available files, tools, or worker outputs
-
-When the user needs to notice you, use one short `say` message and keep the details in writing.
+- Parent -> child messaging: `pimux send_message`
+- Child -> parent reporting: `pimux report_parent`
+- success settles only after terminal `closeout` + child exit
+- if child outcomes are intentionally non-success, propagate matching terminal kind (`question` / `blocker` / `failure`)
 
 ## Completion
 
-When the orchestration is done:
-- write or update the final deliverable and any persisted state
-- confirm the last worker wave is reflected in signals and reports
-- optionally deactivate the session marker:
-
-```bash
-uv run ../../assets/mux/tools/deactivate.py
-```
-
-The goal is not to imitate Claude-only hooks or task notifications. The goal is to preserve the useful MUX behavior honestly on top of the shared pi mux foundation.
+Complete only when the authoritative child settles and exits with protocol-valid reporting.
+Do not treat interim captures, local notes, or helper output as completion.

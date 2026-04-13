@@ -1,39 +1,17 @@
-# Research
+# RESEARCH
 STAGE: RESEARCH
-GOAL: ACHIEVE `SPEC` Objectives aligned with Details.
+GOAL: Gather evidence needed to execute later stages safely.
 
 ## Variables
-SPEC: $ARGUMENT
-
-## Critical Compliance
-
-- COMMIT ONLY the files you changed.
+SPEC: required spec path
 
 ## Workflow
+1. Read human objective, constraints, and current AI section.
+2. Append concrete findings under `## Research`.
+3. Include risks, dependencies, and unknowns.
+4. If success criteria are missing, draft candidate criteria section.
 
-1. REFLECT your understanding and what you will do (CONCISELY).
-2. RESEARCH affected files-lines and logic involved to ACHIEVE GOAL:
-   - Identify existing test patterns and utilities
-   - Locate test files related to affected components
-   - Review test coverage for similar features
-   - Include test-related files in research scope (*.test.*, *.spec.*, test/, __tests__/)
-3. APPEND the output in section `# AI Section > ## Research`.
-4. SUMMARIZE result to user in output (max: 150 words).
-5. STRATEGIZE HOW to ACHIEVE GOAL:
-   - Include testing strategy (unit tests, e2e tests)
-   - Identify test utilities/helpers to use or create
-   - Specify expected test coverage
-6. APPEND the output in section `# AI Section > ## Research ### Strategy`. YOU MUST NOT APPEND in any other section.
-7. SUMMARIZE result to user in output (max: 150 words).
-8. COMMIT using spec resolver:
-   ```bash
-   # Source spec resolver (plugin-aware)
-   source "${CLAUDE_PLUGIN_ROOT}/scripts/spec-resolver.sh"
-
-   # Commit spec changes
-   commit_spec_changes "<spec_path>" "RESEARCH" "<NNN>" "<title>"
-   ```
-
-## Behavior
-
-- RE-READ project `CLAUDE.md` (AGENTS.md).
+## Commit contract
+- repo_scope: usually `spec-only`
+- commit spec repo updates with resolver
+- if root docs/tools were changed, set repo_scope `root+spec` and commit root first, spec second

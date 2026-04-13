@@ -20,13 +20,13 @@ It aggregates:
 - `@agentic-config/pi-ac-workflow`
 
 Current aggregated shipped surface:
-- `43` namespaced skills across the plugin packages
+- `42` namespaced skills across the plugin packages
 - shared `hook-compat`, `AskUserQuestion`, `NotebookEdit`, and worker-wave orchestration support via `@agentic-config/pi-compat`
 - package-level hook-backed parity registrations from the shipped audit/git/safety/tools subset
-- shared mux foundation assets plus the shipped `ac-workflow-mux`, `ac-workflow-mux-ospec`, `ac-workflow-mux-roadmap`, `ac-workflow-mux-subagent`, and `ac-workflow-tmux-agent` surfaces in `@agentic-config/pi-ac-workflow`
-- the package-owned direct `tmux-agent` extension/runtime surface in `@agentic-config/pi-ac-workflow`
+- shared mux foundation assets plus the shipped `ac-workflow-mux`, `ac-workflow-mux-ospec`, `ac-workflow-mux-roadmap`, and `ac-workflow-mux-subagent` surfaces in `@agentic-config/pi-ac-workflow`
+- package-owned `pimux` runtime authority for tmux-backed workflow orchestration in `@agentic-config/pi-ac-workflow`
 
-The shipped pi mux family is an honest adaptation, not a mechanical clone of the Claude orchestration prompts: `mux-ospec` assumes an existing spec path and `mux-roadmap` assumes an already-structured roadmap with a live progress mirror.
+The shipped pi mux family is an honest adaptation, not a mechanical clone of the source orchestration prompts: `mux-ospec` and `mux-roadmap` pass explicit paths through unchanged, auto-derive/create the next current-branch spec path from sufficient inline prompts, and reserve `AskUserQuestion` for missing spawn input.
 
 This package does **not** add its own skills or extensions. It exposes the shipped package set from `node_modules/...` paths so teams can install the current surface in one step.
 
@@ -57,21 +57,21 @@ pi install npm:@agentic-config/pi-all@0.2.6
 Committed `.pi/settings.json` is the preferred team path because pi can auto-install missing packages on startup and keep every teammate on the same package set.
 
 ## How this relates to the generated-wrapper strategy
-The current package set is mostly Option C canonical-source + generated-wrapper, with one package-owned direct `tmux-agent` migration under `@agentic-config/pi-ac-workflow` where the exact extension logic could not be generator-owned honestly.
+The current package set is mostly Option C canonical-source + generated-wrapper, with package-owned workflow runtime surfaces under `@agentic-config/pi-ac-workflow` centered on `pimux`.
 
 In this package, that means:
 - the aggregated generated skill outputs still come from `canonical/`
-- the aggregated package set should be treated as generated-first plus one direct package-owned `tmux-agent` surface
+- the aggregated package set should be treated as generated-first plus package-owned `pimux` workflow runtime surfaces
 - hook-backed parity still comes from the bundled package-local registrations plus `@agentic-config/pi-compat`
 - current gaps stay explicit instead of being hidden behind the umbrella package name
 
 This package does **not** imply:
 - full generic `Task` / subagent runtime is solved as a shared compat primitive
-- every Claude marketplace surface already has full pi parity
+- every marketplace surface already has full pi parity
 
 ## Explicit deferred boundary
 Still explicitly deferred in the current shipped surface:
-- broader generic nested/background `Task` / subagent runtime primitives beyond the shared `AskUserQuestion` + `NotebookEdit` + worker-wave foundation and the shipped package-owned `tmux_agent` managed-agent surface
+- broader generic nested/background `Task` / subagent runtime primitives beyond the shared `AskUserQuestion` + `NotebookEdit` + worker-wave foundation and the shipped package-owned `pimux` workflow runtime
 
 ## Roadmap evidence
 The roadmap evidence artifact is:

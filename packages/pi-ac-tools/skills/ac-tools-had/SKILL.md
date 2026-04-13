@@ -12,7 +12,7 @@ Shorthand wrapper for the `ac-tools-human-agentic-design` workflow.
 
 ## Compatibility Note
 
-This pi wrapper preserves the original shorthand intent without relying on the original Claude-only delegation primitive.
+This pi wrapper preserves the original shorthand intent without relying on the original non-pi delegation primitive.
 
 ## Usage
 

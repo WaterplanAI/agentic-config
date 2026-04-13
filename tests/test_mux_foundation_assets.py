@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import subprocess
 import sys
@@ -33,12 +34,18 @@ def run_python_script(script_path: Path, *args: str, cwd: Path) -> subprocess.Co
     )
 
 
+def parse_output_value(stdout: str, key: str) -> str:
+    """Extract a `KEY=value` line from helper stdout."""
+    prefix = f"{key}="
+    for line in stdout.splitlines():
+        if line.startswith(prefix):
+            return line.removeprefix(prefix).strip()
+    raise AssertionError(f"Missing {key} in output: {stdout}")
+
+
 def parse_session_dir(stdout: str) -> str:
     """Extract the relative session directory from session.py output."""
-    for line in stdout.splitlines():
-        if line.startswith("SESSION_DIR="):
-            return line.removeprefix("SESSION_DIR=").strip()
-    raise AssertionError(f"Missing SESSION_DIR in output: {stdout}")
+    return parse_output_value(stdout, "SESSION_DIR")
 
 
 def parse_json_stdout(result: subprocess.CompletedProcess[str]) -> dict[str, Any]:
@@ -91,6 +98,28 @@ def create_session(workspace: Path, topic_slug: str) -> str:
     )
     assert result.returncode == 0, result.stdout + result.stderr
     return parse_session_dir(result.stdout)
+
+
+def create_strict_session(workspace: Path, topic_slug: str, session_key: str) -> subprocess.CompletedProcess[str]:
+    """Create strict mux session bootstrap output for activation/cleanup tests."""
+    result = run_python_script(
+        MUX_TOOLS_ROOT / "session.py",
+        topic_slug,
+        "--base",
+        "tmp/mux-smoke",
+        "--phase-id",
+        "it005",
+        "--stage-id",
+        "phase-004",
+        "--wave-id",
+        "strict-runtime",
+        "--strict-runtime",
+        "--session-key",
+        session_key,
+        cwd=workspace,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    return result
 
 
 def configure_dispatch_state(
@@ -254,6 +283,15 @@ def test_generated_mux_claude_frontmatter_survives_generation() -> None:
 
 def test_generated_pi_mux_foundation_assets_exist() -> None:
     """The pi workflow package should ship mux foundation assets and skill family."""
+    protocol_files = [
+        "subagent.md",
+        "foundation.md",
+        "guardrail-policy.md",
+        "strict-happy-path-transcript.md",
+        "strict-blocker-path-transcript.md",
+        "strict-regression-checklist.md",
+    ]
+
     assert (PROJECT_ROOT / "packages" / "pi-ac-workflow" / "assets" / "mux" / "README.md").exists()
     assert (MUX_TOOLS_ROOT / "session.py").exists()
     assert (MUX_TOOLS_ROOT / "ledger.py").exists()
@@ -263,32 +301,158 @@ def test_generated_pi_mux_foundation_assets_exist() -> None:
     assert PI_MUX_OSPEC_SKILL.exists()
     assert PI_MUX_ROADMAP_SKILL.exists()
     assert PI_MUX_SUBAGENT_SKILL.exists()
+    assert (PROJECT_ROOT / "packages" / "pi-ac-workflow" / "extensions" / "pimux" / "index.ts").exists()
+    assert (PROJECT_ROOT / "packages" / "pi-ac-workflow" / "extensions" / "strict-mux-runtime" / "index.js").exists()
+
+    package_protocol_root = PROJECT_ROOT / "packages" / "pi-ac-workflow" / "assets" / "mux" / "protocol"
+    plugin_protocol_root = PROJECT_ROOT / "plugins" / "ac-workflow" / "mux" / "protocol"
+    for protocol_file in protocol_files:
+        assert (package_protocol_root / protocol_file).exists()
+        assert (plugin_protocol_root / protocol_file).exists()
 
     subagent_text = PI_MUX_SUBAGENT_SKILL.read_text()
     assert "../../assets/mux/tools/signal.py" in subagent_text
     assert "../../assets/mux/protocol/subagent.md" in subagent_text
-    assert "Do not launch nested subagents" in subagent_text
+    assert "binding runtime contract" in subagent_text
+    assert "data-plane only" in subagent_text
+    assert "Do not launch nested `subagent` calls" in subagent_text
+    assert "control-plane bridge tools or `report_parent`" in subagent_text
 
 
 def test_generated_pi_mux_orchestrators_reference_shared_foundation() -> None:
-    """Generated pi mux orchestrators should consume the shared foundation honestly."""
+    """Generated pi mux orchestrators should preserve mux semantics while routing through pimux."""
     mux_text = PI_MUX_SKILL.read_text()
+    assert "allowed-tools:" in mux_text
+    assert "  - pimux" in mux_text
+    assert "  - Read" not in mux_text
+    assert "  - Bash" not in mux_text
+    assert "  - subagent" not in mux_text
+    assert "binding runtime contract" in mux_text
+    assert "current session is a `pimux`-only control plane" in mux_text
+    assert "The first real move is to spawn the authoritative `pimux` child coordinator." in mux_text
+    assert "The first observable parent tool call must be `pimux spawn`." in mux_text
+    assert "Before the first child exists, the parent must not call `Read`, `Bash`, `Edit`, `Write`" in mux_text
+    assert "The parent does not use repo `Read`, `Bash`, `Edit`, `Write`, `NotebookEdit`, `Grep`, `Glob`, `web_search`" in mux_text
     assert "../../assets/mux/protocol/foundation.md" in mux_text
-    assert "Use a single `subagent` call" in mux_text
     assert "coordinator -> subagent" in mux_text
+    assert "--strict-runtime --session-key <key>" in mux_text
 
     mux_ospec_text = PI_MUX_OSPEC_SKILL.read_text()
-    assert "argument-hint: '[modifier] [spec_path]'" in mux_ospec_text
-    assert "../../assets/agents/spec/" in mux_ospec_text
-    assert "sibling `-stages/` directory" in mux_ospec_text
-    assert "does not recreate the original inline CREATE/bootstrap flow" in mux_ospec_text
-    assert "no nested `Skill(...)`" in mux_ospec_text
+    assert "argument-hint: '[modifier] [spec_path|inline_prompt]'" in mux_ospec_text
+    assert "  - pimux" in mux_ospec_text
+    assert "  - Read" not in mux_ospec_text
+    assert "  - Bash" not in mux_ospec_text
+    assert "  - subagent" not in mux_ospec_text
+    assert "binding runtime contract" in mux_ospec_text
+    assert "current session is a `pimux`-only cross-stage orchestrator" in mux_ospec_text
+    assert "Do not read, grep, or inspect repo files in the parent" in mux_ospec_text
+    assert "The first real move is to spawn the authoritative stage-owning `pimux` child." in mux_ospec_text
+    assert "The first observable parent tool call must be `pimux spawn`." in mux_ospec_text
+    assert "Before the first child exists, the parent must not call `Read`, `Bash`, `Edit`, `Write`" in mux_ospec_text
+    assert "no-spec invocation starts at Stage `000 CREATE`" in mux_ospec_text
+    assert "inline prompt without a spec path" in mux_ospec_text
+    assert "route to `BLOCK`" in mux_ospec_text
 
     mux_roadmap_text = PI_MUX_ROADMAP_SKILL.read_text()
-    assert "Roadmap `## Implementation Progress` section = cross-phase mirror." in mux_roadmap_text
-    assert "Do not invent a separate `CONTINUE.md` by default" in mux_roadmap_text
-    assert "one worker layer only: coordinator -> subagent" in mux_roadmap_text
-    assert "does not recreate the original Claude-only `start` / `continue` / `--wait-after-plan` bootstrap surface" in mux_roadmap_text
+    assert "  - pimux" in mux_roadmap_text
+    assert "  - Read" not in mux_roadmap_text
+    assert "  - Bash" not in mux_roadmap_text
+    assert "  - subagent" not in mux_roadmap_text
+    assert "binding runtime contract" in mux_roadmap_text
+    assert "current session is a `pimux`-only roadmap orchestrator" in mux_roadmap_text
+    assert "Do not inspect roadmap files, phase docs, or repo targets in the parent before spawn." in mux_roadmap_text
+    assert "The first observable parent tool call must be `pimux spawn`." in mux_roadmap_text
+    assert "Before the first child exists, the parent must not call `Read`, `Bash`, `Edit`, `Write`" in mux_roadmap_text
+    assert "For explicit `mux-roadmap` requests, lock this default hierarchy:" in mux_roadmap_text
+    assert "direct phase-owning `/mux-ospec` child" in mux_roadmap_text
+    assert "direct stage-owning `pimux` child" in mux_roadmap_text
+    assert "Do not collapse or bypass these ownership layers by default." in mux_roadmap_text
+    assert "inline prompt without a path" in mux_roadmap_text
+    assert "No silent fallback to non-`pimux` runtime for explicit mux-roadmap execution." in mux_roadmap_text
+
+
+def test_generated_pi_mux_foundation_docs_reflect_post_it005_release_boundary() -> None:
+    """Generated shared mux docs should reflect the shipped post-IT005 release boundary."""
+    foundation_text = (PROJECT_ROOT / "packages" / "pi-ac-workflow" / "assets" / "mux" / "protocol" / "foundation.md").read_text()
+    assert "Phase 005 hardens `mux-ospec` as the canonical strict consumer." in foundation_text
+    assert "Phase 006 aligns sibling `mux` / `mux-roadmap` surfaces to the strict control-plane contract" in foundation_text
+    assert "Phase 007 ships the guardrail-policy split plus transcript/checklist protocol artifacts for deterministic strict-flow documentation." in foundation_text
+    assert "later phases still own transcripts/checklists and final release-surface alignment" not in foundation_text
+    assert "Later release-surface closeout still owns final packaging/reporting reconciliation work outside this shared foundation." not in foundation_text
+    assert "Package/roadmap release-surface bookkeeping consumes this shared foundation" in foundation_text
+
+    mux_assets_readme = (PROJECT_ROOT / "packages" / "pi-ac-workflow" / "assets" / "mux" / "README.md").read_text()
+    assert "Phase 004/005/006 now ship the runtime seam plus strict control-plane consumption across `mux-ospec`, `mux`, and `mux-roadmap`." in mux_assets_readme
+    assert "Phase 007 now ships guardrail-policy and transcript/checklist protocol artifacts under `assets/mux/protocol/`." in mux_assets_readme
+    assert "Later IT005 phases still own transcript/checklist artifacts and final release-surface closeout." not in mux_assets_readme
+
+
+def test_generated_pi_mux_protocol_artifacts_cover_phase_007_contract() -> None:
+    """Generated protocol artifacts should document strict happy/blocker semantics honestly."""
+    protocol_root = PROJECT_ROOT / "packages" / "pi-ac-workflow" / "assets" / "mux" / "protocol"
+
+    subagent_text = (protocol_root / "subagent.md").read_text()
+    assert "data-plane" in subagent_text
+    assert "final textual response exactly `0`" in subagent_text
+    assert "control-plane bridge tools or `report_parent`" in subagent_text
+
+    guardrail_text = (protocol_root / "guardrail-policy.md").read_text()
+    assert "Guardrail layer matrix" in guardrail_text
+    assert "Strict runtime" in guardrail_text
+    assert "Hook guard" in guardrail_text
+    assert "Worker protocol prose" in guardrail_text
+
+    happy_transcript = (protocol_root / "strict-happy-path-transcript.md").read_text()
+    assert "--strict-runtime" in happy_transcript
+    assert "--session-key phase-007-happy-key" in happy_transcript
+    assert "REPORT_PATH=tmp/mux/phase-007/reports/strict-happy-runtime-worker.md" in happy_transcript
+    assert 'SIGNAL_PATH="${SESSION_DIR}/.signals/strict-happy-runtime-worker.done"' in happy_transcript
+    assert 'SUMMARY_EVIDENCE_PATH="${SESSION_DIR}/research/strict-happy-runtime-summary-evidence.json"' in happy_transcript
+    assert 'extract-summary.py "$REPORT_PATH"' in happy_transcript
+    assert "--evidence" in happy_transcript
+    assert '--evidence-path "$SUMMARY_EVIDENCE_PATH"' in happy_transcript
+    assert 'verify.py "$SESSION_DIR"' in happy_transcript
+    assert "--action gate" in happy_transcript
+    assert '--summary-evidence "$SUMMARY_EVIDENCE_PATH"' in happy_transcript
+    assert '"gate_status": "advance"' in happy_transcript
+    assert '"control_state": "ADVANCE"' in happy_transcript
+
+    blocker_transcript = (protocol_root / "strict-blocker-path-transcript.md").read_text()
+    assert "--strict-runtime" in blocker_transcript
+    assert "--session-key phase-007-blocker-key" in blocker_transcript
+    assert "REPORT_PATH=tmp/mux/phase-007/reports/strict-blocker-runtime-worker.md" in blocker_transcript
+    assert 'SIGNAL_PATH="${SESSION_DIR}/.signals/strict-blocker-runtime-worker.done"' in blocker_transcript
+    assert (
+        'MISSING_SUMMARY_EVIDENCE_PATH="${SESSION_DIR}/research/strict-blocker-runtime-summary-evidence.json"'
+        in blocker_transcript
+    )
+    assert 'verify.py "$SESSION_DIR"' in blocker_transcript
+    assert "--action gate" in blocker_transcript
+    assert '--summary-evidence "$MISSING_SUMMARY_EVIDENCE_PATH"' in blocker_transcript
+    assert '"gate_status": "block"' in blocker_transcript
+    assert '"control_state": "BLOCK"' in blocker_transcript
+    assert "ERROR: Illegal transition: BLOCK -> ADVANCE" in blocker_transcript
+
+    checklist_text = (protocol_root / "strict-regression-checklist.md").read_text()
+    assert "**A01**" in checklist_text
+    assert "**B01**" in checklist_text
+    assert "**B02**" in checklist_text
+    assert "**B03**" in checklist_text
+    assert "**C02**" in checklist_text
+    assert "**F03**" in checklist_text
+    assert "project-root-relative report/signal/summary paths." in checklist_text
+    assert "extract-summary.py --evidence --evidence-path <path>" in checklist_text
+    assert "verify.py --action gate --summary-evidence <path>" in checklist_text
+    assert "session.py --strict-runtime --session-key <key>" in checklist_text
+    assert "**H01**" in checklist_text
+    assert "**H05**" in checklist_text
+    assert "Prompt Matrix — Explicit Strict Invocation Cases" in checklist_text
+    assert "MUX_OSPEC_ACK" in checklist_text
+    assert "gate_status: block" in checklist_text
+    assert "control_state: RECOVER" in checklist_text
+    assert "**R01**" in checklist_text
+    assert "**R05**" in checklist_text
+    assert "`ADVANCE` is reachable only via a passed gate with valid report + signal + summary evidence." in checklist_text
 
 
 def test_generated_mux_tools_support_session_signal_and_summary_flow(tmp_path: Path) -> None:
@@ -379,6 +543,99 @@ def test_session_initializes_mux_protocol_ledger(tmp_path: Path) -> None:
     first_transition = transition_history[0]
     assert first_transition["from"] == "INIT"
     assert first_transition["to"] == "LOCK"
+
+
+def test_session_strict_runtime_writes_activation_artifacts(tmp_path: Path) -> None:
+    """session.py should write explicit strict-runtime artifacts only when requested."""
+    workspace = create_workspace(tmp_path)
+    session_key = "phase-004-strict-session"
+    result = create_strict_session(workspace, topic_slug="strict-runtime-artifacts", session_key=session_key)
+
+    session_dir_rel = parse_session_dir(result.stdout)
+    strict_runtime_file_rel = parse_output_value(result.stdout, "STRICT_RUNTIME_FILE")
+    strict_runtime_registry_rel = parse_output_value(result.stdout, "STRICT_RUNTIME_REGISTRY")
+    strict_runtime_hash = parse_output_value(result.stdout, "STRICT_RUNTIME_SESSION_KEY_HASH")
+
+    assert parse_output_value(result.stdout, "STRICT_RUNTIME") == "true"
+    assert strict_runtime_hash == hashlib.sha256(session_key.encode("utf-8")).hexdigest()[:24]
+
+    activation_file = workspace / strict_runtime_file_rel
+    registry_file = workspace / strict_runtime_registry_rel
+    assert activation_file.exists()
+    assert registry_file.exists()
+
+    activation_payload = json.loads(activation_file.read_text())
+    registry_payload = json.loads(registry_file.read_text())
+    assert activation_payload == registry_payload
+    assert activation_payload["mode"] == "strict"
+    assert activation_payload["session_key"] == session_key
+    assert activation_payload["session_key_hash"] == strict_runtime_hash
+    assert activation_payload["session_dir"] == session_dir_rel
+    assert activation_payload["ledger_path"] == f"{session_dir_rel}/{LEDGER_FILE_NAME}"
+    assert activation_payload["activation_file"] == strict_runtime_file_rel
+    assert activation_payload["registry_path"] == strict_runtime_registry_rel
+    assert activation_payload["allowed_write_roots"] == [".specs"]
+    assert session_dir_rel not in activation_payload["allowed_write_roots"]
+    assert "outputs/session/mux-runtime" not in activation_payload["allowed_write_roots"]
+
+
+def test_deactivate_removes_strict_runtime_artifacts(tmp_path: Path) -> None:
+    """deactivate.py should remove strict-runtime activation artifacts by session key."""
+    workspace = create_workspace(tmp_path)
+    session_key = "phase-004-deactivate-session"
+    result = create_strict_session(workspace, topic_slug="strict-runtime-deactivate", session_key=session_key)
+
+    strict_runtime_file_rel = parse_output_value(result.stdout, "STRICT_RUNTIME_FILE")
+    strict_runtime_registry_rel = parse_output_value(result.stdout, "STRICT_RUNTIME_REGISTRY")
+    activation_file = workspace / strict_runtime_file_rel
+    registry_file = workspace / strict_runtime_registry_rel
+    assert activation_file.exists()
+    assert registry_file.exists()
+
+    deactivate_result = run_python_script(
+        MUX_TOOLS_ROOT / "deactivate.py",
+        "--session-key",
+        session_key,
+        cwd=workspace,
+    )
+    assert deactivate_result.returncode == 0, deactivate_result.stdout + deactivate_result.stderr
+    assert parse_output_value(deactivate_result.stdout, "STRICT_RUNTIME_DEACTIVATED") == "true"
+    assert not activation_file.exists()
+    assert not registry_file.exists()
+
+
+def test_deactivate_skips_activation_cleanup_when_registry_payload_is_tampered(tmp_path: Path) -> None:
+    """deactivate.py should fail closed when registry activation_file points outside strict artifacts."""
+    workspace = create_workspace(tmp_path)
+    session_key = "phase-004-deactivate-tampered-session"
+    result = create_strict_session(workspace, topic_slug="strict-runtime-deactivate-tampered", session_key=session_key)
+
+    strict_runtime_file_rel = parse_output_value(result.stdout, "STRICT_RUNTIME_FILE")
+    strict_runtime_registry_rel = parse_output_value(result.stdout, "STRICT_RUNTIME_REGISTRY")
+    activation_file = workspace / strict_runtime_file_rel
+    registry_file = workspace / strict_runtime_registry_rel
+    protected_file = workspace / "do-not-delete.txt"
+    protected_file.write_text("preserve\n")
+
+    assert activation_file.exists()
+    assert registry_file.exists()
+    assert protected_file.exists()
+
+    tampered_registry_payload = json.loads(registry_file.read_text())
+    tampered_registry_payload["activation_file"] = "do-not-delete.txt"
+    registry_file.write_text(json.dumps(tampered_registry_payload, indent=2, sort_keys=True) + "\n")
+
+    deactivate_result = run_python_script(
+        MUX_TOOLS_ROOT / "deactivate.py",
+        "--session-key",
+        session_key,
+        cwd=workspace,
+    )
+    assert deactivate_result.returncode == 0, deactivate_result.stdout + deactivate_result.stderr
+    assert parse_output_value(deactivate_result.stdout, "STRICT_RUNTIME_DEACTIVATED") == "true"
+    assert protected_file.exists()
+    assert activation_file.exists()
+    assert not registry_file.exists()
 
 
 def test_mux_ledger_accepts_legal_flow_and_rejects_illegal_transition(tmp_path: Path) -> None:
@@ -751,3 +1008,106 @@ def test_mux_ledger_fails_closed_when_required_identifier_missing(tmp_path: Path
     show_result = run_ledger_script("show", session_dir_rel, cwd=workspace)
     assert show_result.returncode == 1
     assert "Missing required ledger field(s): stage_id" in show_result.stderr
+
+
+def test_mux_ledger_rejects_illegal_advancement_from_advance_state(tmp_path: Path) -> None:
+    """Ledger should reject illegal ADVANCE->ADVANCE transition explicitly."""
+    workspace = create_workspace(tmp_path)
+    session_dir_rel = create_session(workspace, topic_slug="illegal-advancement-from-advance")
+
+    report_rel = "reports/illegal-adv-worker.md"
+    signal_rel = f"{session_dir_rel}/.signals/illegal-adv-worker.done"
+    summary_evidence_rel = f"{session_dir_rel}/research/illegal-adv-summary.json"
+    configure_dispatch_state(workspace, session_dir_rel, report_rel, signal_rel)
+
+    report_path = workspace / report_rel
+    write_worker_report(report_path)
+    emit_success_signal(workspace, signal_rel, report_rel)
+    emit_summary_evidence(workspace, report_rel, summary_evidence_rel)
+
+    gate_result = run_verify_gate(
+        workspace,
+        session_dir_rel,
+        summary_evidence_rel=summary_evidence_rel,
+    )
+    assert gate_result.returncode == 0, gate_result.stdout + gate_result.stderr
+
+    ledger = read_ledger(workspace, session_dir_rel)
+    assert ledger["control_state"] == "ADVANCE"
+
+    illegal_advancement = run_ledger_script(
+        "transition",
+        session_dir_rel,
+        "--to",
+        "ADVANCE",
+        "--reason",
+        "attempt bypass: ADVANCE->ADVANCE",
+        cwd=workspace,
+    )
+    assert illegal_advancement.returncode == 1
+    assert "Illegal transition" in illegal_advancement.stderr
+
+    ledger_after = read_ledger(workspace, session_dir_rel)
+    assert ledger_after["control_state"] == "ADVANCE"
+
+
+def test_mux_ledger_blocker_path_never_silently_bypasses(tmp_path: Path) -> None:
+    """Blocker path should never silently bypass; missing evidence always routes to BLOCK."""
+    workspace = create_workspace(tmp_path)
+    session_dir_rel = create_session(workspace, topic_slug="blocker-never-bypasses")
+
+    report_rel = "reports/blocker-bypass-worker.md"
+    signal_rel = f"{session_dir_rel}/.signals/blocker-bypass-worker.done"
+    configure_dispatch_state(workspace, session_dir_rel, report_rel, signal_rel)
+
+    report_path = workspace / report_rel
+    write_worker_report(report_path)
+    emit_success_signal(workspace, signal_rel, report_rel)
+
+    blocker_open_result = run_ledger_script(
+        "blocker-open",
+        session_dir_rel,
+        "--reason",
+        "missing prerequisite artifact",
+        "--missing",
+        "research/required.md",
+        cwd=workspace,
+    )
+    assert blocker_open_result.returncode == 0, blocker_open_result.stdout + blocker_open_result.stderr
+
+    gate_result = run_verify_gate(workspace, session_dir_rel)
+    assert gate_result.returncode == 1, gate_result.stdout + gate_result.stderr
+
+    gate_payload = parse_json_stdout(gate_result)
+    assert gate_payload["gate_status"] == "block"
+
+    ledger = read_ledger(workspace, session_dir_rel)
+    assert ledger["control_state"] == "BLOCK"
+    assert ledger["blocker"]["active"] is True
+
+
+def test_mux_ledger_recovery_path_never_silent_fallback(tmp_path: Path) -> None:
+    """Recovery path should never silently fall back; protocol violations always route to RECOVER."""
+    workspace = create_workspace(tmp_path)
+    session_dir_rel = create_session(workspace, topic_slug="recovery-never-fallback")
+
+    report_rel = "reports/recovery-fallback-worker.md"
+    signal_rel = f"{session_dir_rel}/.signals/recovery-fallback-worker.done"
+    configure_dispatch_state(workspace, session_dir_rel, report_rel, signal_rel)
+
+    ledger_path = workspace / session_dir_rel / LEDGER_FILE_NAME
+    ledger_payload = json.loads(ledger_path.read_text())
+    assert "declared_dispatch" in ledger_payload
+    ledger_payload["declared_dispatch"]["objective"] = ""
+    ledger_path.write_text(json.dumps(ledger_payload, indent=2, sort_keys=True) + "\n")
+
+    gate_result = run_verify_gate(workspace, session_dir_rel)
+    assert gate_result.returncode == 1, gate_result.stdout + gate_result.stderr
+
+    gate_payload = parse_json_stdout(gate_result)
+    assert gate_payload["gate_status"] == "recover"
+    assert "declared_dispatch.objective" in gate_payload["reason"]
+
+    ledger = read_ledger(workspace, session_dir_rel)
+    assert ledger["control_state"] == "RECOVER"
+    assert ledger["recovery"]["required"] is True

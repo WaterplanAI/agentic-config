@@ -1,17 +1,28 @@
 # Error Recovery
 
+
+> Authoritative contract (wins on conflict):
+> - full: CREATE (optional) -> GATHER -> CONSOLIDATE -> SUCCESS_CRITERIA -> CONFIRM_SC -> PLAN -> IMPLEMENT -> REVIEW -> FIX -> TEST -> DOCUMENT -> SENTINEL
+> - lean: CREATE (optional) -> CONFIRM_SC -> PLAN -> IMPLEMENT -> REVIEW -> FIX -> TEST -> DOCUMENT -> SELF_VALIDATION
+> - leanest: CREATE (optional) -> CONFIRM_SC -> PLAN -> IMPLEMENT -> REVIEW -> FIX -> TEST -> SELF_VALIDATION
+> - GATHER = RESEARCH; CONFIRM_SC is mandatory before PLAN
+> - REVIEW/TEST/SENTINEL/SELF_VALIDATION are PASS-only gates
+> - notify-first pacing; no polling loops; blocked/stuck defaults to user escalation
+> - every stage must commit every changed repo and report `repo_scope`, `root_commit`, `spec_commit` (root first, spec second when both changed)
+
+
 Handling failures in the o_spec workflow via MUX orchestration.
 
 ## Error Categories
 
 | Category | Severity | Recovery Strategy |
 |----------|----------|-------------------|
-| Agent Timeout | WARN | Relaunch with tighter scope |
-| Signal Missing | WARN | Check partial work, relaunch |
+| Agent Timeout | WARN | Run inactivity watchdog one-shot verify, then escalate to user by default |
+| Signal Missing | WARN | Verify output once; recreate signal if output exists, otherwise escalate to user |
 | Grade FAIL | WARN | Launch fixer, retry cycle |
-| Context Overflow | FATAL | Consolidate, restart phase |
+| Context Overflow | FATAL | Consolidate partial artifacts, escalate to user before any restart |
 | Tool Failure | ERROR | Delegate retry to agent |
-| Network Failure | ERROR | Retry with backoff |
+| Network Failure | ERROR | Retry with backoff, then escalate to user |
 
 ## Agent Timeout Recovery
 
@@ -34,22 +45,40 @@ Missing:
 
 ### Recovery Pattern
 
-Relaunch with reduced scope.
+Escalate first with evidence. Relaunch is allowed only when the user (or a documented explicit override) approves it.
 
 ```python
-# Original task timed out
-# Relaunch with tighter scope
+# Original task appears stalled after inactivity watchdog
+watchdog_summary = uv_run(
+    f"tools/verify.py {session_dir}/.signals --action summary"
+)
+
+AskUserQuestion(
+    question=f"""Worker inactivity detected.
+
+Summary:
+{watchdog_summary}
+
+Default action is escalation. Choose next step:
+1. Keep waiting for task-notification
+2. Relaunch with tighter scope (explicit override)
+3. Abort stage
+""",
+    format="number"
+)
+
+# Only execute if option 2 / explicit override is selected
 Task(
     prompt=f"""Invoke Skill(skill="spec", args="RESEARCH {spec_path} --focus {topic} --max-depth 1").
 
 SCOPE: Reduced to single topic
-TIMEOUT: Extended to 600s
+REASON: Explicit override after user escalation
 
 OUTPUT: {{session}}/research/{topic}.md
 SIGNAL: {{session}}/.signals/research-{topic}.done
 
 Return EXACTLY: done""",
-    model="sonnet",  # Downgrade if opus timed out
+    model="medium-tier",
     run_in_background=True
 )
 ```
@@ -93,7 +122,7 @@ SCOPE: targeted
 SIGNAL: {{session}}/.signals/phase-{phase_num}-fix-{cycle}.done
 
 Return EXACTLY: done""",
-        model="sonnet",
+        model="medium-tier",
         run_in_background=True
     )
 ```
@@ -116,7 +145,8 @@ Agent reports context limit reached.
 
 1. Stop current phase
 2. Run consolidation on partial work
-3. Restart phase with consolidated context
+3. Escalate to user with the consolidated evidence
+4. Restart only when an explicit override is approved
 
 ```python
 # Consolidate partial work
@@ -130,20 +160,31 @@ OUTPUT: {{session}}/phases/phase-{phase_num}/consolidated-partial.md
 SIGNAL: {{session}}/.signals/phase-{phase_num}-consolidated.done
 
 Return EXACTLY: done""",
-    model="opus",
+    model="high-tier",
     run_in_background=True
 )
 
-# Restart phase with consolidated context
+AskUserQuestion(
+    question=f"""Context overflow detected in phase {phase_num}.
+
+Consolidated partial artifact:
+{{session}}/phases/phase-{phase_num}/consolidated-partial.md
+
+Default action is escalation. Approve restart?""",
+    format="yes/no"
+)
+
+# Only run if explicit override/user approval is YES
 Task(
     prompt=f"""Invoke Skill(skill="spec", args="IMPLEMENT {spec_path} --phase {phase_num}").
 
 CONTEXT: {{session}}/phases/phase-{phase_num}/consolidated-partial.md
+REASON: Explicit override after escalation
 
 SIGNAL: {{session}}/.signals/phase-{phase_num}-implement.done
 
 Return EXACTLY: done""",
-    model="sonnet",
+    model="medium-tier",
     run_in_background=True
 )
 ```
@@ -165,7 +206,7 @@ OUTPUT: {{session}}/tests/test-results.json
 SIGNAL: {{session}}/.signals/test.done
 
 Return EXACTLY: done""",
-    model="sonnet",
+    model="medium-tier",
     run_in_background=True
 )
 ```
@@ -190,7 +231,7 @@ Fix failing tests:
 SIGNAL: {{session}}/.signals/test-fix.done
 
 Return EXACTLY: done""",
-        model="sonnet",
+        model="medium-tier",
         run_in_background=True
     )
 ```
@@ -247,16 +288,16 @@ if state["error_context"]:
     error = state["error_context"]
 
     if error["type"] == "agent_timeout":
-        # Relaunch with extended timeout
-        resume_with_extended_timeout(error["phase"])
+        # Default: escalate with inactivity evidence
+        escalate_timeout_to_user(error["phase"])
 
     elif error["type"] == "grade_fail":
         # Continue fix cycle
         continue_fix_cycle(error["phase"], error["cycle"])
 
     elif error["type"] == "context_overflow":
-        # Consolidate and restart
-        consolidate_and_restart(error["phase"])
+        # Consolidate evidence and escalate before restart
+        consolidate_then_escalate(error["phase"])
 ```
 
 ## Completion Timeout Recovery
@@ -270,10 +311,11 @@ If task-notification is delayed, use verify.py one-shot check - never poll in a 
 while not signal_exists:
     time.sleep(5)  # NEVER DO THIS
 
-# RIGHT - one-shot check after timeout
+# RIGHT - inactivity-only watchdog (one-shot)
 # Bash("uv run ${CLAUDE_PLUGIN_ROOT}/skills/mux/tools/verify.py {session}/.signals --action summary")
 # If worker still active (signal missing), wait for next task-notification
-# If worker truly stuck (no progress), mark STAGE_FAILED, launch fresh agent
+# If worker appears stuck (no progress), escalate to user with evidence
+# Relaunch is allowed only when explicit override/user approval exists
 ```
 
 ## Error Escalation
@@ -297,10 +339,10 @@ AskUserQuestion(
 Error: {error_message}
 
 Options:
-1. Retry with different model (opus -> sonnet)
-2. Skip phase and continue
-3. Abort workflow
+1. Retry with different model (high-tier -> medium-tier)
+2. Abort workflow
 
+Note: pass-only gates prohibit skip-and-continue.
 Select option:""",
     format="number"
 )
@@ -343,7 +385,7 @@ FAILING: {validation_result['failing_sc']}
 SIGNAL: {{session}}/.signals/validation-fix-{iteration}.done
 
 Return EXACTLY: done""",
-        model="sonnet",
+        model="medium-tier",
         run_in_background=True
     )
 ```
@@ -362,7 +404,7 @@ Return EXACTLY: done""",
 ### Log Format
 
 ```
-[2026-02-04T10:30:00Z] ERROR phase-2/review: Agent timeout after 300s
-[2026-02-04T10:30:05Z] RECOVERY: Relaunching with extended timeout (600s)
-[2026-02-04T10:40:00Z] SUCCESS: Review completed after recovery
+[2026-02-04T10:30:00Z] ERROR phase-2/review: Agent timeout after inactivity threshold
+[2026-02-04T10:30:05Z] ESCALATION: Sent evidence summary to user for decision
+[2026-02-04T10:34:00Z] DECISION: User approved relaunch override with tighter scope
 ```

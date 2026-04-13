@@ -11,7 +11,7 @@ Treat this invocation exactly as if the user had run:
 ```
 
 Apply the same workflow and constraints as `ac-tools-dry-run`:
-1. Resolve the session status path under `outputs/session/<claude_pid>/status.yml`
+1. Resolve the session status path under `outputs/session/<session_pid>/status.yml`
 2. Set `dry_run: true`
 3. Execute the delegated command or prompt exactly as given
 4. Do not perform file writes other than the session status file
@@ -20,4 +20,4 @@ Apply the same workflow and constraints as `ac-tools-dry-run`:
 
 ## Constraint
 
-Do not rely on raw Claude skill-delegation syntax. This alias must remain pi-native and preserve the same dry-run semantics directly.
+Do not rely on raw non-pi skill-delegation syntax. This alias must remain pi-native and preserve the same dry-run semantics directly.

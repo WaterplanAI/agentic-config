@@ -10,7 +10,7 @@ Shared pi extensions exported by `@agentic-config/pi-compat`.
 - `hook-compat/`
   - `index.js`: extension entrypoint plus registration helper exports
   - `registry.js`: runtime-scoped registration store with package-id dedupe
-  - `payload.js`: locked pi-to-Claude payload mapping, including `NotebookEdit`
+  - `payload.js`: locked compat payload mapping, including `NotebookEdit`
   - `matchers.js`: `*`, alternation, and suffix-wildcard matcher evaluation
   - `env.js`: `CLAUDE_*` env construction and spawn-cwd normalization
   - `runner.js`: `uv run --no-project --script` execution and stdout parsing

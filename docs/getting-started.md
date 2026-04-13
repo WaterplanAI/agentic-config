@@ -160,9 +160,30 @@ Checks AGENTS.md is up-to-date with current template and validates project type 
 | `/improve-agents-md update` | `/skill:ac-tools-improve-agents-md update` | Regenerate AGENTS.md with latest template |
 | `/improve-agents-md validate` | `/skill:ac-tools-improve-agents-md validate` | Check AGENTS.md is current |
 | `/spec STAGE path` | `/skill:ac-workflow-spec STAGE path` | Execute single workflow stage |
-| `/mux "prompt"` | `/skill:ac-workflow-mux "prompt"` | Parallel research-to-deliverable orchestration |
+| `/mux "prompt"` | `/skill:ac-workflow-mux "prompt"` | Mux-style orchestration on top of `pimux` |
 
 See [Plugin Catalog](plugin-catalog.md) for all skills across 7 plugins.
+
+## Choosing the ac-workflow tmux surface
+
+Use these rules of thumb in pi:
+
+- `pimux` command/tool: generic long-lived tmux control plane, including inspectable non-mux hierarchies when you do not need a wrapper
+- `ac-workflow-mux`: mux-style scout/planner/worker coordination on top of `pimux`
+- `ac-workflow-mux-ospec`: one explicit spec-stage owner on top of `pimux`
+- `ac-workflow-mux-roadmap`: roadmap -> phase -> stage hierarchy on top of `pimux`
+
+See [pimux Workflow Topologies](pimux-workflow-topologies.md) for the communication patterns, nesting depth, and typical agent counts.
+
+Quick examples:
+
+```text
+/pimux spawn "Inspect this repo and report the key files."
+/pimux spawn "Run in your own tmux session and keep working until done."
+/skill:ac-workflow-mux "Compare implementation options and return a plan."
+/skill:ac-workflow-mux-ospec PLAN .specs/specs/2026/04/example/001-demo.md
+/skill:ac-workflow-mux-roadmap .specs/specs/2026/04/example/001-roadmap.md
+```
 
 ## Customization
 
@@ -242,6 +263,7 @@ Pi:
 ## See Also
 
 - [Plugin Catalog](plugin-catalog.md) -- All skills by plugin
+- [pimux Workflow Topologies](pimux-workflow-topologies.md) -- `pimux`, mux, ospec, and roadmap runtime guide
 - [Distribution Guide](distribution.md) -- Claude marketplace rollout plus pi git-tag distribution, dev branch installs, and future npm notes
 - [Pi Package Adoption Guide](../packages/README.md) -- primary git-tag installs, branch-based dev installs, local package-root testing, and future npm distribution notes
 - [Migration Guide v0.2.0](migration-v0.2.0.md) -- Migrate from v0.1.x symlinks

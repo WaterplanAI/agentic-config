@@ -65,7 +65,7 @@ detection:
 ```yaml
 # {session}/context/manifest.yml
 version: 1
-spec_path: specs/2026/02/feature-xyz/001-title.md
+spec_path: .specs/specs/2026/02/feature-xyz/001-title.md
 session_id: mux-20260204-103042
 
 context:
@@ -508,7 +508,7 @@ OUTPUT: {{session}}/context/manifest.yml
 SIGNAL: {{session}}/.signals/priming.done
 
 Return EXACTLY: done""",
-    model="sonnet",
+    model="medium-tier",
     run_in_background=True
 )
 ```

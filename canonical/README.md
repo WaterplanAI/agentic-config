@@ -35,7 +35,6 @@ The canonical tree now covers the current generated surface with `42` canonical 
 That breaks down into:
 - `42` shipped Claude/pi skill pairs in the current generated package surface
 - no explicit deferred pi pressure case remains inside the current canonical skill tree
-- one additional shipped package-owned direct `tmux-agent` migration in `@agentic-config/pi-ac-workflow` that intentionally sits outside the current canonical tree so the exact extension logic stays non-lossy
 
 Track D now also ships the shared mux foundation assets plus the full generated mux skill family under `ac-workflow`:
 - `mux`
@@ -44,10 +43,12 @@ Track D now also ships the shared mux foundation assets plus the full generated 
 - `mux-subagent`
 
 The generated pi mux orchestrators are intentionally honest adaptations built on the shared mux foundation. They preserve one-layer coordination, explicit report/signal state, and phase/roadmap progress mirrors without claiming Claude-only nested-skill or task-notification parity.
-The shipped pi `mux-ospec` wrapper assumes an existing spec path, and the shipped pi `mux-roadmap` wrapper assumes an already-structured roadmap with a live `## Implementation Progress` mirror.
+The shipped pi `mux-ospec` and `mux-roadmap` wrappers now pass explicit paths through unchanged, auto-derive/create the next current-branch spec path from sufficient inline prompts, and reserve `AskUserQuestion` for cases where neither a path nor a sufficient inline prompt is available.
 
-For the shipped pi surface, generated outputs under `packages/` are the authoritative maintenance path for canonical surfaces. The exact `tmux-agent` migration is intentionally package-owned outside the generator because the current canonical/runtime-attachment system cannot honestly own the full extension logic without narrowing it. Remaining runtime carry-forward work now sits outside the current canonical skill tree and is limited to broader generic runtime gaps beyond the shared pi foundations.
-Generated outputs intentionally coexist with still-manual siblings. The generator writes only declared canonical paths and does not perform destructive cleanup.
+For the shipped pi surface, generated outputs under `packages/` are the authoritative maintenance path for canonical surfaces. Remaining runtime carry-forward work now sits outside the current canonical skill tree and is limited to broader generic runtime gaps beyond the shared pi foundations.
+Generated outputs intentionally coexist with package-owned workflow runtime surfaces and other non-canonical files. The generator writes only declared canonical paths and does not perform destructive cleanup.
+
+Contributor note: the user-facing topology explanation for package-owned `pimux` versus the generated mux wrappers lives in [docs/pimux-workflow-topologies.md](../docs/pimux-workflow-topologies.md) and [packages/pi-ac-workflow/README.md](../packages/pi-ac-workflow/README.md).
 
 ## Commands
 

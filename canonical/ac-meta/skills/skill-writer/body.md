@@ -34,6 +34,10 @@ Parse user request to determine:
 | `description` | Max 1024 chars, third person, includes "Triggers on keywords:" |
 | `project-agnostic` | REQUIRED - must be explicitly true or false |
 
+Frontmatter quoting rule:
+- Wrap `description` in double quotes in YAML frontmatter.
+- Wrap any other frontmatter string field in double quotes too when it contains YAML-significant or syntax-looking content, such as `:`, `[]`, `{}`, `#`, `&`, `*`, `?`, `|`, `>`, `@`, backticks, or leading/trailing whitespace.
+
 See `cookbook/validation.md` for detailed checks.
 
 ### 3. Select Pattern
@@ -49,6 +53,8 @@ Apply template with validated values. Follow structure from `templates/skill-tem
 
 **STOP. Verify before delivery.**
 - Line count under 500
+- `description` is wrapped in double quotes in YAML frontmatter
+- Any other YAML-sensitive frontmatter string values are double-quoted
 - No bash execution pattern (exclamation-backtick sequence)
 - All paths use forward slashes
 - References are one-level deep
@@ -97,7 +103,7 @@ Output format for generated skills:
 ```yaml
 ---
 name: python-type-annotator
-description: Adds type annotations to Python functions. Infers types from usage and docstrings. Triggers on keywords: add types, type hints, annotate python
+description: "Adds type annotations to Python functions. Infers types from usage and docstrings. Triggers on keywords: add types, type hints, annotate python"
 project-agnostic: true
 allowed-tools:
   - Read
@@ -108,7 +114,7 @@ allowed-tools:
 
 **Clear triggers in description:**
 ```yaml
-description: Formats SQL queries with consistent style. Handles SELECT, INSERT, UPDATE, DELETE. Triggers on keywords: format sql, sql formatter, pretty print sql
+description: "Formats SQL queries with consistent style. Handles SELECT, INSERT, UPDATE, DELETE. Triggers on keywords: format sql, sql formatter, pretty print sql"
 ```
 
 **Explicit project-agnostic for reusable skills:**
@@ -122,13 +128,13 @@ project-agnostic: true  # Zero project dependencies
 ```yaml
 # BAD - unfocused
 name: code-helper
-description: Helps with all coding tasks
+description: "Helps with all coding tasks"
 ```
 
 **Missing trigger keywords:**
 ```yaml
 # BAD - not discoverable
-description: Formats SQL queries
+description: "Formats SQL queries"
 ```
 
 **Excessive tool permissions:**
@@ -147,7 +153,7 @@ allowed-tools:
 ```yaml
 # BAD - required field missing
 name: my-skill
-description: Does something
+description: "Does something"
 allowed-tools:
   - Read
 ```
@@ -164,7 +170,7 @@ name: claude-assistant
 ```yaml
 ---
 name: skill-name
-description: Third-person description under 1024 chars. Triggers on keywords: keyword1, keyword2
+description: "Third-person description under 1024 chars. Triggers on keywords: keyword1, keyword2"
 project-agnostic: true
 allowed-tools:
   - Read

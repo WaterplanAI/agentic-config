@@ -1,6 +1,6 @@
 skill_id: mux-ospec
 kind: standard
-summary: "Stage-based spec orchestration on top of the shared mux foundation. Use for phase-owned GATHER -> SUCCESS_CRITERIA -> PLAN -> IMPLEMENT -> REVIEW/FIX -> TEST -> DOCUMENT -> PHASE_CLOSE workflows."
+summary: "Stage-based spec orchestration on top of the shared mux foundation. Explicit named flows: full = CREATE (optional) -> GATHER -> CONSOLIDATE -> SUCCESS_CRITERIA -> CONFIRM_SC -> PLAN -> IMPLEMENT -> REVIEW -> FIX -> TEST -> DOCUMENT -> SENTINEL; lean = CREATE (optional) -> CONFIRM_SC -> PLAN -> IMPLEMENT -> REVIEW -> FIX -> TEST -> DOCUMENT -> SELF_VALIDATION; leanest = CREATE (optional) -> CONFIRM_SC -> PLAN -> IMPLEMENT -> REVIEW -> FIX -> TEST -> SELF_VALIDATION (GATHER maps to RESEARCH)."
 project_agnostic: true
 body_file: body.md
 assets: []
@@ -26,16 +26,11 @@ renders:
     output_path: skills/ac-workflow-mux-ospec/SKILL.md
     display_name: ac-workflow-mux-ospec
     allowed_tools:
-      - Read
-      - Write
-      - Edit
-      - Bash
-      - Grep
-      - Glob
-      - subagent
+      - pimux
+      - AskUserQuestion
       - say
     frontmatter_enabled: true
-    description: "pi-adapted mux spec orchestrator. Owns the phase stage loop with shared mux session/signal tools, sibling -stages artifacts, and one-layer subagent waves."
+    description: "pi-adapted mux spec orchestrator. Uses pimux as the authoritative stage runtime while preserving mux-ospec semantics."
     body_file: body.pi.md
     frontmatter_extra:
-      argument-hint: "[modifier] [spec_path]"
+      argument-hint: "[modifier] [spec_path|inline_prompt]"

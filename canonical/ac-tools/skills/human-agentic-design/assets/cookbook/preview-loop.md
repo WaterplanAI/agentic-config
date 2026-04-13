@@ -17,7 +17,7 @@ Iterative visual + accessibility feedback using Playwright MCP tools.
 
 1. Start HTTP server (background):
    ```bash
-   python3 -m http.server 8080 -d /tmp/claude-prototypes/<session-id> &
+   python3 -m http.server 8080 -d /tmp/pi-prototypes/<session-id> &
    SERVER_PID=$!
    ```
 
@@ -53,7 +53,7 @@ Iterative visual + accessibility feedback using Playwright MCP tools.
 
 1. Install and start Vite dev server (background):
    ```bash
-   cd /tmp/claude-prototypes/<session-id> && npm install && npm run dev &
+   cd /tmp/pi-prototypes/<session-id> && npm install && npm run dev &
    ```
    Wait for "Local: http://localhost:5173" in output.
 
@@ -72,11 +72,11 @@ If Playwright MCP tools are not available in the current session:
 - Output file paths and manual instructions:
 
 ```
-Prototype ready at: /tmp/claude-prototypes/<session-id>/index.html
+Prototype ready at: /tmp/pi-prototypes/<session-id>/index.html
 
 To preview:
-  Option 1 (direct): open /tmp/claude-prototypes/<session-id>/index.html
-  Option 2 (server): cd /tmp/claude-prototypes/<session-id> && python3 -m http.server 8080
+  Option 1 (direct): open /tmp/pi-prototypes/<session-id>/index.html
+  Option 2 (server): cd /tmp/pi-prototypes/<session-id> && python3 -m http.server 8080
 ```
 
 ## Accessibility Snapshot Validation

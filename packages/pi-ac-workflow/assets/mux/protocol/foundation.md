@@ -20,6 +20,18 @@ This document is the shared foundation contract for the pi mux family.
 - `../../assets/mux/tools/agents.py`
 - `../../assets/mux/tools/deactivate.py`
 
+## Shipped protocol artifact set (Phase 007)
+- `../../assets/mux/protocol/subagent.md` — authoritative leaf-worker data-plane contract.
+- `../../assets/mux/protocol/guardrail-policy.md` — strict runtime vs hook guard vs protocol prose split.
+- `../../assets/mux/protocol/strict-happy-path-transcript.md` — representative strict `ADVANCE` flow.
+- `../../assets/mux/protocol/strict-blocker-path-transcript.md` — representative strict `BLOCK` flow.
+- `../../assets/mux/protocol/strict-regression-checklist.md` — deterministic checklist for regression validation waves.
+
+## Guardrail ownership boundary
+- **Strict runtime (`extensions/strict-mux-runtime/index.js`)**: coordinator-side, opt-in via `session.py --strict-runtime --session-key <key>`, enforces declared dispatch shape and strict orchestration constraints.
+- **Subagent hook guard (`subagent-hooks/mux-subagent-guard.py`)**: harness-scoped hook that fail-closes and currently denies `TaskOutput` where skill-scoped hooks are supported.
+- **Worker protocol prose (`protocol/subagent.md` + mux-subagent skills)**: data-plane contract requiring report/signal artifacts, exact `0` success response, and no nested `subagent`, control-plane bridge, or `report_parent` usage.
+
 ## Authoritative persisted ledger (Phase 002 minimum)
 Ledger location: `<session_dir>/.mux-ledger.json`
 
@@ -50,14 +62,28 @@ The shared ledger enforces these transitions:
 - Missing report/signal/summary evidence yields `BLOCK`.
 - Inconsistent or protocol-invalid evidence yields `RECOVER`.
 
+## Strict runtime activation
+- The workflow package-local strict runtime extension activates only for explicit `session.py --strict-runtime --session-key <key>` sessions.
+- Activation artifacts:
+  - session-local `<session_dir>/.mux-runtime.json`
+  - session-key registry `outputs/session/mux-runtime/<session-key-hash>.json`
+- The legacy `mux-active` marker remains observability-only; it is not the strict runtime trigger by itself.
+- `deactivate.py --session-key <key>` removes the strict activation artifacts for the current pi session.
+
 ## Artifact path base rule
 - Persisted mux artifact paths are interpreted as project-root-relative unless explicitly absolute.
 - The contract requires declared dispatch `report_path` / `signal_path` to be project-root-relative.
 - Worker reports and summary-evidence artifacts should use project-root-relative paths so verification stays deterministic across sessions.
 
-## Boundary for later phases
+## Shipped Phase 004+005+006+007 runtime boundary
+- The package-local `strict-mux-runtime` extension consumes the strict activation artifacts plus this persisted ledger contract to enforce fail-closed coordinator behavior.
+- Strict Phase 004 dispatch supports one authoritative declared dispatch at a time; ambiguous `subagent.tasks` / `subagent.chain` launches remain out of scope and should fail closed under strict mode.
+- Strict Phase 004 coordinator mutation allowance stays narrow and orchestration-focused; Phase 005 hardens `mux-ospec` as the canonical strict consumer.
+- Phase 006 aligns sibling `mux` / `mux-roadmap` surfaces to the strict control-plane contract: strict bootstrap (`session.py --strict-runtime --session-key <key>`), declared dispatch plus report/signal/summary evidence gating, `BLOCK` for missing prerequisites/evidence, `RECOVER` for invalid dispatch or inconsistent evidence, and no manual fallback outside protocol.
+- Phase 007 ships the guardrail-policy split plus transcript/checklist protocol artifacts for deterministic strict-flow documentation.
+
+## Shared foundation boundary
 - This foundation does not claim automatic task-notification support.
 - This foundation does not claim nested skill loading inside workers.
-- This foundation does not claim generic shared runtime parity beyond the mux-specific file/session protocol described here.
-- Phase 004 owns fail-closed runtime enforcement of coordinator behavior from this persisted ledger contract.
-- Later phases should consume this asset root and protocol, not recreate local copies of the same helpers.
+- Consumers should consume this asset root and protocol artifacts, not recreate local copies of the same helpers.
+- Package/roadmap release-surface bookkeeping consumes this shared foundation but lives in package status surfaces and `.specs` artifacts rather than inside the ledger contract itself.

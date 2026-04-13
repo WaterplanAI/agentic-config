@@ -1,6 +1,6 @@
 skill_id: hook-writer
 kind: standard
-summary: 'Expert assistant for authoring Claude Code hooks. Creates Python hooks with
+summary: 'Expert assistant for authoring hook scripts. Creates Python hooks with
   correct JSON output schema, validates against PreToolUse/PostToolUse/UserPromptSubmit
   formats, and applies fail-open principles. Triggers on keywords: writing hooks,
   creating hooks, hook authoring, pretooluse hook, posttooluse hook, new hook, hook
@@ -22,8 +22,8 @@ renders:
     - Grep
     - Bash
     frontmatter_enabled: true
-    description: 'Expert assistant for authoring Claude Code hooks. Creates Python
-      hooks with correct JSON output schema, validates against PreToolUse/PostToolUse/UserPromptSubmit
+    description: 'Expert assistant for authoring hook scripts. Creates Python hooks
+      with correct JSON output schema, validates against PreToolUse/PostToolUse/UserPromptSubmit
       formats, and applies fail-open principles. Triggers on keywords: writing hooks,
       creating hooks, hook authoring, pretooluse hook, posttooluse hook, new hook,
       hook template, hook validation, hook schema'
@@ -39,8 +39,8 @@ renders:
     - Grep
     - Bash
     frontmatter_enabled: true
-    description: 'Expert assistant for authoring Claude Code hooks. Creates Python
-      hooks with correct JSON output schema, validates against PreToolUse/PostToolUse/UserPromptSubmit
+    description: 'Expert assistant for authoring hook scripts. Creates Python hooks
+      with correct JSON output schema, validates against PreToolUse/PostToolUse/UserPromptSubmit
       formats, and applies fail-open principles. Triggers on keywords: writing hooks,
       creating hooks, hook authoring, pretooluse hook, posttooluse hook, new hook,
       hook template, hook validation, hook schema'

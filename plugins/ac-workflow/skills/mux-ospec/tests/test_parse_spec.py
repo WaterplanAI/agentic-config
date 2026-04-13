@@ -202,25 +202,61 @@ class TestArgumentParsing:
 class TestWorkflowModifiers:
     """Tests for workflow behavior based on modifiers."""
 
-    def test_full_includes_gather(self) -> None:
-        """Full modifier includes GATHER stage."""
-        stages_for_full = ["GATHER", "CONSOLIDATE", "PHASE_LOOP", "TEST", "DOCUMENT", "SENTINEL"]
+    def test_full_includes_explicit_named_stages(self) -> None:
+        """Full modifier keeps explicit named stages without placeholders."""
+        stages_for_full = [
+            "CREATE (optional)",
+            "GATHER",
+            "CONSOLIDATE",
+            "SUCCESS_CRITERIA",
+            "CONFIRM_SC",
+            "PLAN",
+            "IMPLEMENT",
+            "REVIEW",
+            "FIX",
+            "TEST",
+            "DOCUMENT",
+            "SENTINEL",
+        ]
 
         result = parse_arguments("full specs/path.md")
         assert result["modifier"] == "full"
         assert "GATHER" in stages_for_full
+        assert "SUCCESS_CRITERIA" in stages_for_full
+        assert "CONFIRM_SC" in stages_for_full
 
-    def test_lean_skips_gather(self) -> None:
-        """Lean modifier skips GATHER stage."""
-        stages_for_lean = ["PHASE_LOOP", "TEST", "DOCUMENT"]
+    def test_lean_skips_gather_and_consolidate(self) -> None:
+        """Lean modifier skips research stages but keeps confirmation gate."""
+        stages_for_lean = [
+            "CREATE (optional)",
+            "CONFIRM_SC",
+            "PLAN",
+            "IMPLEMENT",
+            "REVIEW",
+            "FIX",
+            "TEST",
+            "DOCUMENT",
+            "SELF_VALIDATION",
+        ]
 
         result = parse_arguments("lean specs/path.md")
         assert result["modifier"] == "lean"
         assert "GATHER" not in stages_for_lean
+        assert "CONSOLIDATE" not in stages_for_lean
+        assert "CONFIRM_SC" in stages_for_lean
 
-    def test_leanest_minimal_stages(self) -> None:
-        """Leanest has minimal stage set."""
-        stages_for_leanest = ["PHASE_LOOP", "TEST"]
+    def test_leanest_omits_document_stage(self) -> None:
+        """Leanest keeps minimal explicit stages."""
+        stages_for_leanest = [
+            "CREATE (optional)",
+            "CONFIRM_SC",
+            "PLAN",
+            "IMPLEMENT",
+            "REVIEW",
+            "FIX",
+            "TEST",
+            "SELF_VALIDATION",
+        ]
 
         result = parse_arguments("leanest specs/path.md")
         assert result["modifier"] == "leanest"

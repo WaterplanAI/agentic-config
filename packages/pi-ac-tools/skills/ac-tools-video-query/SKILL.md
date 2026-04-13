@@ -11,7 +11,7 @@ allowed-tools:
 
 ## Compatibility Note
 
-This pi wrapper preserves the original video-query workflow while using a bundled skill-local helper script instead of the Claude plugin root.
+This pi wrapper preserves the original video-query workflow while using a bundled skill-local helper script instead of the legacy plugin root.
 
 
 Analyze a video file using Google Gemini API and answer questions about its content.

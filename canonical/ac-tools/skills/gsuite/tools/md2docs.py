@@ -183,7 +183,7 @@ def parse_markdown(markdown_text: str) -> ParseResult:
 
     Tables are replaced with placeholder newlines; actual tables inserted in pass 2.
     """
-    import mistune
+    import mistune  # pyright: ignore[reportMissingImports]
 
     format_actions: list[tuple[int, int, str, dict[str, Any]]] = []
     tables: list[TableDef] = []

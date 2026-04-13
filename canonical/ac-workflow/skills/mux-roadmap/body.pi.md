@@ -1,175 +1,86 @@
-# MUX Roadmap Orchestrator - pi adaptation
+# MUX Roadmap Orchestrator - pi adaptation (pimux runtime)
 
-Use this skill to execute a multi-track roadmap with explicit DAG ownership, phase-owned stage artifacts, and a roadmap-level progress mirror.
+Use this skill to execute roadmap phases with mux-family semantics while using `pimux` as the authoritative orchestration runtime.
 
-## Purpose
+## Binding activation
 
-This pi adaptation keeps the useful roadmap-orchestration behavior without pretending the runtime has Claude-only nested skill loading or task notifications.
+If the user explicitly invokes `mux-roadmap` / `ac-workflow-mux-roadmap`, or embeds this skill text as the runtime for the task, treat this document as a binding runtime contract, not as optional guidance, commentary, or a planning reference.
 
-The coordinator should:
-- own the roadmap DAG directly
-- execute phases through the same stage discipline used by mux-ospec
-- keep authoritative state in phase files plus sibling `-stages/` directories
-- keep a roadmap-level progress mirror for cross-session resume
-- use one worker layer only: coordinator -> subagent
+## Absolute compliance rule
 
-## Current shipped boundary
+For explicit `mux-roadmap` requests in pi, the current session is a `pimux`-only roadmap orchestrator.
 
-This pi wrapper assumes:
-- the roadmap file already exists
-- the relevant phase specs already exist or are being managed outside this wrapper
-- the roadmap already has, or can accept, a live `## Implementation Progress` mirror
+- The authoritative `pimux` extension applies a fail-closed parent control-plane lock for explicit `mux-roadmap` execution.
+- Before the first child exists, the parent must not call `Read`, `Bash`, `Edit`, `Write`, `NotebookEdit`, `Grep`, `Glob`, `web_search`, `subagent`, or any other non-`pimux` tool for substantive repo work.
+- Do not inspect roadmap files, phase docs, or repo targets in the parent before spawn.
+- Do not resolve DAG details, implementation plans, or edit scopes from the parent.
+- Do not collapse the roadmap -> phase -> stage ownership model by doing phase work directly in the current session.
+- The first real move is to spawn the authoritative phase-owning `pimux` child.
+- The first observable parent tool call must be `pimux spawn`.
+- If you have not spawned that child yet, you are not allowed to analyze the roadmap or answer phase execution questions from the parent.
+- If the parent performs substantive repo inspection or any forbidden tool call before spawn, stop immediately, acknowledge a protocol violation, discard any parent-side conclusions, and restart from `pimux spawn`.
 
-It does not recreate the original Claude-only `start` / `continue` / `--wait-after-plan` bootstrap surface or split a monolithic roadmap into per-phase specs automatically.
-Use it to execute an already-structured roadmap honestly on top of the shared pi mux foundation.
+## Parent tool surface
+
+While this skill is active, the parent session is runtime-locked to `pimux`, `AskUserQuestion`, and `say` only:
+
+- before the first child exists: `pimux spawn` only
+- `AskUserQuestion` is allowed only when the user has not provided an explicit roadmap/spec path or inline prompt that is sufficient to spawn
+- after spawn: `spawn` / `status` / `capture` / `tree` / `list` / `send_message` / `open` / `kill` only for supervision or recovery
+- child bridge notifications are delivered automatically; use notify-first pacing
+- after spawn, use at most one initial `status` / `capture` / `tree` / `list` check and at most one recovery `send_message` per activity window, then wait for new child activity or the inactivity watchdog
+- terminal settlement re-arms exactly one final `pimux status` verification before advancing
+- `say` is allowed only for short user-attention prompts
+
+The parent does not use repo `Read`, `Bash`, `Edit`, `Write`, `NotebookEdit`, `Grep`, `Glob`, `web_search`, or local helper orchestration for roadmap execution.
 
 ## Mandatory first actions
 
-1. Read the roadmap file.
-2. Start a mux session:
+1. Build a short handoff from the user request only.
+2. Pass any explicit roadmap/spec path from the user directly to the child and let the authoritative `pimux` runtime create the canonical target first when it is missing.
+3. When the user provides an inline prompt without a path, let the authoritative `pimux` runtime auto-derive/create the next current-branch spec path by following recent current-branch spec-path patterns and the spec-skill convention `.specs/specs/<YYYY>/<MM>/<branch>/<NNN>-<title>.md`.
+4. Use `AskUserQuestion` only when the user provided neither a path nor an inline prompt that is sufficient to spawn.
+5. `pimux spawn` the phase-owning child before any substantive roadmap execution work.
+6. Let the child read roadmap progress state, mux references, and repo context.
 
-```bash
-uv run {{MUX_ROOT}}/tools/session.py "mux-roadmap-<topic>"
-```
+## Runtime authority and default hierarchy
 
-3. Read the roadmap's live progress section before touching implementation.
-4. Resolve the next unblocked phase from the roadmap's DAG and next-action notes.
+For explicit `mux-roadmap` requests, lock this default hierarchy:
 
-## Default state model for pi roadmaps
+1. current-session roadmap orchestrator (control-plane)
+2. direct phase-owning `/mux-ospec` child
+3. direct stage-owning `pimux` child under that phase child
 
-Prefer this hierarchy unless the roadmap explicitly says otherwise:
+Do not collapse or bypass these ownership layers by default.
 
-1. Phase file + sibling `-stages/` directory = authoritative state for one phase.
-2. Roadmap `## Implementation Progress` section = cross-phase mirror.
-3. Roadmap `## Next Action` = orchestration intent.
+## Semantics to preserve
 
-Do not invent a separate `CONTINUE.md` by default when the roadmap already has an implementation-progress section. Use a standalone continue file only when:
-- the roadmap explicitly requires it, or
-- there is no roadmap-level progress section to mirror against.
+Preserve ac-workflow mux-roadmap behavior:
 
-## Coordinator rules
+- roadmap-level control-plane ownership
+- phase-owned stage artifacts and roadmap progress mirror reconciliation
+- declared dispatch and evidence-gated advancement
+- serialized shared-surface updates when write scopes overlap
+- no manual fallback outside protocol
 
-- You are the only roadmap coordinator.
-- Do not introduce track coordinators or nested roadmap coordinators.
-- Do not delegate “run this whole roadmap” or “run this whole phase” to another coordinator.
-- Use fresh workers for bounded stage tasks, not for hidden orchestration layers.
-- Keep shared surfaces serialized even when the DAG allows parallel tracks.
+## Phase execution contract
 
-## Phase execution pattern
+For each phase, the authoritative child owns the substantive work:
 
-For each phase:
+- child reads roadmap progress mirror, active phase handoff, mux foundation assets, and pimux protocol/pattern references
+- phase child runs mux-ospec stage discipline
+- stage work is owned by one direct stage child at a time
+- phase artifacts reconcile first; roadmap mirror reconciles second
+- parent roadmap orchestrator advances DAG only after child settlement evidence
 
-1. Read the roadmap handoff into that phase.
-2. Read the phase spec and its latest `Next Action`.
-3. Execute the phase through the standard stage loop:
-   - `GATHER`
-   - `SUCCESS_CRITERIA`
-   - `PLAN`
-   - `IMPLEMENT`
-   - `REVIEW_FIX`
-   - `TEST`
-   - `DOCUMENT`
-   - `PHASE_CLOSE`
-4. Update the phase artifacts first.
-5. Reconcile the roadmap mirror second.
-6. Only then advance along the DAG.
+## Reporting and settlement
 
-The roadmap coordinator may conceptually reuse the mux-ospec stage model, but it should execute the stage gates directly in the current session. Do not rely on nested `/skill:` invocation.
-
-## Track and DAG policy
-
-- Sequential within a track.
-- Parallel across tracks only when the active waves do not touch the same files or shared surfaces.
-- Shared surfaces that should default to serialized execution include:
-  - generator core tooling
-  - shared runtime packages
-  - umbrella package docs
-  - common availability matrices
-  - roadmap-level progress mirrors
-
-If a downstream phase depends on a generated or runtime foundation, do not start it early just because the track graph looks parallel on paper.
-
-## Worker pattern
-
-Use `subagent` for bounded stage work.
-
-Recommended agent roles when available:
-- `scout` for roadmap/phase inventory
-- `planner` for file-level implementation plans
-- `worker` for implementation and doc updates
-- `reviewer` for independent review
-
-Every worker must follow `{{MUX_ROOT}}/protocol/subagent.md`:
-- write a report
-- write a signal
-- return exactly `0` on success
-- avoid nested subagents
-
-## Update protocol
-
-After every finished stage:
-
-1. Update the corresponding phase stage artifact.
-2. Update the parent phase file's progress section.
-3. Reconcile the roadmap `## Implementation Progress` mirror.
-4. Refresh these roadmap fields together so resume stays honest:
-   - `Current State`
-   - `Progress Tree`
-   - `Test Status`
-   - `Pending Refinements`
-   - `Blockers`
-   - `Next Action`
-   - `Status`
-   - `Lessons Learned`
-   - `Last Updated`
-
-If the phase file and roadmap disagree, the phase file wins.
-
-## Validation pattern
-
-Use the shared mux tools for bounded verification:
-
-```bash
-uv run {{MUX_ROOT}}/tools/verify.py <session-dir> --action summary
-uv run {{MUX_ROOT}}/tools/extract-summary.py <report-path>
-```
-
-Use direct coordinator validation for repository commands, type checks, tests, and smoke checks.
-
-Only advance the roadmap when the phase artifacts and the roadmap mirror both reflect reality.
-
-## Resume behavior
-
-When resuming:
-- read the roadmap progress mirror first
-- then read the referenced phase file and latest phase-close artifact for the active phase
-- trust the roadmap's `Next Action` for intent, but confirm it still matches the phase files
-- repair drift immediately before doing new implementation work
-
-## Escalation policy
-
-Stay autonomous by default.
-
-Escalate in the main chat only for:
-- scope changes that alter the roadmap DAG materially
-- product or UX decisions the roadmap does not already answer
-- blockers that cannot be closed from repository evidence and available tools
-
-Use one short `say` alert when you need the user's attention.
-
-## Post-track and final validation
-
-Only run post-track fixer loops, broader QA sweeps, or release validation when the roadmap explicitly calls for them.
-Do not invent a hidden sentinel or QA pipeline just because the original Claude skill had one.
+- use `pimux send_message` for explicit parent -> child routing
+- only authoritative direct child session calls `pimux report_parent`
+- success settles on `closeout + exit`; non-success settles as `question` / `blocker` / `failure`
+- do not emit roadmap closeout while direct child outcomes remain unsettled
 
 ## Completion
 
-A roadmap phase is complete only when:
-- the phase-owned artifacts are complete
-- the roadmap mirror is reconciled
-- the next exact action is explicit
-- downstream blocked/unblocked state is honest
-
-A roadmap is complete only when every track is reconciled, the final validation phase is closed, and the roadmap mirror tells one consistent story.
-
-This adaptation favors truthful, resumable execution over a mechanical port of Claude-only orchestration machinery.
+Roadmap advancement and closeout require protocol-valid settlement plus consistent phase and roadmap artifacts.
+No silent fallback to non-`pimux` runtime for explicit mux-roadmap execution.

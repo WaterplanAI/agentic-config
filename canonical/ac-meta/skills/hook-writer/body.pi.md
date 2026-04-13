@@ -1,10 +1,10 @@
-# Claude Code Hook Writer
+# Hook Writer
 
-Creates Python hooks for Claude Code with correct JSON output schemas and fail-open patterns.
+Creates Python hooks with correct JSON output schemas and fail-open patterns.
 
 ## Compatibility Note
 
-This pi wrapper preserves the original Claude Code hook authoring target. The wrapper only adapts invocation to pi; it does not retarget the generated hook format.
+This pi wrapper preserves the original hook authoring target. The wrapper only adapts invocation to pi; it does not retarget the generated hook format.
 
 ## Hook Types
 
@@ -105,7 +105,7 @@ Hooks receive JSON via stdin:
 
 ```python
 class ToolInput(TypedDict, total=False):
-    """Tool parameters from Claude Code."""
+    """Tool parameters from the hook host."""
     command: str      # Bash commands
     file_path: str    # Write/Edit/Read targets
     content: str      # Write content
@@ -128,7 +128,7 @@ class HookInput(TypedDict):
 # dependencies = []
 # ///
 """
-Pretooluse hook for Claude Code that [PURPOSE].
+Pretooluse hook for the target host that [PURPOSE].
 
 [DETAILED DESCRIPTION]
 Fail-open principle: allow operations if hook encounters errors.
@@ -140,7 +140,7 @@ from typing import TypedDict
 
 
 class ToolInput(TypedDict, total=False):
-    """Tool parameters from Claude Code."""
+    """Tool parameters from the hook host."""
     command: str
 
 
@@ -193,7 +193,7 @@ def main() -> None:
         # Determine if should block
         should_block, message = should_block_tool(tool_name, tool_input)
 
-        # Return decision in Claude Code hook format
+        # Return decision in hook format
         hook_output: HookSpecificOutput = {
             "hookEventName": "PreToolUse",
             "permissionDecision": "deny" if should_block else "allow",

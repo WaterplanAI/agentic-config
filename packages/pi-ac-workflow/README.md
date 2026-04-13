@@ -1,51 +1,47 @@
 # @agentic-config/pi-ac-workflow
 
 ## Scope
-- Package role: ac-workflow plugin package
-- Topology status: `active`
-- Package surface status: `active`
-- Current exported pi resources:
+
+- exported skills:
   - `ac-workflow-product-manager`
   - `ac-workflow-spec`
   - `ac-workflow-mux`
   - `ac-workflow-mux-ospec`
   - `ac-workflow-mux-roadmap`
   - `ac-workflow-mux-subagent`
-  - `ac-workflow-tmux-agent`
-  - package-local `tmux-agent` extension
+- package-local extensions:
+  - `pimux` (runtime/tooling control plane)
+  - `strict-mux-runtime` (strict ledger/runtime guard)
 
-## Current surface
-### Shipped generated skill surface
-- `ac-workflow-product-manager`
-- `ac-workflow-spec`
-- `ac-workflow-mux`
-- `ac-workflow-mux-ospec`
-- `ac-workflow-mux-roadmap`
+## Naming and runtime boundary
 
-### Shipped direct package-owned tmux-agent surface
-- `ac-workflow-tmux-agent`
-- package-local `tmux-agent` extension under `extensions/tmux-agent/index.ts`
-- copied exact reference set under `skills/ac-workflow-tmux-agent/references/`
+- canonical shipped workflow IDs stay `ac-workflow-mux`, `ac-workflow-mux-ospec`, `ac-workflow-mux-roadmap`
+- user-facing aliases are `mux`, `mux-ospec`, `mux-roadmap`
+- `pimux` is runtime/tooling only, not a workflow-family wrapper
 
-### Shipped protocol / foundation surface
-- `ac-workflow-mux-subagent`
-- shared mux foundation assets under `assets/mux/`
+## mux-ospec workflow contract
 
-### Deferred surface
-- None.
+- `full`: `CREATE (optional) -> GATHER -> CONSOLIDATE -> SUCCESS_CRITERIA -> CONFIRM_SC -> PLAN -> IMPLEMENT -> REVIEW -> FIX -> TEST -> DOCUMENT -> SENTINEL`
+- `lean`: `CREATE (optional) -> CONFIRM_SC -> PLAN -> IMPLEMENT -> REVIEW -> FIX -> TEST -> DOCUMENT -> SELF_VALIDATION`
+- `leanest`: `CREATE (optional) -> CONFIRM_SC -> PLAN -> IMPLEMENT -> REVIEW -> FIX -> TEST -> SELF_VALIDATION`
 
-## Layout conventions
-- `skills/` for exported pi skills using namespaced `<plugin>-<resource>` identifiers
-- `extensions/` for package-local pi extensions and wiring
-- `README.md` as the current package-status surface
-- `assets/` subdirectories for shared non-exported helpers copied from the source plugin when wrappers or adapters need bundled support files
-- current shared asset trees include `assets/agents/spec/`, `assets/scripts/`, and `assets/mux/`
+Gate rules:
+- `GATHER = RESEARCH`
+- `CONFIRM_SC` is mandatory before `PLAN`
+- only `PASS` advances through REVIEW/TEST/SENTINEL/SELF_VALIDATION
+- child bridge notifications are delivered automatically; default pacing is notify-first
+- after spawn, use at most one initial `status` / `capture` / `tree` / `list` check and at most one recovery `send_message` per activity window, then wait for new child activity or the inactivity watchdog
+- terminal settlement re-arms exactly one final `pimux status` verification before advancing
+- default blocked/stuck behavior escalates to user
+- each stage must commit all changed repos with repo-scoped evidence (`repo_scope`, `root_commit`, `spec_commit`)
 
-## Status signaling
-- The generated `ac-workflow` skill surface plus the direct package-owned `tmux-agent` migration now ship from this package.
-- The package-local `tmux-agent` extension preserves the exact proven `/tmux-agent` command and `tmux_agent` tool logic in a repo-owned, project-agnostic surface instead of relying on a user-global-only install.
-- The migrated `ac-workflow-tmux-agent` skill and copied references preserve the same command/tool/bridge/hierarchy/report semantics as the proven global source, with only package-surface naming and ownership wording adjusted.
-- The mux family consumes the shared `assets/mux/` foundation and the shipped `ac-workflow-mux-subagent` worker protocol instead of private per-skill copies.
-- The generated pi `mux`, `mux-ospec`, and `mux-roadmap` surfaces are honest runtime adaptations: they use one coordinator layer plus synchronous `subagent` waves, not nested skill loading or task notifications.
-- The shipped pi `mux-ospec` wrapper assumes an existing spec path, and the shipped pi `mux-roadmap` wrapper assumes an already-structured roadmap with a live `## Implementation Progress` mirror; neither wrapper recreates the original Claude bootstrap/flag surface inside pi.
-- Presence of this package directory does not imply that the broader repository has no remaining deferred work in other plugin families or in broader generic subagent/runtime parity.
+## Topology quick view
+
+```text
+pimux                     L0 -> L1 worker
+ac-workflow-mux           L0 -> L1 mux-coordinator -> L2 scout/planner/workers
+ac-workflow-mux-ospec     L0 -> L1 stage-owner -> L2 helpers
+ac-workflow-mux-roadmap   L0 -> L1 roadmap -> L2 phases -> L3 stages
+```
+
+See `docs/pimux-workflow-topologies.md` for full hierarchy and messaging patterns.

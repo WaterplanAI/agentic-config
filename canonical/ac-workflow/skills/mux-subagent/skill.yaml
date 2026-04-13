@@ -1,6 +1,6 @@
 skill_id: mux-subagent
 kind: standard
-summary: "MUX worker protocol reference. Defines the report, signal, and return-code contract that later mux orchestrators consume."
+summary: "MUX data-plane worker protocol reference. Defines the report, signal, and return-code contract that strict mux coordinators consume."
 project_agnostic: true
 body_file: body.md
 assets: []
@@ -19,7 +19,7 @@ renders:
       - Glob
       - WebSearch
     frontmatter_enabled: true
-    description: "MUX worker protocol reference. Defines the report, signal, and return-code contract that later mux orchestrators consume."
+    description: "MUX data-plane worker protocol reference. Defines the report, signal, and return-code contract that strict mux coordinators consume."
     frontmatter_extra:
       hooks:
         PreToolUse:
@@ -40,5 +40,5 @@ renders:
       - Glob
       - web_search
     frontmatter_enabled: true
-    description: "MUX worker protocol reference for pi. Defines the report, signal, and return-code contract that later mux orchestrators consume."
+    description: "MUX data-plane worker protocol reference for pi. Defines the report, signal, and return-code contract that strict mux coordinators consume."
     body_file: body.pi.md

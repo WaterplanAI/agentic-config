@@ -15,7 +15,7 @@ renders:
     - Bash
     - Read
     frontmatter_enabled: true
-    description: 'Installs and configures VoiceMode MCP for voice interactions with Claude Code. Triggers on keywords: setup
+    description: 'Installs and configures VoiceMode MCP for voice interactions in the target client. Triggers on keywords: setup
       voice, voice mode, install voicemode, configure voice'
   pi:
     status: supported
@@ -26,5 +26,5 @@ renders:
     - Read
     frontmatter_enabled: true
     body_file: body.pi.md
-    description: 'Installs and configures VoiceMode MCP for voice interactions with Claude Code. Triggers on keywords: setup
+    description: 'Installs and configures VoiceMode MCP for voice interactions in the target client. Triggers on keywords: setup
       voice, voice mode, install voicemode, configure voice'

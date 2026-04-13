@@ -7,7 +7,7 @@
 
 ## Current exported surface
 - Shared extension runtimes under `extensions/`
-  - `hook-compat/` — shared Claude-style pre-tool hook runtime plus registration helpers
+  - `hook-compat/` — shared compat pre-tool hook runtime plus registration helpers
   - `ask-user/` — shared `AskUserQuestion` compat tool for confirmations, selections, and short text answers
   - `notebook-edit/` — shared `NotebookEdit` compat tool for targeted `.ipynb` cell-source edits
 - Shared package assets under `assets/`
@@ -19,8 +19,8 @@
   - `@agentic-config/pi-compat/extensions/hook-compat`
   - named helpers: `registerHookCompatPackage(pi, registration)` and `listRegisteredHookCompatPackages(pi)`
 - Foundation modules for:
-  - Claude matcher evaluation
-  - pi-to-Claude payload mapping
+  - hook matcher evaluation
+  - compat payload mapping
   - compatibility env construction
   - hook script execution (`uv run --no-project --script`)
   - decision handling (`allow`, `deny`, `ask`, no decision)

@@ -1,35 +1,39 @@
 # Spec Workflow Engine
 
-/skill:ac-workflow-spec STAGE SPEC: STRICTLY FOLLOW the bundled stage instructions in `../../assets/agents/spec/{STAGE}.md` using STAGE AND SPEC as the variables
+/skill:ac-workflow-spec STAGE SPEC: strictly follow bundled stage instructions at `../../assets/agents/spec/{STAGE}.md`.
 
-## Compatibility Note
+## Supported public stages
 
-This pi wrapper preserves the original spec workflow shape while replacing source-plugin-root references with bundled package-local stage-agent and shell-helper assets. In this repository, treat `.specs/specs/` as the canonical destination for committed specs.
+- CREATE
+- GATHER (compatibility alias to RESEARCH)
+- RESEARCH
+- CONSOLIDATE
+- SUCCESS_CRITERIA
+- CONFIRM_SC
+- PLAN
+- IMPLEMENT
+- REVIEW
+- FIX
+- TEST
+- DOCUMENT
+- SENTINEL
+- SELF_VALIDATION
 
-## Variables
+Compatibility/internal only: PLAN_REVIEW, VALIDATE, VALIDATE_INLINE, AMEND.
 
-STAGE=$ARGUMENTS
-SPEC=$ARGUMENTS / LAST USED SPEC
+## Repository and commit contract
 
-## Spec Rules
+- default project convention: `.specs/specs/<YYYY>/<MM>/<branch>/<NNN>-<title>.md`
+- modify only AI section in spec files
+- each stage must commit every changed repo
+- if both repos changed, commit root repo first and spec repo second
+- include repo-scoped commit evidence in stage outputs: `repo_scope`, `root_commit`, `spec_commit`
 
-- Default path in this repository: `.specs/specs/<YYYY>/<MM>/<branch>/<NNN>-<title>.md`
-- Modify AI Section only; never touch Human Section
-- Commit after each stage: `spec(<NNN>): <STAGE> - <title>`
-- One stage = one commit (do NOT bundle multiple stages)
+## Bundled assets
 
-## Bundled Stage Assets
-
-When this workflow refers to stage-agent instructions or helper scripts, use the bundled assets from this pi package:
+Use package-bundled assets:
 - `../../assets/agents/spec/{STAGE}.md`
 - `../../assets/scripts/spec-resolver.sh`
 - `../../assets/scripts/external-specs.sh`
 - `../../assets/scripts/lib/config-loader.sh`
 - `../../assets/scripts/lib/source-helpers.sh`
-
-## Conditional Documentation
-
-When working with external specs storage, read:
-- `../../assets/scripts/spec-resolver.sh`
-- `../../assets/scripts/external-specs.sh`
-- `../../assets/scripts/lib/config-loader.sh`

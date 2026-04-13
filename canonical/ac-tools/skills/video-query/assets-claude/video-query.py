@@ -17,6 +17,11 @@ import time
 from pathlib import Path
 from typing import Annotated
 
+import typer
+from dotenv import load_dotenv
+from google import genai  # pyright: ignore[reportAttributeAccessIssue]
+from rich.console import Console
+
 # Pricing per 1M tokens (gemini-2.5-flash-lite)
 PRICING = {
     "gemini-2.5-flash-lite": {"input": 0.10, "output": 0.40},
@@ -24,11 +29,6 @@ PRICING = {
     "gemini-2.0-flash": {"input": 0.10, "output": 0.40},
     "default": {"input": 0.10, "output": 0.40},
 }
-
-import typer
-from dotenv import load_dotenv
-from google import genai
-from rich.console import Console
 
 # Load .env file from current directory or parent directories
 load_dotenv()

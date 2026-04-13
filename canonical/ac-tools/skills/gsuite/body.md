@@ -1,7 +1,7 @@
 
 # GSuite Skill
 
-Google Suite integration for Claude Code with multi-account support (enterprise + personal).
+GSuite integration with multi-account support (work + personal).
 
 ## Capabilities
 

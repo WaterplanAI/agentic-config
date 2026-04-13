@@ -28,16 +28,11 @@ renders:
     output_path: skills/ac-workflow-mux-roadmap/SKILL.md
     display_name: ac-workflow-mux-roadmap
     allowed_tools:
-      - Read
-      - Write
-      - Edit
-      - Bash
-      - Grep
-      - Glob
-      - subagent
+      - pimux
+      - AskUserQuestion
       - say
     frontmatter_enabled: true
-    description: "pi-adapted roadmap coordinator. Uses roadmap-level progress mirrors, phase-owned stage artifacts, and one-layer subagent waves on top of the shared mux foundation."
+    description: "pi-adapted roadmap coordinator. Uses pimux as the authoritative runtime for roadmap -> ospec -> stage hierarchy while preserving mux semantics."
     body_file: body.pi.md
     frontmatter_extra:
-      argument-hint: "[roadmap_path]"
+      argument-hint: "[roadmap_path|inline_prompt]"

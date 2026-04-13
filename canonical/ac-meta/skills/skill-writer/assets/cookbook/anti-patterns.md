@@ -214,7 +214,7 @@ project-agnostic: false
 ...
 ```
 
-**Why bad:** Micromanagement limits Claude's reasoning.
+**Why bad:** Micromanagement limits the model's reasoning.
 
 **Solution:** Provide goals and constraints, not step-by-step instructions.
 
@@ -227,7 +227,7 @@ TBD: Define behavior
 FIXME: Complete this section
 ```
 
-**Why bad:** Incomplete skills confuse Claude.
+**Why bad:** Incomplete skills confuse the model.
 
 **Solution:** Finish skill before deploying.
 

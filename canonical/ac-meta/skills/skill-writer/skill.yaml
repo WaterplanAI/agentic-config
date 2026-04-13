@@ -1,6 +1,6 @@
 skill_id: skill-writer
 kind: standard
-summary: 'Expert assistant for authoring Claude Code skills. Creates SKILL.md files
+summary: 'Expert assistant for authoring SKILL.md skills. Creates SKILL.md files
   with proper YAML frontmatter, validates naming conventions, enforces tool minimalism,
   and applies official best practices. Triggers on keywords: writing skills, creating
   skills, skill authoring, SKILL.md, new skill, skill template, skill validation,
@@ -26,7 +26,7 @@ renders:
     - Glob
     - Grep
     frontmatter_enabled: true
-    description: 'Expert assistant for authoring Claude Code skills. Creates SKILL.md
+    description: 'Expert assistant for authoring SKILL.md skills. Creates SKILL.md
       files with proper YAML frontmatter, validates naming conventions, enforces tool
       minimalism, and applies official best practices. Triggers on keywords: writing
       skills, creating skills, skill authoring, SKILL.md, new skill, skill template,
@@ -42,7 +42,7 @@ renders:
     - Glob
     - Grep
     frontmatter_enabled: true
-    description: 'Expert assistant for authoring Claude Code skills. Creates SKILL.md
+    description: 'Expert assistant for authoring SKILL.md skills. Creates SKILL.md
       files with proper YAML frontmatter, validates naming conventions, enforces tool
       minimalism, and applies official best practices. Triggers on keywords: writing
       skills, creating skills, skill authoring, SKILL.md, new skill, skill template,

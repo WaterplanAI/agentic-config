@@ -51,6 +51,16 @@ Pi is supported today through a validated root umbrella package installable from
 
 For teams, prefer a committed `.pi/settings.json` pinned to a release tag. For local testing and development, use branch refs or direct local package paths as appropriate.
 
+Inside `@agentic-config/pi-ac-workflow`, runtime ownership is deliberate: `pimux` is the package-owned tmux control plane, and `ac-workflow-mux`, `ac-workflow-mux-ospec`, and `ac-workflow-mux-roadmap` are structured wrappers on top of it. Generic long-lived tmux work stays on `pimux`; the shipped pi package no longer exposes a separate managed-agent surface.
+
+Quick chooser:
+- use `pimux` for a generic long-lived tmux worker, small team, or inspectable non-mux hierarchy
+- use `ac-workflow-mux` for scout/planner/worker orchestration
+- use `ac-workflow-mux-ospec` for one explicit spec-stage owner
+- use `ac-workflow-mux-roadmap` for roadmap -> phase -> stage nesting
+
+See [pimux Workflow Topologies](docs/pimux-workflow-topologies.md).
+
 See the [Pi Package Adoption Guide](packages/README.md) for the primary git-tag install path, branch-based dev installs, local package-root testing, and future npm distribution notes.
 
 ## What is agentic-config?
@@ -69,7 +79,7 @@ Core principles:
 
 | Plugin | Focus | Skills |
 |--------|-------|--------|
-| `ac-workflow` | Spec workflow, MUX orchestration | 6 |
+| `ac-workflow` | Spec workflow, pimux-backed orchestration | 6 |
 | `ac-git` | Git automation, PRs, releases | 7 |
 | `ac-qa` | QA, E2E testing, browser automation | 7 |
 | `ac-tools` | Utilities, integrations, bootstrap | 17 |
@@ -81,6 +91,7 @@ Core principles:
 
 - [Getting Started](docs/getting-started.md) -- Install, setup, first use
 - [Plugin Catalog](docs/plugin-catalog.md) -- All 42 skills with composition patterns
+- [pimux Workflow Topologies](docs/pimux-workflow-topologies.md) -- `pimux`, mux, ospec, and roadmap hierarchy guide
 - [Distribution Guide](docs/distribution.md) -- Claude marketplace rollout plus pi git-tag distribution, dev branch installs, and future npm notes
 - [Pi Package Adoption Guide](packages/README.md) -- primary git-tag installs, branch-based dev installs, local package-root testing, and future npm distribution notes
 - [Migration Guide v0.2.0](docs/migration-v0.2.0.md) -- Migrate from v0.1.x
@@ -89,7 +100,7 @@ Core principles:
 
 ## Permissions
 
-MUX workflows (`ac-workflow` plugin) delegate to background agents via `Task(run_in_background=True)`. Background agents **cannot surface interactive permission prompts** -- any unapproved tool is auto-denied.
+Claude Code MUX workflows (`ac-workflow` plugin) delegate to background agents via `Task(run_in_background=True)`. Background agents **cannot surface interactive permission prompts** -- any unapproved tool is auto-denied. In pi, the mux-family uses the package-owned `pimux` runtime instead; see [pimux Workflow Topologies](docs/pimux-workflow-topologies.md).
 
 **Recommended:** Run Claude Code with `--dangerously-skip-permissions` for MUX workflows:
 
