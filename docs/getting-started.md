@@ -1,28 +1,12 @@
 # Getting Started
 
-Setup and first use of agentic-config for AI-assisted development workflows.
+Setup and first use of agentic-config across pi packages and Claude Code plugins.
 
 ## Prerequisites
 
-- Claude Code CLI with plugin support (`claude plugin install` available) for Claude Code setup
 - Pi CLI (`pi install` available) for pi package setup
-- Git (for Claude marketplace access)
-
-## Install for Claude Code
-
-Add the marketplace, then install plugins:
-
-```bash
-claude plugin marketplace add WaterplanAI/agentic-config
-
-claude plugin install ac-workflow@agentic-plugins
-claude plugin install ac-git@agentic-plugins
-claude plugin install ac-qa@agentic-plugins
-claude plugin install ac-tools@agentic-plugins
-claude plugin install ac-meta@agentic-plugins
-claude plugin install ac-safety@agentic-plugins
-claude plugin install ac-audit@agentic-plugins
-```
+- Claude Code CLI with plugin support (`claude plugin install` available) for Claude Code setup
+- Git (for Claude marketplace access and git-based pi installs)
 
 ## Install for pi
 
@@ -69,6 +53,22 @@ pi install ./packages/pi-ac-workflow -l
 For bundled package roots such as `pi-all`, use the staged local testing flow from the [Pi Package Adoption Guide](../packages/README.md#local-package-testing-before-distribution).
 
 Publishing the per-package npm surface remains future work. See the [Pi Package Adoption Guide](../packages/README.md) for the full install matrix.
+
+## Install for Claude Code
+
+Add the marketplace, then install plugins:
+
+```bash
+claude plugin marketplace add WaterplanAI/agentic-config
+
+claude plugin install ac-workflow@agentic-plugins
+claude plugin install ac-git@agentic-plugins
+claude plugin install ac-qa@agentic-plugins
+claude plugin install ac-tools@agentic-plugins
+claude plugin install ac-meta@agentic-plugins
+claude plugin install ac-safety@agentic-plugins
+claude plugin install ac-audit@agentic-plugins
+```
 
 ## Enable Auto-Updates (Recommended)
 
@@ -199,13 +199,13 @@ Add project-specific customizations directly to AGENTS.md.
 
 ## What Gets Installed
 
-**Claude Code plugins (via `claude plugin install`):**
-- `ac-workflow`, `ac-git`, `ac-qa`, `ac-tools`, `ac-meta`, `ac-safety`, `ac-audit`
-- No symlinks -- plugins load from `~/.claude/plugins/cache/`
-
 **Pi packages (via `pi install`):**
 - `@agentic-config/pi-all` for the full shipped surface, or selective `@agentic-config/pi-*` packages
 - Team rollout is typically versioned in committed `.pi/settings.json`
+
+**Claude Code plugins (via `claude plugin install`):**
+- `ac-workflow`, `ac-git`, `ac-qa`, `ac-tools`, `ac-meta`, `ac-safety`, `ac-audit`
+- No symlinks -- plugins load from `~/.claude/plugins/cache/`
 
 **Copied (project-customizable):**
 - `AGENTS.md` -- Project-specific guidelines
@@ -266,7 +266,7 @@ Pi:
 
 - [Plugin Catalog](plugin-catalog.md) -- All skills by plugin
 - [pimux Workflow Topologies](pimux-workflow-topologies.md) -- `pimux`, mux, ospec, and roadmap runtime guide
-- [Distribution Guide](distribution.md) -- Claude marketplace rollout plus pi git-tag distribution, dev branch installs, and future npm notes
+- [Distribution Guide](distribution.md) -- pi git-tag installs, Claude marketplace rollout, dev branch installs, and future npm notes
 - [Pi Package Adoption Guide](../packages/README.md) -- primary git-tag installs, branch-based dev installs, local package-root testing, and future npm distribution notes
 - [Migration Guide v0.2.0](migration-v0.2.0.md) -- Migrate from v0.1.x symlinks
 - [External Specs Storage](external-specs-storage.md) -- Configure external specs repository

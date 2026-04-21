@@ -1,8 +1,8 @@
 # Distribution Guide
 
-Team and enterprise distribution of agentic-config for Claude Code plugins and pi packages.
+Team and enterprise distribution of agentic-config across pi packages and Claude Code plugins.
 
-Claude Code uses the marketplace flow below. Pi currently uses validated git-tag installs of the root umbrella package as the primary distribution path, with branch refs for development and local package-root installs for validation. Per-package npm distribution remains future work.
+Pi currently uses validated git-tag installs of the root umbrella package as the primary distribution path, with branch refs for development and local package-root installs for validation. Claude Code uses the marketplace flow below. Per-package npm distribution remains future work.
 
 ## Claude Code Marketplace Distribution
 
@@ -239,6 +239,6 @@ All customizations are isolated to the private fork.
 
 ## See Also
 
-- [Getting Started](getting-started.md) -- Claude Code and pi setup
+- [Getting Started](getting-started.md) -- pi and Claude Code setup
 - [Pi Package Adoption Guide](../packages/README.md) -- npm installs, alternative git installs, committed `.pi/settings.json`, and local pre-distribution testing
 - [Migration Guide v0.2.0](migration-v0.2.0.md) -- Migrate from v0.1.x symlinks
