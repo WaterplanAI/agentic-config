@@ -116,15 +116,17 @@ See [pimux Workflow Topologies](pimux-workflow-topologies.md) for the practical 
 Use the current public release tag when you want reproducible rollout from the repository itself:
 
 ```bash
-pi install "git:github.com/WaterplanAI/agentic-config@v0.2.6" -l
+pi install "git:github.com/WaterplanAI/agentic-config@v0.3.0-alpha" -l
 ```
+
+The `-l` flag installs it into the local project config. For a global/user install, remove `-l`.
 
 Equivalent committed `.pi/settings.json` source:
 
 ```json
 {
   "packages": [
-    "git:github.com/WaterplanAI/agentic-config@v0.2.6"
+    "git:github.com/WaterplanAI/agentic-config@v0.3.0-alpha"
   ]
 }
 ```

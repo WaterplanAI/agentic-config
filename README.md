@@ -9,8 +9,10 @@ Project-agnostic, composable configuration system for AI-assisted development wo
 Primary install from the current public release tag:
 
 ```bash
-pi install "git:github.com/WaterplanAI/agentic-config@v0.2.6" -l
+pi install "git:github.com/WaterplanAI/agentic-config@v0.3.0-alpha" -l
 ```
+
+The `-l` flag installs it into the local project config. For a global/user install, remove `-l`.
 
 For teams and automation, prefer the tagged git ref in committed `.pi/settings.json` so the rollout stays reproducible.
 

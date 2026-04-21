@@ -1,6 +1,6 @@
 {
   "name": "@agentic-config/pi-compat",
-  "version": "0.2.6",
+  "version": "0.3.0-alpha",
   "description": "Shared pi runtime-compat foundations for agentic-config plugin packages.",
   "license": "MIT",
   "homepage": "https://github.com/WaterplanAI/agentic-config",

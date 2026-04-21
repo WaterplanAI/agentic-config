@@ -1,12 +1,18 @@
 {
   "name": "ac-git",
   "description": "Git automation - PRs, releases, branches, worktrees",
-  "version": "0.2.6",
+  "version": "0.3.0-alpha",
   "author": {
     "name": "Agentic Config Contributors"
   },
   "homepage": "https://github.com/WaterplanAI/agentic-config",
   "repository": "https://github.com/WaterplanAI/agentic-config",
   "license": "MIT",
-  "keywords": ["git", "pull-request", "release", "branch", "worktree"]
+  "keywords": [
+    "git",
+    "pull-request",
+    "release",
+    "branch",
+    "worktree"
+  ]
 }

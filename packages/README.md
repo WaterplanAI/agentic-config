@@ -82,15 +82,17 @@ Use a tagged git ref when you want a reproducible team or automation rollout fro
 Install the full shipped surface:
 
 ```bash
-pi install "git:github.com/WaterplanAI/agentic-config@v0.2.6" -l
+pi install "git:github.com/WaterplanAI/agentic-config@v0.3.0-alpha" -l
 ```
+
+The `-l` flag installs it into the local project config. For a global/user install, remove `-l`.
 
 Equivalent committed `.pi/settings.json` source:
 
 ```json
 {
   "packages": [
-    "git:github.com/WaterplanAI/agentic-config@v0.2.6"
+    "git:github.com/WaterplanAI/agentic-config@v0.3.0-alpha"
   ]
 }
 ```
@@ -162,7 +164,7 @@ Full shipped set:
 ```json
 {
   "packages": [
-    "git:github.com/WaterplanAI/agentic-config@v0.2.6"
+    "git:github.com/WaterplanAI/agentic-config@v0.3.0-alpha"
   ]
 }
 ```
@@ -212,7 +214,7 @@ This matrix is the current adoption surface. It separates what is available now,
   - broader generic nested/background `Task` / subagent runtime primitives beyond the shared `AskUserQuestion` + `NotebookEdit` + worker-wave foundation and the shipped package-owned `pimux` workflow runtime
 
 ## Versioning strategy
-- All package manifests use the shared repository version from `VERSION` (`0.2.6`).
+- All package manifests use the shared repository version from `VERSION` (`0.3.0-alpha`).
 - Package manifests use exact sibling package versions in `dependencies` to keep the monorepo package set aligned.
 - Install/discovery smoke tests for the current package surface are validated separately from this summary.
 

@@ -1,6 +1,6 @@
 {
   "name": "@agentic-config/pi-ac-meta",
-  "version": "0.2.6",
+  "version": "0.3.0-alpha",
   "description": "Pi package for the agentic-config ac-meta plugin.",
   "license": "MIT",
   "homepage": "https://github.com/WaterplanAI/agentic-config",

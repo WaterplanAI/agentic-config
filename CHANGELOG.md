@@ -4,6 +4,8 @@ All notable changes to agentic-config.
 
 ## [Unreleased]
 
+## [0.3.0-alpha] - 2026-04-21
+
 ### Added
 
 - `pi-ac-safety`: generated `ac-safety-harden-supply-chain-sec` pi wrapper
