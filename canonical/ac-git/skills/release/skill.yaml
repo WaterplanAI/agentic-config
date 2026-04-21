@@ -1,0 +1,42 @@
+skill_id: release
+kind: standard
+summary: 'Full release workflow including changelog validation, squash, rebase, push,
+  merge to main, and GitHub release preparation. Triggers on keywords: release, create
+  release, publish release, tag release'
+project_agnostic: true
+body_file: body.md
+assets: []
+attachment_refs: []
+renders:
+  claude:
+    status: supported
+    output_path: skills/release/SKILL.md
+    display_name: release
+    allowed_tools:
+    - Read
+    - Edit
+    - Bash
+    - Grep
+    - Glob
+    - Task
+    - Write
+    - AskUserQuestion
+    - Skill
+    frontmatter_enabled: true
+    description: 'Full release workflow including milestone validation, squash, rebase,
+      push, merge to main, and GitHub release creation. Triggers on keywords: release,
+      create release, publish release, tag release'
+  pi:
+    status: supported
+    output_path: skills/ac-git-release/SKILL.md
+    display_name: ac-git-release
+    allowed_tools:
+    - Read
+    - Edit
+    - Bash
+    - Write
+    frontmatter_enabled: true
+    description: 'Full release workflow including changelog validation, squash, rebase,
+      push, merge to main, and GitHub release preparation. Triggers on keywords: release,
+      create release, publish release, tag release'
+    body_file: body.pi.md

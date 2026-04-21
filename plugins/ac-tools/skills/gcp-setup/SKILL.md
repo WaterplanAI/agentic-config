@@ -1,7 +1,6 @@
 ---
 name: gcp-setup
 description: "Interactive GCP Cloud Build + Cloud Run setup. Provisions APIs, AR, SAs, IAM, secrets, and triggers."
-triggers: "gcp setup, cloud run setup, deploy setup, infrastructure setup, gcp provision"
 project-agnostic: true
 allowed-tools:
   - Bash
@@ -32,7 +31,7 @@ Every phase validates security posture. The skill enforces:
 
 All tools are relative to this skill directory:
 ```
-SKILL_DIR="${CLAUDE_PLUGIN_ROOT}/skills/gcp-setup"
+SKILL_DIR="."
 ```
 
 ## Workflow

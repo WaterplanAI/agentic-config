@@ -66,3 +66,9 @@ trees/
 /skills/
 /agents/
 .mux/
+
+# Node
+node_modules/
+
+pi/learnings
+.pi/learnings

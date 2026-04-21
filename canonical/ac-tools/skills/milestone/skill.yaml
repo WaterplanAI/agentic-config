@@ -1,0 +1,43 @@
+skill_id: milestone
+kind: standard
+summary: 'Validates backlog section completion, then squashes and tags or identifies
+  gaps. Generates milestone and release notes. Triggers on keywords: milestone, release
+  notes, tag release, validate backlog'
+project_agnostic: true
+body_file: body.md
+assets: []
+attachment_refs: []
+renders:
+  claude:
+    status: supported
+    output_path: skills/milestone/SKILL.md
+    display_name: milestone
+    allowed_tools:
+    - Read
+    - Edit
+    - Bash
+    - Grep
+    - Glob
+    - Task
+    - Write
+    - AskUserQuestion
+    frontmatter_enabled: true
+    description: 'Validates backlog section completion, then squashes and tags or
+      identifies gaps. Generates milestone and release notes. Triggers on keywords:
+      milestone, release notes, tag release, validate backlog'
+  pi:
+    status: supported
+    output_path: skills/ac-tools-milestone/SKILL.md
+    display_name: ac-tools-milestone
+    allowed_tools:
+    - Read
+    - Edit
+    - Bash
+    - Grep
+    - Glob
+    - Write
+    frontmatter_enabled: true
+    description: 'Validates backlog section completion, then squashes and tags or
+      identifies gaps. Generates milestone and release notes. Triggers on keywords:
+      milestone, release notes, tag release, validate backlog'
+    body_file: body.pi.md

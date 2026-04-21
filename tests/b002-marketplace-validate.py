@@ -29,6 +29,16 @@ def check(label: str, condition: bool, detail: str = "") -> None:
         print(f"  FAIL: {label} -- {detail}")
 
 
+def discover_expected_plugin_names(root: Path) -> set[str]:
+    """Return marketplace plugin names from shipped plugin manifests."""
+    plugins_dir = root / "plugins"
+    return {
+        plugin_dir.name
+        for plugin_dir in plugins_dir.iterdir()
+        if plugin_dir.is_dir() and (plugin_dir / ".claude-plugin" / "plugin.json").exists()
+    }
+
+
 def main() -> None:
     global PASS, FAIL
     root = Path(__file__).resolve().parent.parent
@@ -60,11 +70,12 @@ def main() -> None:
     }
     check("marketplace name not reserved", mp.get("name") not in reserved, mp.get("name", ""))
 
-    # --- SC-2: all 5 plugins listed ---
+    # --- SC-2: all marketplace plugins listed ---
     plugins = mp.get("plugins", [])
-    expected_names = {"ac-workflow", "ac-git", "ac-qa", "ac-tools", "ac-meta"}
-    print("SC-2: all 5 plugins listed")
-    check("5 plugins", len(plugins) == 5, f"found {len(plugins)}")
+    expected_names = discover_expected_plugin_names(root)
+    expected_count = len(expected_names)
+    print(f"SC-2: all {expected_count} marketplace plugins listed")
+    check(f"{expected_count} plugins", len(plugins) == expected_count, f"found {len(plugins)}")
     actual_names = {p.get("name") for p in plugins}
     check("correct plugin names", actual_names == expected_names, f"got {actual_names}")
 
@@ -110,9 +121,11 @@ def main() -> None:
               root_pj.get("author", {}).get("name", ""))
         check("root has homepage", "homepage" in root_pj)
 
-    # --- Schema field ---
+    # --- Schema compatibility ---
     print("Schema and metadata")
-    check("has $schema", "$schema" in mp)
+    allowed_root_keys = {"name", "owner", "metadata", "plugins"}
+    extra_root_keys = sorted(set(mp) - allowed_root_keys)
+    check("no unsupported root keys", len(extra_root_keys) == 0, ", ".join(extra_root_keys))
     check("has metadata.description", "description" in mp.get("metadata", {}))
     check("has metadata.pluginRoot", "pluginRoot" in mp.get("metadata", {}))
 

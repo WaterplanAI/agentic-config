@@ -1030,6 +1030,149 @@ def test_blocks_cp_ssh_key() -> TestResult:
     return r
 
 
+def test_blocks_touch_ssh_file() -> TestResult:
+    """touch ~/.ssh/test (bash write into protected credential directory)"""
+    r = TestResult("Blocks touch ~/.ssh/test")
+    try:
+        out = run_hook("touch ~/.ssh/test")
+        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+        raise
+    return r
+
+
+def test_blocks_redirect_write_ssh_file() -> TestResult:
+    """echo hi > ~/.ssh/test (shell redirection write into protected directory)"""
+    r = TestResult("Blocks echo hi > ~/.ssh/test")
+    try:
+        out = run_hook("echo hi > ~/.ssh/test")
+        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+        raise
+    return r
+
+
+def test_blocks_redirect_append_ssh_file() -> TestResult:
+    """echo hi >> ~/.ssh/test (shell redirection append into protected directory)"""
+    r = TestResult("Blocks echo hi >> ~/.ssh/test")
+    try:
+        out = run_hook("echo hi >> ~/.ssh/test")
+        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+        raise
+    return r
+
+
+def test_blocks_rm_ssh_file() -> TestResult:
+    """rm ~/.ssh/test (delete within protected credential directory)"""
+    r = TestResult("Blocks rm ~/.ssh/test")
+    try:
+        out = run_hook("rm ~/.ssh/test")
+        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+        raise
+    return r
+
+
+def test_allows_touch_project_file() -> TestResult:
+    """touch ~/projects/myapp/test.txt remains allowed inside project roots"""
+    r = TestResult("Allows touch ~/projects/myapp/test.txt")
+    try:
+        out = run_hook("touch ~/projects/myapp/test.txt")
+        assert out["decision"] == "allow", f"Expected allow, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+        raise
+    return r
+
+
+def test_blocks_rg_aws_credentials() -> TestResult:
+    """rg secret ~/.aws/credentials (credential read via ripgrep alias)"""
+    r = TestResult("Blocks rg secret ~/.aws/credentials")
+    try:
+        out = run_hook("rg secret ~/.aws/credentials")
+        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+        raise
+    return r
+
+
+def test_blocks_find_ssh_directory() -> TestResult:
+    """find ~/.ssh -maxdepth 1 (credential enumeration via find)"""
+    r = TestResult("Blocks find ~/.ssh -maxdepth 1")
+    try:
+        out = run_hook("find ~/.ssh -maxdepth 1")
+        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+        raise
+    return r
+
+
+def test_blocks_ls_ssh_directory() -> TestResult:
+    """ls ~/.ssh (credential enumeration via ls)"""
+    r = TestResult("Blocks ls ~/.ssh")
+    try:
+        out = run_hook("ls ~/.ssh")
+        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+        raise
+    return r
+
+
+def test_blocks_tree_aws_directory() -> TestResult:
+    """tree ~/.aws (credential enumeration via tree)"""
+    r = TestResult("Blocks tree ~/.aws")
+    try:
+        out = run_hook("tree ~/.aws")
+        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+        raise
+    return r
+
+
+def test_blocks_python_c_open_ssh_key() -> TestResult:
+    """python -c open(...~/.ssh...) (credential read via interpreter one-liner)"""
+    r = TestResult("Blocks python -c open(~/.ssh/id_rsa)")
+    try:
+        out = run_hook('python -c "import os; print(open(os.path.expanduser(\"~/.ssh/id_rsa\")).read())"')
+        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+        raise
+    return r
+
+
+def test_blocks_node_e_readfile_ssh_key() -> TestResult:
+    """node -e fs.readFileSync(...~/.ssh...) (credential read via interpreter one-liner)"""
+    r = TestResult("Blocks node -e fs.readFileSync($HOME/.ssh/id_rsa)")
+    try:
+        out = run_hook("node -e \"require('fs').readFileSync(process.env.HOME + '/.ssh/id_rsa', 'utf8')\"")
+        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+        raise
+    return r
+
+
 def test_blocks_cat_hidden_dir_wildcard_ssh() -> TestResult:
     """Issue 2: cat ~/.*/id_rsa should be denied."""
     r = TestResult("Blocks cat ~/.*/id_rsa (hidden-dir wildcard credential read)")
@@ -1444,6 +1587,17 @@ def main() -> None:
         test_blocks_base64_ssh_key,
         test_blocks_grep_aws_credentials,
         test_blocks_cp_ssh_key,
+        test_blocks_touch_ssh_file,
+        test_blocks_redirect_write_ssh_file,
+        test_blocks_redirect_append_ssh_file,
+        test_blocks_rm_ssh_file,
+        test_allows_touch_project_file,
+        test_blocks_rg_aws_credentials,
+        test_blocks_find_ssh_directory,
+        test_blocks_ls_ssh_directory,
+        test_blocks_tree_aws_directory,
+        test_blocks_python_c_open_ssh_key,
+        test_blocks_node_e_readfile_ssh_key,
         test_blocks_cat_hidden_dir_wildcard_ssh,
         test_blocks_grep_hidden_dir_wildcard_config,
         test_blocks_tar_hidden_dir_wildcard_home,

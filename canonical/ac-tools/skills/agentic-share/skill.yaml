@@ -1,0 +1,38 @@
+skill_id: agentic-share
+kind: standard
+summary: Shared core logic for importing/exporting reusable assets into the v0.2 plugin
+  architecture. Internal helper for agentic-import and agentic-export.
+project_agnostic: false
+body_file: body.md
+assets: []
+attachment_refs: []
+renders:
+  claude:
+    status: supported
+    output_path: skills/agentic-share/SKILL.md
+    display_name: agentic-share
+    allowed_tools:
+    - Read
+    - Write
+    - Edit
+    - Bash
+    - Glob
+    - Grep
+    frontmatter_enabled: true
+    description: Shared core logic for importing/exporting reusable assets into the
+      v0.2 plugin architecture. Internal helper for agentic-import and agentic-export.
+  pi:
+    status: supported
+    output_path: skills/ac-tools-agentic-share/SKILL.md
+    display_name: ac-tools-agentic-share
+    allowed_tools:
+    - Read
+    - Write
+    - Edit
+    - Bash
+    - Glob
+    - Grep
+    frontmatter_enabled: true
+    description: Shared core logic for importing/exporting reusable assets into the
+      v0.2 plugin architecture. Internal helper for agentic-import and agentic-export.
+    body_file: body.pi.md

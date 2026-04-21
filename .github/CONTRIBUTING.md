@@ -44,6 +44,10 @@ Thank you for your interest in contributing!
 
 ## Development
 
+Prerequisites for contributing locally:
+- `claude` for Claude Code plugin development and validation
+- `pi` for pi package validation and the pre-commit PII audit hook
+
 ```bash
 # Launch claude with all plugin dirs for local development
 ./dev.sh
@@ -51,3 +55,11 @@ Thank you for your interest in contributing!
 # Run Python tests
 uv run pytest
 ```
+
+## Local pi package testing before distribution
+
+Use pi local-path installs when validating the pi packages before npm distribution is enabled.
+
+- Direct `pi install ./packages/<name> -l` is appropriate for standalone packages such as `pi-compat`, `pi-ac-meta`, and `pi-ac-workflow`.
+- Packages that rely on bundled sibling package trees, including `pi-ac-audit`, `pi-ac-git`, `pi-ac-qa`, `pi-ac-safety`, `pi-ac-tools`, and `pi-all`, must be staged with `node_modules/@agentic-config/...` populated before running `pi install ... -l` or pointing `.pi/settings.json` at the staged path.
+- See the [Pi Package Adoption Guide](../packages/README.md#local-package-testing-before-distribution) for the current staged examples and package-level guidance.

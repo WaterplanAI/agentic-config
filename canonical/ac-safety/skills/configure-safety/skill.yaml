@@ -1,0 +1,29 @@
+skill_id: configure-safety
+kind: standard
+summary: 'Configures guardian behavior for pi-ac-safety by reviewing defaults, proposing
+  overrides, and updating project-level or user-level safety.yaml. Triggers on keywords:
+  configure safety, safety config, safety yaml, guardian config'
+project_agnostic: true
+body_file: body.md
+assets: []
+attachment_refs: []
+renders:
+  claude:
+    status: supported
+    output_path: skills/configure-safety/SKILL.md
+    display_name: configure-safety
+    allowed_tools: []
+    frontmatter_enabled: false
+  pi:
+    status: supported
+    output_path: skills/ac-safety-configure-safety/SKILL.md
+    display_name: ac-safety-configure-safety
+    allowed_tools:
+    - Read
+    - Write
+    - Edit
+    frontmatter_enabled: true
+    description: 'Configures guardian behavior for pi-ac-safety by reviewing defaults,
+      proposing overrides, and updating project-level or user-level safety.yaml. Triggers
+      on keywords: configure safety, safety config, safety yaml, guardian config'
+    body_file: body.pi.md

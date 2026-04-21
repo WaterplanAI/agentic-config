@@ -1,0 +1,31 @@
+{
+  "name": "@agentic-config/pi-ac-meta",
+  "version": "0.2.6",
+  "description": "Pi package for the agentic-config ac-meta plugin.",
+  "license": "MIT",
+  "homepage": "https://github.com/WaterplanAI/agentic-config",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/WaterplanAI/agentic-config.git",
+    "directory": "packages/pi-ac-meta"
+  },
+  "keywords": [
+    "pi-package",
+    "agentic-config",
+    "pi",
+    "ac-meta",
+    "meta",
+    "skill-writer",
+    "hook-writer",
+    "self-improvement"
+  ],
+  "type": "module",
+  "pi": {
+    "skills": [
+      "./skills"
+    ],
+    "extensions": [
+      "./extensions"
+    ]
+  }
+}

@@ -1,0 +1,21 @@
+plugin_id: ac-qa
+claude_plugin_path: plugins/ac-qa
+pi_package: '@agentic-config/pi-ac-qa'
+pi_package_path: packages/pi-ac-qa
+shared_assets: []
+placeholder_values:
+  PACKAGE_ASSETS:
+    claude: ${CLAUDE_PLUGIN_ROOT}
+    pi: ../../assets
+  SPEC_ROOT:
+    claude: specs
+    pi: .specs/specs
+runtime_attachments: []
+dependencies:
+  pi:
+    package_dependencies:
+    - '@agentic-config/pi-compat'
+    bundled_dependencies:
+    - '@agentic-config/pi-compat'
+    extension_exports:
+    - node_modules/@agentic-config/pi-compat/extensions

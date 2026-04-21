@@ -1,0 +1,34 @@
+skill_id: adr
+kind: standard
+summary: 'Documents architecture decisions with auto-numbering following the ADR pattern.
+  Triggers on keywords: adr, architecture decision, decision record'
+project_agnostic: false
+body_file: body.md
+assets: []
+attachment_refs: []
+renders:
+  claude:
+    status: supported
+    output_path: skills/adr/SKILL.md
+    display_name: adr
+    allowed_tools:
+    - Read
+    - Write
+    - Edit
+    - Bash
+    frontmatter_enabled: true
+    description: 'Documents architecture decisions with auto-numbering following the
+      ADR pattern. Triggers on keywords: adr, architecture decision, decision record'
+  pi:
+    status: supported
+    output_path: skills/ac-tools-adr/SKILL.md
+    display_name: ac-tools-adr
+    allowed_tools:
+    - Read
+    - Write
+    - Edit
+    - Bash
+    frontmatter_enabled: true
+    description: 'Documents architecture decisions with auto-numbering following the
+      ADR pattern. Triggers on keywords: adr, architecture decision, decision record'
+    body_file: body.pi.md

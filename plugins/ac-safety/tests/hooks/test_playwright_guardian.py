@@ -72,6 +72,45 @@ def test_asks_navigate_blocked_domain() -> TestResult:
     return r
 
 
+def test_blocks_plugin_prefixed_browser_evaluate() -> TestResult:
+    r = TestResult("Blocks plugin-prefixed browser_evaluate")
+    try:
+        out = run_hook("mcp__plugin_playwright_playwright__browser_evaluate", {"script": "document.cookie"})
+        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+        raise
+    return r
+
+
+def test_allows_plugin_prefixed_browser_snapshot() -> TestResult:
+    r = TestResult("Allows plugin-prefixed browser_snapshot")
+    try:
+        out = run_hook("mcp__plugin_playwright_playwright__browser_snapshot", {})
+        assert out["decision"] == "allow", f"Expected allow, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+        raise
+    return r
+
+
+def test_asks_plugin_prefixed_navigate_blocked_domain() -> TestResult:
+    r = TestResult("Asks for plugin-prefixed navigate to blocked domain")
+    try:
+        out = run_hook(
+            "mcp__plugin_playwright_playwright__browser_navigate",
+            {"url": "https://evil.com/phishing"},
+        )
+        assert out["decision"] == "ask", f"Expected ask, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+        raise
+    return r
+
+
 def test_asks_action_with_url_on_blocked_domain() -> TestResult:
     """Any action with a url param on blocked domain triggers domain check."""
     r = TestResult("Asks for action with url param on blocked domain")
@@ -103,14 +142,123 @@ def test_allows_action_with_url_on_allowed_domain() -> TestResult:
     return r
 
 
+def test_denies_playwright_cli_run_code() -> TestResult:
+    """Bash-based playwright-cli run-code maps to a blocked Playwright action."""
+    r = TestResult("Denies playwright-cli run-code via Bash")
+    try:
+        out = run_hook("Bash", {"command": "playwright-cli run-code \"document.title\""})
+        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+        raise
+    return r
+
+
+def test_allows_playwright_cli_snapshot_with_env_prefix() -> TestResult:
+    """Bash-based playwright-cli snapshot remains allowed with env prefixes."""
+    r = TestResult("Allows playwright-cli snapshot with env prefix")
+    try:
+        out = run_hook("Bash", {"command": "PLAYWRIGHT_CLI_SESSION=review playwright-cli snapshot"})
+        assert out["decision"] == "allow", f"Expected allow, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+        raise
+    return r
+
+
+def test_asks_playwright_cli_open_blocked_domain() -> TestResult:
+    """Bash-based playwright-cli navigation inherits the domain allowlist policy."""
+    r = TestResult("Asks for playwright-cli open on blocked domain")
+    try:
+        out = run_hook("Bash", {"command": "playwright-cli open https://evil.com/phishing"})
+        assert out["decision"] == "ask", f"Expected ask, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+        raise
+    return r
+
+
+def test_denies_playwright_cli_fill() -> TestResult:
+    """Bash-based playwright-cli fill maps to a blocked Playwright action."""
+    r = TestResult("Denies playwright-cli fill via Bash")
+    try:
+        out = run_hook("Bash", {"command": "playwright-cli fill '#email' 'user@example.com'"})
+        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+        raise
+    return r
+
+
+def test_denies_blocked_action_in_playwright_cli_chain() -> TestResult:
+    """Later blocked playwright-cli segments still block the overall Bash command."""
+    r = TestResult("Denies blocked action in chained playwright-cli Bash command")
+    try:
+        out = run_hook(
+            "Bash",
+            {"command": "playwright-cli snapshot && playwright-cli run-code \"document.title\""},
+        )
+        assert out["decision"] == "deny", f"Expected deny, got {out['decision']}"
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+        raise
+    return r
+
+
+def test_parity_between_raw_mcp_and_bash_run_code() -> TestResult:
+    r = TestResult("Parity between raw MCP and Bash run-code blocking")
+    try:
+        raw_out = run_hook("mcp__playwright__browser_run_code", {"script": "document.title"})
+        bash_out = run_hook("Bash", {"command": "playwright-cli run-code \"document.title\""})
+        assert raw_out["decision"] == "deny", f"Expected deny, got {raw_out['decision']}"
+        assert bash_out["decision"] == "deny", f"Expected deny, got {bash_out['decision']}"
+        assert raw_out["decision"] == bash_out["decision"]
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+        raise
+    return r
+
+
+def test_parity_between_raw_mcp_and_bash_navigation() -> TestResult:
+    r = TestResult("Parity between raw MCP and Bash blocked-domain navigation")
+    try:
+        raw_out = run_hook("mcp__playwright__browser_navigate", {"url": "https://evil.com/phishing"})
+        bash_out = run_hook("Bash", {"command": "playwright-cli open https://evil.com/phishing"})
+        assert raw_out["decision"] == "ask", f"Expected ask, got {raw_out['decision']}"
+        assert bash_out["decision"] == "ask", f"Expected ask, got {bash_out['decision']}"
+        assert raw_out["decision"] == bash_out["decision"]
+        r.mark_pass()
+    except Exception as e:
+        r.mark_fail(str(e))
+        raise
+    return r
+
+
 def main() -> None:
     from ac_safety_test_support import run_tests  # pyright: ignore[reportMissingImports]
     run_tests("playwright-guardian unit tests", [
-        test_blocks_browser_evaluate, test_allows_browser_snapshot,
-        test_allows_navigate_allowed_domain, test_asks_navigate_blocked_domain,
-        # URL param domain checking for non-navigate actions
+        test_blocks_browser_evaluate,
+        test_allows_browser_snapshot,
+        test_allows_navigate_allowed_domain,
+        test_asks_navigate_blocked_domain,
+        test_blocks_plugin_prefixed_browser_evaluate,
+        test_allows_plugin_prefixed_browser_snapshot,
+        test_asks_plugin_prefixed_navigate_blocked_domain,
         test_asks_action_with_url_on_blocked_domain,
         test_allows_action_with_url_on_allowed_domain,
+        test_denies_playwright_cli_run_code,
+        test_allows_playwright_cli_snapshot_with_env_prefix,
+        test_asks_playwright_cli_open_blocked_domain,
+        test_denies_playwright_cli_fill,
+        test_denies_blocked_action_in_playwright_cli_chain,
+        test_parity_between_raw_mcp_and_bash_run_code,
+        test_parity_between_raw_mcp_and_bash_navigation,
     ])
 
 

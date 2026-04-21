@@ -1,0 +1,39 @@
+skill_id: agentic-import
+kind: standard
+summary: Import external reusable assets into this repository's v0.2 plugin architecture
+  (skills, templates, agents).
+project_agnostic: false
+body_file: body.md
+assets: []
+attachment_refs: []
+renders:
+  claude:
+    status: supported
+    output_path: skills/agentic-import/SKILL.md
+    display_name: agentic-import
+    allowed_tools:
+    - Read
+    - Write
+    - Edit
+    - Bash
+    - Glob
+    - Grep
+    - Skill
+    frontmatter_enabled: true
+    description: Import external reusable assets into this repository's v0.2 plugin
+      architecture (skills, templates, agents).
+  pi:
+    status: supported
+    output_path: skills/ac-tools-agentic-import/SKILL.md
+    display_name: ac-tools-agentic-import
+    allowed_tools:
+    - Read
+    - Write
+    - Edit
+    - Bash
+    - Glob
+    - Grep
+    frontmatter_enabled: true
+    description: Import external reusable assets into this repository's v0.2 plugin
+      architecture (skills, templates, agents).
+    body_file: body.pi.md

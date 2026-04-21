@@ -1,5 +1,16 @@
 # Skill Delegation Routing for MUX-OSPEC
 
+
+> Authoritative contract (wins on conflict):
+> - full: CREATE (optional) -> GATHER -> CONSOLIDATE -> SUCCESS_CRITERIA -> CONFIRM_SC -> PLAN -> IMPLEMENT -> REVIEW -> FIX -> TEST -> DOCUMENT -> SENTINEL
+> - lean: CREATE (optional) -> CONFIRM_SC -> PLAN -> IMPLEMENT -> REVIEW -> FIX -> TEST -> DOCUMENT -> SELF_VALIDATION
+> - leanest: CREATE (optional) -> CONFIRM_SC -> PLAN -> IMPLEMENT -> REVIEW -> FIX -> TEST -> SELF_VALIDATION
+> - GATHER = RESEARCH; CONFIRM_SC is mandatory before PLAN
+> - REVIEW/TEST/SENTINEL/SELF_VALIDATION are PASS-only gates
+> - notify-first pacing; no polling loops; blocked/stuck defaults to user escalation
+> - every stage must commit every changed repo and report `repo_scope`, `root_commit`, `spec_commit` (root first, spec second when both changed)
+
+
 Source of truth: SKILL.md defines the canonical workflow. This cookbook details delegation routing patterns without overriding stage sequences or signal formats.
 
 ## The Rule
@@ -55,7 +66,7 @@ Skill() executes IN the calling agent's context. Running `/spec PLAN` in orchest
 # Fatal: Runs in orchestrator context
 # Loads entire spec workflow into orchestrator
 # Orchestrator context consumed by PLAN execution
-Skill(skill="spec", args="PLAN specs/2026/02/auth/001-system.md ultrathink")
+Skill(skill="spec", args="PLAN .specs/specs/2026/02/auth/001-system.md ultrathink")
 ```
 
 **RIGHT (Context Preserved):**
@@ -65,7 +76,7 @@ Skill(skill="spec", args="PLAN specs/2026/02/auth/001-system.md ultrathink")
 # Agent receives explicit instruction to invoke Skill(spec)
 # Orchestrator context remains clean, receives task-notification on completion
 Task(
-    prompt="""Invoke Skill(skill="spec", args="PLAN specs/2026/02/auth/001-system.md ultrathink").
+    prompt="""Invoke Skill(skill="spec", args="PLAN .specs/specs/2026/02/auth/001-system.md ultrathink").
 
 CONSTRAINTS:
 - Your ONLY action is invoking Skill(spec). Do NOT plan yourself.
@@ -75,7 +86,7 @@ CONSTRAINTS:
 
 Signal: tmp/mux/20260206-1430-auth/.signals/phase-1-plan.done
 FINAL: Return EXACTLY: done""",
-    model="opus",
+    model="high-tier",
     run_in_background=True
 )
 ```
@@ -88,7 +99,7 @@ FINAL: Return EXACTLY: done""",
 # Fatal: Runs in orchestrator context
 # Loads implementation context into orchestrator
 # Overwrites PLAN context if it existed
-Skill(skill="spec", args="IMPLEMENT specs/2026/02/auth/001-system.md")
+Skill(skill="spec", args="IMPLEMENT .specs/specs/2026/02/auth/001-system.md")
 ```
 
 **RIGHT (Context Preserved):**
@@ -96,7 +107,7 @@ Skill(skill="spec", args="IMPLEMENT specs/2026/02/auth/001-system.md")
 ```python
 # Correct: Fresh agent invokes Skill(spec) for implementation
 Task(
-    prompt="""Invoke Skill(skill="spec", args="IMPLEMENT specs/2026/02/auth/001-system.md ultrathink").
+    prompt="""Invoke Skill(skill="spec", args="IMPLEMENT .specs/specs/2026/02/auth/001-system.md ultrathink").
 
 CONSTRAINTS:
 - Your FIRST action is Skill(spec). Do NOT implement yourself.
@@ -106,7 +117,7 @@ CONSTRAINTS:
 
 Signal: tmp/mux/20260206-1430-auth/.signals/phase-1-implement.done
 FINAL: Return EXACTLY: done""",
-    model="sonnet",
+    model="medium-tier",
     run_in_background=True
 )
 ```
@@ -119,15 +130,15 @@ FINAL: Return EXACTLY: done""",
 # Fatal: Agent may interpret "review" as manual code reading
 # No explicit Skill() invocation instruction
 # Agent likely reads files directly instead of using reviewer agent
-Task(prompt="Review the implementation for phase 1", model="opus", run_in_background=True)
+Task(prompt="Review the implementation for phase 1", model="high-tier", run_in_background=True)
 ```
 
 **WRONG (Direct Skill Invocation):**
 
 ```python
-# Fatal: spec skill has no REVIEW stage
+# Fatal: Direct Skill(spec) call in orchestrator context (context suicide)
 # Must use agents/spec-reviewer.md instead
-Skill(skill="spec", args="REVIEW specs/2026/02/auth/001-system.md")
+Skill(skill="spec", args="REVIEW .specs/specs/2026/02/auth/001-system.md")
 ```
 
 **RIGHT (Explicit Agent Reference):**
@@ -136,7 +147,7 @@ Skill(skill="spec", args="REVIEW specs/2026/02/auth/001-system.md")
 # Correct: Agent reads spec-reviewer.md for review protocol
 # Reviewer agent has specialized review logic
 Task(
-    prompt="""Read agents/spec-reviewer.md. SPEC: specs/2026/02/auth/001-system.md, PHASE: 1, CYCLE: 1
+    prompt="""Read agents/spec-reviewer.md. SPEC: .specs/specs/2026/02/auth/001-system.md, PHASE: 1, CYCLE: 1
 
 CONSTRAINTS:
 - Follow reviewer protocol exactly (compliance check, quality check, grading matrix)
@@ -147,7 +158,7 @@ CONSTRAINTS:
 OUTPUT: tmp/mux/20260206-1430-auth/reviews/phase-1-review-1.md
 SIGNAL: tmp/mux/20260206-1430-auth/.signals/phase-1-review-1.done
 FINAL: Return EXACTLY: done""",
-    model="opus",
+    model="high-tier",
     run_in_background=True
 )
 ```
@@ -157,9 +168,9 @@ FINAL: Return EXACTLY: done""",
 **WRONG (Context Suicide):**
 
 ```python
-# Fatal: spec skill has no FIX stage
+# Fatal: Direct Skill(spec) call in orchestrator context (context suicide)
 # Orchestrator attempts to fix issues itself
-Skill(skill="spec", args="FIX specs/2026/02/auth/001-system.md")
+Skill(skill="spec", args="FIX .specs/specs/2026/02/auth/001-system.md")
 ```
 
 **WRONG (Helpful Trap):**
@@ -186,7 +197,7 @@ CONSTRAINTS:
 
 SIGNAL: tmp/mux/20260206-1430-auth/.signals/phase-1-fix-1.done
 FINAL: Return EXACTLY: done""",
-    model="sonnet",
+    model="medium-tier",
     run_in_background=True
 )
 ```
@@ -206,7 +217,7 @@ Bash("npm test")
 ```python
 # Fatal: No explicit tester agent reference
 # Agent may run tests without framework detection
-Task(prompt="Run the tests", model="sonnet", run_in_background=True)
+Task(prompt="Run the tests", model="medium-tier", run_in_background=True)
 ```
 
 **RIGHT (Explicit Tester Agent):**
@@ -214,7 +225,7 @@ Task(prompt="Run the tests", model="sonnet", run_in_background=True)
 ```python
 # Correct: Delegate to spec-tester agent with framework detection
 Task(
-    prompt="""Read agents/spec-tester.md. SPEC: specs/2026/02/auth/001-system.md, SESSION: tmp/mux/20260206-1430-auth
+    prompt="""Read agents/spec-tester.md. SPEC: .specs/specs/2026/02/auth/001-system.md, SESSION: tmp/mux/20260206-1430-auth
 
 CONSTRAINTS:
 - Detect framework via detect-repo-type.py (pytest, jest, vitest, etc)
@@ -225,7 +236,7 @@ CONSTRAINTS:
 OUTPUT: tmp/mux/20260206-1430-auth/tests/test-results.json
 SIGNAL: tmp/mux/20260206-1430-auth/.signals/test.done
 FINAL: Return EXACTLY: done""",
-    model="sonnet",
+    model="medium-tier",
     run_in_background=True
 )
 ```
@@ -237,7 +248,7 @@ FINAL: Return EXACTLY: done""",
 ```python
 # Fatal: Runs in orchestrator context
 # Loads documentation generation logic into orchestrator
-Skill(skill="spec", args="DOCUMENT specs/2026/02/auth/001-system.md")
+Skill(skill="spec", args="DOCUMENT .specs/specs/2026/02/auth/001-system.md")
 ```
 
 **RIGHT (Context Preserved):**
@@ -245,7 +256,7 @@ Skill(skill="spec", args="DOCUMENT specs/2026/02/auth/001-system.md")
 ```python
 # Correct: Fresh agent invokes Skill(spec) for documentation
 Task(
-    prompt="""Invoke Skill(skill="spec", args="DOCUMENT specs/2026/02/auth/001-system.md").
+    prompt="""Invoke Skill(skill="spec", args="DOCUMENT .specs/specs/2026/02/auth/001-system.md").
 
 CONSTRAINTS:
 - Your ONLY action is Skill(spec). Do NOT write docs yourself.
@@ -254,7 +265,7 @@ CONSTRAINTS:
 
 Signal: tmp/mux/20260206-1430-auth/.signals/document.done
 FINAL: Return EXACTLY: done""",
-    model="sonnet",
+    model="medium-tier",
     run_in_background=True
 )
 ```
@@ -268,7 +279,7 @@ FINAL: Return EXACTLY: done""",
 # Analyzes artifacts manually
 Read("tmp/mux/20260206-1430-auth/plan.md")
 Bash("git log --oneline -20")
-Grep(pattern="SC-", path="specs/2026/02/auth/001-system.md")
+Grep(pattern="SC-", path=".specs/specs/2026/02/auth/001-system.md")
 ```
 
 **RIGHT (Sentinel Agent):**
@@ -288,7 +299,7 @@ CONSTRAINTS:
 OUTPUT: tmp/mux/20260206-1430-auth/sentinel-review.md
 SIGNAL: tmp/mux/20260206-1430-auth/.signals/sentinel.done
 FINAL: Return EXACTLY: done""",
-    model="opus",
+    model="high-tier",
     run_in_background=True
 )
 ```
@@ -309,7 +320,7 @@ CONSTRAINTS:
 OUTPUT: [Expected artifact path or "Implementation artifacts"]
 SIGNAL: {{session}}/.signals/[stage-name].done
 FINAL: Return EXACTLY: done""",
-    model="[opus|sonnet|haiku based on stage tier]",
+    model="[high-tier|medium-tier|low-tier based on stage tier]",
     run_in_background=True
 )
 ```
@@ -321,7 +332,7 @@ FINAL: Return EXACTLY: done""",
 ```python
 # FATAL: Orchestrator consuming spec content directly
 # Should delegate to stage agent who invokes Skill(spec)
-Read("specs/2026/02/auth/001-system.md")
+Read(".specs/specs/2026/02/auth/001-system.md")
 ```
 
 **Impact:** Orchestrator context polluted with spec content. MUX session hooks should block this, but if orchestrator bypasses hooks, delegation protocol is violated.
@@ -331,7 +342,7 @@ Read("specs/2026/02/auth/001-system.md")
 ```python
 # FATAL: Orchestrator planning without delegation
 # Should launch Task() with Skill(spec) invocation
-Read("specs/2026/02/auth/001-system.md")
+Read(".specs/specs/2026/02/auth/001-system.md")
 Write("tmp/mux/20260206-1430-auth/plan.md", content="...")
 Bash("git add tmp/mux/20260206-1430-auth/plan.md && git commit -m 'Add plan'")
 ```
@@ -343,7 +354,7 @@ Bash("git add tmp/mux/20260206-1430-auth/plan.md && git commit -m 'Add plan'")
 ```python
 # FATAL: Agent may not invoke Skill(spec)
 # Prompt allows interpretation
-Task(prompt="Create a plan for the auth system", model="opus", run_in_background=True)
+Task(prompt="Create a plan for the auth system", model="high-tier", run_in_background=True)
 ```
 
 **Impact:** Agent writes plan manually without invoking /spec PLAN. Spec file remains empty. No spec commit. Verification fails.
@@ -370,7 +381,7 @@ Task(prompt="Create a plan for the auth system", model="opus", run_in_background
 # Should launch background and continue immediately
 Task(
     prompt="...",
-    model="opus",
+    model="high-tier",
     run_in_background=False  # WRONG: blocking
 )
 ```
@@ -394,7 +405,7 @@ Complete example of PLAN stage with full compliance:
 
 ```python
 # 1. Orchestrator receives mux-ospec invocation
-# args: "lean specs/2026/02/auth/001-system.md"
+# args: "lean .specs/specs/2026/02/auth/001-system.md"
 
 # 2. Orchestrator initializes session
 Bash("uv run ${CLAUDE_PLUGIN_ROOT}/skills/mux/tools/session.py 'mux-ospec-auth-system'")
@@ -402,7 +413,7 @@ Bash("uv run ${CLAUDE_PLUGIN_ROOT}/skills/mux/tools/session.py 'mux-ospec-auth-s
 
 # 3. Orchestrator launches PLAN stage (background worker)
 Task(
-    prompt="""Invoke Skill(skill="spec", args="PLAN specs/2026/02/auth/001-system.md ultrathink").
+    prompt="""Invoke Skill(skill="spec", args="PLAN .specs/specs/2026/02/auth/001-system.md ultrathink").
 
 CONSTRAINTS:
 - Your ONLY action is invoking Skill(spec). Do NOT plan yourself.
@@ -412,7 +423,7 @@ CONSTRAINTS:
 
 Signal: tmp/mux/20260206-1430-auth/.signals/phase-1-plan.done
 FINAL: Return EXACTLY: done""",
-    model="opus",
+    model="high-tier",
     run_in_background=True
 )
 
@@ -420,7 +431,7 @@ FINAL: Return EXACTLY: done""",
 """
 Stage: PLAN (Phase 1 of 3)
 Checkpoint:
-- Agent launched (opus, background)
+- Agent launched (high-tier, background)
 - Expected signal: .signals/phase-1-plan.done
 - Expected artifacts: spec commit, AI Section content
 - Expected duration: 5-10 min
@@ -436,7 +447,7 @@ Waiting for PLAN signal...
 """
 
 # 5. PLAN agent receives Task() prompt, invokes Skill(spec)
-# Skill(skill="spec", args="PLAN specs/2026/02/auth/001-system.md ultrathink")
+# Skill(skill="spec", args="PLAN .specs/specs/2026/02/auth/001-system.md ultrathink")
 # /spec PLAN executes: reads spec, generates plan, writes to AI Section, commits
 
 # 6. PLAN agent signals completion

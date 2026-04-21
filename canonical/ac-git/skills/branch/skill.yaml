@@ -1,0 +1,28 @@
+skill_id: branch
+kind: standard
+summary: "Creates new git branch with corresponding spec directory structure. Triggers on keywords: create branch, new branch, branch with spec"
+project_agnostic: false
+body_file: body.md
+assets: []
+attachment_refs: []
+renders:
+  claude:
+    status: supported
+    output_path: skills/branch/SKILL.md
+    display_name: branch
+    allowed_tools:
+      - Bash
+      - Write
+    frontmatter_enabled: true
+    placeholder_values:
+      SOURCE_COMMENT: '# Source spec resolver (plugin-aware)'
+  pi:
+    status: supported
+    output_path: skills/ac-git-branch/SKILL.md
+    display_name: ac-git-branch
+    allowed_tools:
+      - Bash
+      - Write
+    frontmatter_enabled: true
+    placeholder_values:
+      SOURCE_COMMENT: '# Source the bundled spec resolver from this pi package'

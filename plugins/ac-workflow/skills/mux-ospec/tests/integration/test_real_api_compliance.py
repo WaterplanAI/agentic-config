@@ -8,6 +8,9 @@ Layer 2 tests that ACTUALLY invoke MUX-OSPEC skill behavior to verify:
 - MUX delegation pattern for GATHER
 - Signal protocol enforcement
 - Modifier workflows (full, lean, leanest)
+- Mandatory SUCCESS_CRITERIA + CONFIRM_SC gate semantics
+- PASS-only advancement gates
+- Repo-scoped commit evidence contract
 - Spec skill delegation via Task pattern
 
 APPROACH: Since the SDK doesn't auto-discover skills from .claude/skills/,
@@ -34,7 +37,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-import pytest
+import pytest  # pyright: ignore[reportMissingImports]
 
 if TYPE_CHECKING:
     pass
@@ -52,12 +55,35 @@ PLUGIN_ROOT = Path(__file__).resolve().parents[4]  # plugins/ac-workflow
 PROJECT_ROOT = PLUGIN_ROOT.parent.parent
 MUX_OSPEC_SKILL_PATH = str(PLUGIN_ROOT / "skills" / "mux-ospec" / "SKILL.md")
 MUX_SKILL_PATH = str(PLUGIN_ROOT / "skills" / "mux" / "SKILL.md")
+PLUGIN_CATALOG_PATH = PROJECT_ROOT / "docs" / "plugin-catalog.md"
+OSPEC_WORKFLOW_DOC_PATH = PLUGIN_ROOT / "skills" / "mux-ospec" / "cookbook" / "ospec-workflow.md"
+OSPEC_PHASES_DOC_PATH = PLUGIN_ROOT / "skills" / "mux-ospec" / "cookbook" / "ospec-phases.md"
+STAGE_PATTERNS_DOC_PATH = PLUGIN_ROOT / "skills" / "mux-ospec" / "cookbook" / "stage-patterns.md"
+SKILL_DELEGATION_DOC_PATH = (
+    PLUGIN_ROOT / "skills" / "mux-ospec" / "cookbook" / "skill-delegation.md"
+)
+STACK_PRIMING_DOC_PATH = (
+    PLUGIN_ROOT / "skills" / "mux-ospec" / "cookbook" / "stack-priming.md"
+)
+PHASE_EXECUTOR_PATH = PLUGIN_ROOT / "skills" / "mux-ospec" / "agents" / "phase-executor.md"
+ERROR_RECOVERY_PATH = PLUGIN_ROOT / "skills" / "mux-ospec" / "cookbook" / "error-recovery.md"
+CANONICAL_MUX_ROADMAP_BODY_PATH = (
+    PROJECT_ROOT / "canonical" / "ac-workflow" / "skills" / "mux-roadmap" / "body.md"
+)
+PLUGIN_MUX_ROADMAP_SKILL_PATH = (
+    PLUGIN_ROOT / "skills" / "mux-roadmap" / "SKILL.md"
+)
+
+
+def load_mux_ospec_skill_text() -> str:
+    """Load generated mux-ospec skill text for contract assertions."""
+    return Path(MUX_OSPEC_SKILL_PATH).read_text(encoding="utf-8")
 
 
 def is_sdk_available() -> bool:
     """Check if claude-agent-sdk is installed."""
     try:
-        from claude_agent_sdk import ClaudeAgentOptions, query  # noqa: F401
+        from claude_agent_sdk import ClaudeAgentOptions, query  # noqa: F401  # pyright: ignore[reportMissingImports]
 
         return True
     except ImportError:
@@ -125,8 +151,11 @@ async def invoke_mux_ospec_skill(
     This is the CORRECT approach - we ask Claude to read the actual skill
     file and follow its instructions, then observe what tools it uses.
     """
-    from claude_agent_sdk import ClaudeAgentOptions, query
-    from claude_agent_sdk.types import AssistantMessage, ToolUseBlock
+    from claude_agent_sdk import ClaudeAgentOptions, query  # pyright: ignore[reportMissingImports]
+    from claude_agent_sdk.types import (  # pyright: ignore[reportMissingImports]
+        AssistantMessage,
+        ToolUseBlock,
+    )
 
     tool_calls: list[ToolCall] = []
     prompt = build_mux_ospec_prompt(task_description, session_dir)
@@ -134,15 +163,18 @@ async def invoke_mux_ospec_skill(
     options = ClaudeAgentOptions(
         permission_mode="bypassPermissions",
         max_turns=max_turns,
-        model="claude-sonnet-4-5-20250929",
+        model="claude-3-7-20250219",
         cwd=str(PROJECT_ROOT),
     )
 
-    async for message in query(prompt=prompt, options=options):
-        if isinstance(message, AssistantMessage):
-            for block in message.content:
-                if isinstance(block, ToolUseBlock):
-                    tool_calls.append(ToolCall(name=block.name, input=block.input))
+    try:
+        async for message in query(prompt=prompt, options=options):
+            if isinstance(message, AssistantMessage):
+                for block in message.content:
+                    if isinstance(block, ToolUseBlock):
+                        tool_calls.append(ToolCall(name=block.name, input=block.input))
+    except Exception as exc:  # pragma: no cover - environment dependent
+        pytest.skip(f"claude-agent-sdk query unavailable in this environment: {exc}")
 
     return tool_calls
 
@@ -376,6 +408,177 @@ class TestSignalProtocolCompliance:
                 )
 
 
+class TestWorkflowContractSurface:
+    """Static contract checks on generated mux-ospec skill surface."""
+
+    async def test_required_stage_gate_and_commit_contract_text(self) -> None:
+        """Validate clarified contract text is present on authoritative plugin surface."""
+        skill_text = load_mux_ospec_skill_text()
+
+        assert (
+            "`full`: `CREATE (optional) -> GATHER -> CONSOLIDATE -> SUCCESS_CRITERIA -> "
+            "CONFIRM_SC -> PLAN -> IMPLEMENT -> REVIEW -> FIX -> TEST -> DOCUMENT -> SENTINEL`"
+            in skill_text
+        )
+        assert (
+            "`lean`: `CREATE (optional) -> CONFIRM_SC -> PLAN -> IMPLEMENT -> REVIEW -> FIX -> TEST -> DOCUMENT -> SELF_VALIDATION`"
+            in skill_text
+        )
+        assert (
+            "`leanest`: `CREATE (optional) -> CONFIRM_SC -> PLAN -> IMPLEMENT -> REVIEW -> FIX -> TEST -> SELF_VALIDATION`"
+            in skill_text
+        )
+
+        assert "`SUCCESS_CRITERIA` is mandatory content before `CONFIRM_SC`" in skill_text
+        assert "`CONFIRM_SC` is a mandatory user approval gate before `PLAN`" in skill_text
+        assert (
+            "Only `PASS` can advance through `REVIEW`, `TEST`, `SENTINEL`, or `SELF_VALIDATION`."
+            in skill_text
+        )
+
+        assert "`repo_scope`: `spec-only` | `root-only` | `root+spec`" in skill_text
+        assert "`root_commit`: short hash or `N/A`" in skill_text
+        assert "`spec_commit`: short hash or `N/A`" in skill_text
+        assert "1. commit root repo first" in skill_text
+        assert "2. commit spec repo second (via spec resolver)" in skill_text
+
+    async def test_stage_tier_mapping_consistency_across_manual_surfaces(self) -> None:
+        """Ensure manual docs and examples match the authoritative stage-tier mapping."""
+        plugin_catalog = PLUGIN_CATALOG_PATH.read_text(encoding="utf-8")
+        workflow_doc = OSPEC_WORKFLOW_DOC_PATH.read_text(encoding="utf-8")
+        phases_doc = OSPEC_PHASES_DOC_PATH.read_text(encoding="utf-8")
+        phase_executor = PHASE_EXECUTOR_PATH.read_text(encoding="utf-8")
+        stage_patterns = STAGE_PATTERNS_DOC_PATH.read_text(encoding="utf-8")
+        error_recovery = ERROR_RECOVERY_PATH.read_text(encoding="utf-8")
+
+        assert "openai-codex/gpt-5.4:xhigh" in plugin_catalog
+        assert "openai-codex/gpt-5.3-codex:high" in plugin_catalog
+        assert "high-tier" in plugin_catalog
+        assert "medium-tier" in plugin_catalog
+
+        for required_line in [
+            "| GATHER | medium-tier |",
+            "| REVIEW | high-tier |",
+            "| FIX | medium-tier |",
+            "| TEST | medium-tier |",
+            "| SELF_VALIDATION | high-tier |",
+        ]:
+            assert required_line in workflow_doc
+
+        assert "PLAN -> IMPLEMENT -> REVIEW -> FIX |" not in workflow_doc
+        assert "Per-phase SENTINEL (optional" not in workflow_doc
+
+        assert "All phases execute with high-tier models for quality stages." not in phases_doc
+        assert 'model="medium-tier"' in phases_doc
+
+        assert (
+            'Task(prompt="...", model="medium-tier", run_in_background=True)  # Researcher workers'
+            in phase_executor
+        )
+
+        assert "Skip phase and continue" not in error_recovery
+
+        assert "--skip" not in workflow_doc
+        assert "Stages can be skipped via `--skip` flag." not in stage_patterns
+
+    async def test_manual_spec_path_and_stage_claim_regression_guards(self) -> None:
+        """Guard weak-model manuals against legacy path examples and stale stage claims."""
+        skill_delegation = SKILL_DELEGATION_DOC_PATH.read_text(encoding="utf-8")
+        stack_priming = STACK_PRIMING_DOC_PATH.read_text(encoding="utf-8")
+        canonical_roadmap = CANONICAL_MUX_ROADMAP_BODY_PATH.read_text(encoding="utf-8")
+        plugin_roadmap = PLUGIN_MUX_ROADMAP_SKILL_PATH.read_text(encoding="utf-8")
+
+        legacy_specs_path = re.compile(r"(?<!\\.specs/)specs/\\d{4}/\\d{2}/")
+
+        for surface_name, surface_text in [
+            ("skill-delegation", skill_delegation),
+            ("stack-priming", stack_priming),
+            ("canonical-mux-roadmap", canonical_roadmap),
+            ("plugin-mux-roadmap", plugin_roadmap),
+        ]:
+            assert legacy_specs_path.search(surface_text) is None, (
+                f"Legacy specs path found in {surface_name}; use .specs/specs/... examples only."
+            )
+
+        assert "spec skill has no REVIEW stage" not in skill_delegation
+        assert "spec skill has no FIX stage" not in skill_delegation
+
+        assert (
+            'Skill(skill="spec", args="PLAN .specs/specs/2026/02/auth/001-system.md ultrathink")'
+            in skill_delegation
+        )
+        assert "spec_path: .specs/specs/2026/02/feature-xyz/001-title.md" in stack_priming
+
+        for roadmap_surface in [canonical_roadmap, plugin_roadmap]:
+            assert (
+                "/mux-roadmap .specs/specs/2026/02/feature-branch/001-feature-spec.md start"
+                in roadmap_surface
+            )
+            assert "PATH: .specs/specs/2026/02/..." in roadmap_surface
+            assert "Read(.specs/specs/2026/02/.../001-spec.md)" in roadmap_surface
+            assert 'Bash("ls .specs/specs/2026/02/.../")' in roadmap_surface
+
+    async def test_skip_bypass_and_roadmap_stage_chain_regression_guards(self) -> None:
+        """Guard against cookbook stage-bypass drift and outdated roadmap stage chain text."""
+        workflow_doc = OSPEC_WORKFLOW_DOC_PATH.read_text(encoding="utf-8")
+        stage_patterns = STAGE_PATTERNS_DOC_PATH.read_text(encoding="utf-8")
+        canonical_roadmap = CANONICAL_MUX_ROADMAP_BODY_PATH.read_text(encoding="utf-8")
+        plugin_roadmap = PLUGIN_MUX_ROADMAP_SKILL_PATH.read_text(encoding="utf-8")
+
+        assert "Optional via `--skip` flag." not in workflow_doc
+        assert "Stages can be skipped via `--skip` flag." not in stage_patterns
+        assert "Primary stages are mandatory" in stage_patterns
+
+        outdated_chain = (
+            "GATHER -> CONFIRM SC -> PLAN -> IMPLEMENT -> REVIEW -> FIX -> "
+            "TEST -> DOCUMENT -> SENTINEL"
+        )
+        explicit_chain = (
+            "GATHER -> CONSOLIDATE -> SUCCESS_CRITERIA -> CONFIRM_SC -> PLAN -> "
+            "IMPLEMENT -> REVIEW -> FIX -> TEST -> DOCUMENT -> SENTINEL"
+        )
+
+        assert outdated_chain not in canonical_roadmap
+        assert outdated_chain not in plugin_roadmap
+        assert explicit_chain in canonical_roadmap
+        assert explicit_chain in plugin_roadmap
+
+
+    async def test_manual_stage_order_contract_in_phase_executor_and_phases_doc(self) -> None:
+        """Catch manual-surface stage-order regressions for weak-model-facing docs."""
+        phase_executor = PHASE_EXECUTOR_PATH.read_text(encoding="utf-8")
+        phases_doc = OSPEC_PHASES_DOC_PATH.read_text(encoding="utf-8")
+
+        required_executor_steps = [
+            "d. SUCCESS_CRITERIA",
+            "e. CONFIRM_SC",
+            "f. PLAN",
+            "j. TEST",
+            "k. DOCUMENT",
+            "l. FINAL VALIDATION",
+        ]
+        for step in required_executor_steps:
+            assert step in phase_executor, f"Missing required phase-executor step: {step}"
+
+        assert phase_executor.index("d. SUCCESS_CRITERIA") < phase_executor.index(
+            "e. CONFIRM_SC"
+        ) < phase_executor.index("f. PLAN")
+        assert phase_executor.index("j. TEST") < phase_executor.index(
+            "k. DOCUMENT"
+        ) < phase_executor.index("l. FINAL VALIDATION")
+
+        assert "- full: run SENTINEL" in phase_executor
+        assert "- lean/leanest: run SELF_VALIDATION" in phase_executor
+
+        assert "| Success Criteria | SUCCESS_CRITERIA |" in phases_doc
+        assert "| Alignment Gate | CONFIRM_SC |" in phases_doc
+        assert (
+            phases_doc.index("### SUCCESS_CRITERIA Stage")
+            < phases_doc.index("### CONFIRM_SC Stage")
+            < phases_doc.index("### PLAN Stage")
+        )
+
+
 class TestModifierFullWorkflow:
     """Test full modifier behavior."""
 
@@ -383,7 +586,8 @@ class TestModifierFullWorkflow:
     async def test_modifier_full_workflow(self, session_dir: Path) -> None:
         """Test full modifier behavior.
 
-        Full workflow: GATHER -> CONSOLIDATE -> [CONFIRM SC] -> [PHASE_LOOP] -> TEST -> DOCUMENT -> SENTINEL
+        Full workflow: CREATE (optional) -> GATHER -> CONSOLIDATE -> SUCCESS_CRITERIA ->
+        CONFIRM_SC -> PLAN -> IMPLEMENT -> REVIEW -> FIX -> TEST -> DOCUMENT -> SENTINEL
         """
         skip_if_not_available()
 
@@ -423,8 +627,9 @@ class TestModifierLeanWorkflow:
     async def test_modifier_lean_workflow(self, session_dir: Path) -> None:
         """Test lean modifier (skips GATHER).
 
-        Lean workflow: [PHASE_LOOP] -> TEST -> DOCUMENT -> SELF-VALIDATION
-        No GATHER means no mux call for research.
+        Lean workflow: CREATE (optional) -> CONFIRM_SC -> PLAN -> IMPLEMENT -> REVIEW -> FIX ->
+        TEST -> DOCUMENT -> SELF_VALIDATION.
+        SUCCESS_CRITERIA content must already exist before CONFIRM_SC.
         """
         skip_if_not_available()
 
@@ -458,14 +663,15 @@ class TestModifierLeanWorkflow:
 
 
 class TestModifierLeanestWorkflow:
-    """Test leanest modifier (haiku execution)."""
+    """Test leanest modifier (low-tier execution)."""
 
     @pytest.mark.asyncio
     async def test_modifier_leanest_workflow(self, session_dir: Path) -> None:
-        """Test leanest modifier (haiku execution).
+        """Test leanest modifier (low-tier execution).
 
-        Leanest workflow: [PHASE_LOOP] -> TEST -> SELF-VALIDATION
-        Uses haiku (low-tier) for cost optimization.
+        Leanest workflow: CREATE (optional) -> CONFIRM_SC -> PLAN -> IMPLEMENT -> REVIEW -> FIX ->
+        TEST -> SELF_VALIDATION.
+        SUCCESS_CRITERIA content must already exist before CONFIRM_SC.
         """
         skip_if_not_available()
 
@@ -479,7 +685,7 @@ class TestModifierLeanestWorkflow:
 
         task_calls = [t for t in post_read_calls if t.name == "Task"]
 
-        # Leanest may use haiku model for some tasks
+        # Leanest may use low-tier model for some tasks
         # Verify delegation pattern is maintained
         for task in task_calls:
             assert task.input.get("run_in_background") is True, (

@@ -1,0 +1,35 @@
+skill_id: pull-request
+kind: standard
+summary: 'Creates comprehensive GitHub Pull Requests with authentication validation
+  and structured documentation. Triggers on keywords: pull request, PR, create PR,
+  open PR'
+project_agnostic: true
+body_file: body.md
+assets: []
+attachment_refs: []
+renders:
+  claude:
+    status: supported
+    output_path: skills/pull-request/SKILL.md
+    display_name: pull-request
+    allowed_tools:
+    - Bash
+    - Read
+    - Write
+    frontmatter_enabled: true
+    description: 'Creates comprehensive GitHub Pull Requests with authentication validation
+      and structured documentation. Triggers on keywords: pull request, PR, create
+      PR, open PR'
+  pi:
+    status: supported
+    output_path: skills/ac-git-pull-request/SKILL.md
+    display_name: ac-git-pull-request
+    allowed_tools:
+    - Bash
+    - Read
+    - Write
+    frontmatter_enabled: true
+    description: 'Creates comprehensive GitHub Pull Requests with authentication validation
+      and structured documentation. Triggers on keywords: pull request, PR, create
+      PR, open PR'
+    body_file: body.pi.md

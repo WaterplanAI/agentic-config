@@ -1,0 +1,40 @@
+{
+  "name": "@agentic-config/pi-ac-qa",
+  "version": "0.2.6",
+  "description": "Pi package for the agentic-config ac-qa plugin.",
+  "license": "MIT",
+  "homepage": "https://github.com/WaterplanAI/agentic-config",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/WaterplanAI/agentic-config.git",
+    "directory": "packages/pi-ac-qa"
+  },
+  "keywords": [
+    "pi-package",
+    "agentic-config",
+    "pi",
+    "ac-qa",
+    "qa",
+    "e2e",
+    "review",
+    "testing",
+    "browser",
+    "playwright"
+  ],
+  "type": "module",
+  "pi": {
+    "skills": [
+      "./skills"
+    ],
+    "extensions": [
+      "./extensions",
+      "node_modules/@agentic-config/pi-compat/extensions"
+    ]
+  },
+  "dependencies": {
+    "@agentic-config/pi-compat": "0.2.6"
+  },
+  "bundledDependencies": [
+    "@agentic-config/pi-compat"
+  ]
+}

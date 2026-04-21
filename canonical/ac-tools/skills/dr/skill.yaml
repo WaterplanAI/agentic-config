@@ -1,0 +1,34 @@
+skill_id: dr
+kind: alias
+summary: 'Short alias for ac-tools-dry-run. Applies the same dry-run workflow and
+  constraints to the provided command or prompt. Triggers on keywords: dr, dry run
+  shorthand, preview safely'
+project_agnostic: true
+body_file: body.md
+assets: []
+attachment_refs: []
+renders:
+  claude:
+    status: supported
+    output_path: skills/dr/SKILL.md
+    display_name: dr
+    allowed_tools:
+    - Skill
+    frontmatter_enabled: true
+    description: 'Alias skill that invokes /dry-run with all arguments passed through.
+      Provides shorthand for dry-run mode. Triggers on keywords: dr, dry run shorthand,
+      alias'
+  pi:
+    status: supported
+    output_path: skills/ac-tools-dr/SKILL.md
+    display_name: ac-tools-dr
+    allowed_tools:
+    - Bash
+    - Read
+    - Write
+    - Edit
+    frontmatter_enabled: true
+    description: 'Short alias for ac-tools-dry-run. Applies the same dry-run workflow
+      and constraints to the provided command or prompt. Triggers on keywords: dr,
+      dry run shorthand, preview safely'
+    body_file: body.pi.md

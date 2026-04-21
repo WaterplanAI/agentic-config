@@ -6,7 +6,7 @@ Complete catalog of agentic-config skills organized by plugin.
 
 | Plugin | Focus | Skills |
 |--------|-------|--------|
-| `ac-workflow` | Spec workflow, MUX orchestration | 6 |
+| `ac-workflow` | Spec workflow, pimux-backed orchestration | 6 |
 | `ac-git` | Git automation, PRs, releases | 7 |
 | `ac-qa` | QA, E2E testing, browser automation | 7 |
 | `ac-tools` | Utilities, integrations, prototyping, bootstrap | 17 |
@@ -18,12 +18,15 @@ Complete catalog of agentic-config skills organized by plugin.
 
 | Skill | Description |
 |-------|-------------|
-| `spec` | Core specification workflow engine with stage agents (CREATE, RESEARCH, PLAN, IMPLEMENT, REVIEW, TEST, DOCUMENT) |
-| `mux` | Parallel research-to-deliverable orchestration via multi-agent multiplexer |
-| `mux-ospec` | Orchestrated spec execution with phase decomposition |
-| `mux-roadmap` | Multi-track roadmap orchestration with cross-session continuity |
-| `mux-subagent` | MUX subagent protocol for delegated execution |
+| `spec` | Core specification workflow engine with explicit stage assets and repo-scoped commit contract |
+| `mux` | Mux-style coordination alias on top of runtime-only `pimux` |
+| `mux-ospec` | Explicit full/lean/leanest spec-stage orchestration with mandatory `SUCCESS_CRITERIA` and `CONFIRM_SC` gate |
+| `mux-roadmap` | Roadmap -> phase -> stage orchestration on top of runtime-only `pimux` |
+| `mux-subagent` | MUX subagent protocol for delegated data-plane execution |
 | `product-manager` | Decomposes large features into concrete development phases with DAG dependencies |
+
+In pi, canonical shipped IDs are `ac-workflow-mux`, `ac-workflow-mux-ospec`, and `ac-workflow-mux-roadmap`, with user-facing aliases `mux`, `mux-ospec`, and `mux-roadmap`.
+`pimux` remains runtime/tooling only.
 
 ## ac-git (7 skills)
 
@@ -49,7 +52,7 @@ Complete catalog of agentic-config skills organized by plugin.
 | `prepare-app` | Start development server for E2E testing |
 | `test-e2e` | Execute E2E test definitions with Playwright |
 
-## ac-tools (16 skills)
+## ac-tools (17 skills)
 
 | Skill | Description |
 |-------|-------------|
@@ -62,6 +65,7 @@ Complete catalog of agentic-config skills organized by plugin.
 | `cpc` | Clipboard-powered code exchange |
 | `dr` | Alias for dry-run |
 | `dry-run` | Simulate command execution without file modifications |
+| `gcp-setup` | Interactive GCP Cloud Build + Cloud Run setup |
 | `gsuite` | Google Suite integration (Sheets, Docs, Slides, Drive, Gmail, Calendar, Tasks) |
 | `had` | Alias for human-agentic-design |
 | `human-agentic-design` | Interactive HTML prototype generator |
@@ -92,26 +96,31 @@ Complete catalog of agentic-config skills organized by plugin.
 
 ---
 
-### O_SPEC Stage Sequence
+### mux-ospec workflow (authoritative)
 
-```
-CREATE --> RESEARCH --> PLAN --> [PLAN_REVIEW] --> IMPLEMENT --> REVIEW --> TEST --> DOCUMENT
-   |           |          |            |              |            |         |          |
-create      analyze    design      validate       write code   review    verify    update
- spec      codebase   solution      plan          & commit      impl     tests     docs
-```
+- `full`: `CREATE (optional) -> GATHER -> CONSOLIDATE -> SUCCESS_CRITERIA -> CONFIRM_SC -> PLAN -> IMPLEMENT -> REVIEW -> FIX -> TEST -> DOCUMENT -> SENTINEL`
+- `lean`: `CREATE (optional) -> CONFIRM_SC -> PLAN -> IMPLEMENT -> REVIEW -> FIX -> TEST -> DOCUMENT -> SELF_VALIDATION`
+- `leanest`: `CREATE (optional) -> CONFIRM_SC -> PLAN -> IMPLEMENT -> REVIEW -> FIX -> TEST -> SELF_VALIDATION`
 
-### O_SPEC Modifiers
+Rules:
+- `GATHER = RESEARCH`
+- `SUCCESS_CRITERIA` is a real stage boundary
+- `CONFIRM_SC` is a mandatory user approval gate before `PLAN`
+- `REVIEW`, `TEST`, `SENTINEL`, and `SELF_VALIDATION` are PASS-only gates
+- blocked/stuck default is user escalation
+- notify-first pacing; no polling loops
 
-| Modifier | Stages | Models | Use Case |
-|----------|--------|--------|----------|
-| `full` | 8 (incl. PLAN_REVIEW) | High-tier + Medium-tier | Maximum quality |
-| `normal` | 7 | High-tier + Medium-tier | Balanced (default) |
-| `lean` | 6 (skip RESEARCH) | All Medium-tier | Speed-focused |
-| `leanest` | 6 (skip RESEARCH) | Medium-tier + Low-tier | Maximum speed/cost |
+### OpenAI stage mapping (single authoritative repo surface)
+
+| Stage family | Stages | Mapping |
+|---|---|---|
+| high-tier | `CREATE`, `CONSOLIDATE`, `SUCCESS_CRITERIA`, `PLAN`, `REVIEW`, `SENTINEL`, `SELF_VALIDATION` | `openai-codex/gpt-5.4:xhigh` |
+| medium-tier | `GATHER`, `IMPLEMENT`, `FIX`, `TEST`, `DOCUMENT` | `openai-codex/gpt-5.3-codex:high` |
+| user gate | `CONFIRM_SC` | user approval (no model) |
 
 ## See Also
 
 - [Getting Started](getting-started.md) -- Setup and first use
 - [Composition Hierarchy](composition-hierarchy.md) -- L0-L4 layer architecture design doc
+- [pimux Workflow Topologies](pimux-workflow-topologies.md) -- `pimux`, mux, ospec, and roadmap runtime shapes
 - [Distribution Guide](distribution.md) -- Team adoption tiers

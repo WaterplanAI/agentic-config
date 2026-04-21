@@ -1,0 +1,28 @@
+skill_id: cpc
+kind: standard
+summary: 'Copy text to clipboard via pbcopy. Triggers on keywords: copy, clipboard,
+  pbcopy, cpc'
+project_agnostic: true
+body_file: body.md
+assets: []
+attachment_refs: []
+renders:
+  claude:
+    status: supported
+    output_path: skills/cpc/SKILL.md
+    display_name: cpc
+    allowed_tools:
+    - Bash
+    frontmatter_enabled: true
+    description: 'Copy text to clipboard via pbcopy. Triggers on keywords: copy, clipboard,
+      pbcopy, cpc'
+  pi:
+    status: supported
+    output_path: skills/ac-tools-cpc/SKILL.md
+    display_name: ac-tools-cpc
+    allowed_tools:
+    - Bash
+    frontmatter_enabled: true
+    description: 'Copy text to clipboard via pbcopy. Triggers on keywords: copy, clipboard,
+      pbcopy, cpc'
+    body_file: body.pi.md

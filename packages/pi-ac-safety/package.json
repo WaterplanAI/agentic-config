@@ -1,0 +1,40 @@
+{
+  "name": "@agentic-config/pi-ac-safety",
+  "version": "0.2.6",
+  "description": "Pi package for the agentic-config ac-safety plugin.",
+  "license": "MIT",
+  "homepage": "https://github.com/WaterplanAI/agentic-config",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/WaterplanAI/agentic-config.git",
+    "directory": "packages/pi-ac-safety"
+  },
+  "keywords": [
+    "pi-package",
+    "agentic-config",
+    "pi",
+    "ac-safety",
+    "safety",
+    "security",
+    "guardian",
+    "hooks",
+    "credentials",
+    "destructive"
+  ],
+  "type": "module",
+  "pi": {
+    "skills": [
+      "./skills"
+    ],
+    "extensions": [
+      "./extensions",
+      "node_modules/@agentic-config/pi-compat/extensions"
+    ]
+  },
+  "dependencies": {
+    "@agentic-config/pi-compat": "0.2.6"
+  },
+  "bundledDependencies": [
+    "@agentic-config/pi-compat"
+  ]
+}

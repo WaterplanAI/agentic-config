@@ -6,12 +6,12 @@ via `claude --plugin-dir` and `claude plugin install` without actually
 invoking the Claude CLI (which may not be available in CI).
 
 These tests verify:
-- All 5 plugins have correct directory structure for CC auto-discovery
+- All marketplace plugins have correct directory structure for CC auto-discovery
 - Skill directories contain SKILL.md for each skill
 - Hook files are correctly structured for auto-registration
 - marketplace.json paths resolve correctly
 - No duplicate skill names across plugins
-- dev.sh references all 5 plugins
+- dev.sh references all marketplace plugins
 """
 import json
 import unittest
@@ -21,21 +21,22 @@ REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 PLUGINS_DIR = REPO_ROOT / "plugins"
 
 EXPECTED_PLUGINS = {
-    "ac-workflow",
-    "ac-git",
-    "ac-qa",
-    "ac-tools",
-    "ac-meta",
+    plugin_dir.name
+    for plugin_dir in PLUGINS_DIR.iterdir()
+    if plugin_dir.is_dir() and (plugin_dir / ".claude-plugin" / "plugin.json").exists()
 }
 
 PLUGINS_WITH_HOOKS = {
-    "ac-git": 1,    # git-commit-guard
-    "ac-tools": 2,  # dry-run-guard, gsuite-public-asset-guard
+    "ac-audit": 1,   # tool-audit
+    "ac-git": 1,     # git-commit-guard
+    "ac-safety": 4,  # credential, destructive bash, write scope, playwright
+    "ac-tools": 2,   # dry-run-guard, gsuite-public-asset-guard
 }
 
 KEY_SKILLS = {
     "spec", "mux", "mux-subagent", "git-safe",
     "pull-request", "gsuite", "skill-writer",
+    "configure-safety", "configure-audit",
 }
 
 
@@ -163,7 +164,7 @@ class TestKeySkillsResolvable(unittest.TestCase):
 
 
 class TestDevShReferencesAllPlugins(unittest.TestCase):
-    """Validate dev.sh includes --plugin-dir for all 5 plugins."""
+    """Validate dev.sh includes --plugin-dir for all marketplace plugins."""
 
     def test_dev_sh_references_all_plugins(self) -> None:
         dev_sh = REPO_ROOT / "dev.sh"

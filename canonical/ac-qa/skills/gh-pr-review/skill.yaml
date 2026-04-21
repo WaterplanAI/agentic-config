@@ -1,0 +1,40 @@
+skill_id: gh-pr-review
+kind: standard
+summary: 'Reviews GitHub pull requests through multi-agent diff inspection and consolidated reporting. Triggers on keywords:
+  PR review, review PR, GitHub PR review, pull request review'
+project_agnostic: true
+body_file: body.md
+assets: []
+attachment_refs: []
+renders:
+  claude:
+    status: supported
+    output_path: skills/gh-pr-review/SKILL.md
+    display_name: gh-pr-review
+    allowed_tools:
+    - Bash
+    - Read
+    - Write
+    - Grep
+    - Glob
+    - Task
+    - WebFetch
+    frontmatter_enabled: true
+    description: 'Reviews GitHub PRs with multi-agent orchestration for comprehensive validation. Triggers on keywords: PR
+      review, review PR, GitHub PR review, pull request review'
+  pi:
+    status: supported
+    output_path: skills/ac-qa-gh-pr-review/SKILL.md
+    display_name: ac-qa-gh-pr-review
+    allowed_tools:
+    - Bash
+    - Read
+    - Write
+    - Grep
+    - Glob
+    - AskUserQuestion
+    - subagent
+    frontmatter_enabled: true
+    body_file: body.pi.md
+    description: Reviews pull requests through a bounded shared worker-wave review flow, consolidated reporting,
+      and user-confirmed `gh pr review` actions.

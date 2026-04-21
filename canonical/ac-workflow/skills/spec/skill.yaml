@@ -1,0 +1,34 @@
+skill_id: spec
+kind: standard
+summary: "Core specification workflow engine. Supports CREATE, GATHER/RESEARCH, CONSOLIDATE, SUCCESS_CRITERIA, CONFIRM_SC, PLAN, IMPLEMENT, REVIEW, FIX, TEST, DOCUMENT, SENTINEL, SELF_VALIDATION, and compatibility stages."
+project_agnostic: true
+body_file: body.md
+assets: []
+attachment_refs: []
+renders:
+  claude:
+    status: supported
+    output_path: skills/spec/SKILL.md
+    display_name: spec
+    allowed_tools:
+      - Read
+      - Write
+      - Edit
+      - Bash
+      - Grep
+      - Glob
+      - Skill
+    frontmatter_enabled: true
+  pi:
+    status: supported
+    output_path: skills/ac-workflow-spec/SKILL.md
+    display_name: ac-workflow-spec
+    allowed_tools:
+      - Read
+      - Write
+      - Edit
+      - Bash
+      - Grep
+      - Glob
+    frontmatter_enabled: true
+    body_file: body.pi.md

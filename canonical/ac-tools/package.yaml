@@ -1,0 +1,49 @@
+plugin_id: ac-tools
+claude_plugin_path: plugins/ac-tools
+pi_package: '@agentic-config/pi-ac-tools'
+pi_package_path: packages/pi-ac-tools
+shared_assets:
+- asset_id: shared-package-files
+  source: assets
+  outputs:
+    claude: .
+    pi: assets
+placeholder_values:
+  PACKAGE_ASSETS:
+    claude: ${CLAUDE_PLUGIN_ROOT}
+    pi: ../../assets
+  SPEC_ROOT:
+    claude: specs
+    pi: .specs/specs
+runtime_attachments:
+- attachment_id: hook-compat
+  harness: pi
+  kind: hook-compat
+  output_path: extensions/hook-compat.js
+  package_entry: ./extensions/hook-compat.js
+  plugin_root_mode: package-assets
+  dependency_refs:
+  - '@agentic-config/pi-compat'
+  ask_fallback:
+    nonInteractive: deny
+  hooks:
+  - matcher: Write|Edit|NotebookEdit|Bash
+    hooks:
+    - id: dry-run-guard
+      script_path: scripts/hooks/dry-run-guard.py
+      timeout_ms: 5000
+      failure_mode: fail-open
+  - matcher: Bash
+    hooks:
+    - id: gsuite-public-asset-guard
+      script_path: scripts/hooks/gsuite-public-asset-guard.py
+      timeout_ms: 5000
+      failure_mode: fail-open
+dependencies:
+  pi:
+    package_dependencies:
+    - '@agentic-config/pi-compat'
+    bundled_dependencies:
+    - '@agentic-config/pi-compat'
+    extension_exports:
+    - node_modules/@agentic-config/pi-compat/extensions

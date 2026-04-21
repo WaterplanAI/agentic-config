@@ -1,0 +1,59 @@
+skill_id: gsuite
+kind: standard
+summary: 'Integrates Google Workspace tools for Docs, Sheets, Slides, Drive, Gmail, Calendar, Tasks, and contacts with multi-account
+  orchestration. Triggers on keywords: google sheets, google docs, google slides, gsuite, gdrive, spreadsheet, document, gmail,
+  google calendar, google tasks'
+project_agnostic: true
+body_file: body.md
+assets:
+- asset_id: bundled-assets
+  source: assets
+  outputs:
+    claude: assets
+    pi: assets
+- asset_id: bundled-cookbook
+  source: cookbook
+  outputs:
+    claude: cookbook
+    pi: cookbook
+- asset_id: bundled-prompts
+  source: prompts
+  outputs:
+    claude: prompts
+    pi: prompts
+- asset_id: bundled-tools
+  source: tools
+  outputs:
+    claude: tools
+    pi: tools
+attachment_refs: []
+renders:
+  claude:
+    status: supported
+    output_path: skills/gsuite/SKILL.md
+    display_name: gsuite
+    allowed_tools:
+    - Bash
+    - Read
+    - Write
+    - Glob
+    - Skill
+    - Task
+    - AskUserQuestion
+    frontmatter_enabled: true
+    description: Google Suite integration for Sheets, Docs, Slides, Gmail, Calendar, Tasks with multi-account support. Orchestrates
+      operations via CLI tools.
+  pi:
+    status: supported
+    output_path: skills/ac-tools-gsuite/SKILL.md
+    display_name: ac-tools-gsuite
+    allowed_tools:
+    - Bash
+    - Read
+    - Write
+    - Glob
+    - AskUserQuestion
+    - subagent
+    frontmatter_enabled: true
+    description: Google Suite integration for Sheets, Docs, Slides, Gmail, Calendar, Tasks with multi-account support. Orchestrates
+      operations via CLI tools.

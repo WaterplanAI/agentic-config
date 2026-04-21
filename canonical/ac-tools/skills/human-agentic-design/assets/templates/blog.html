@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Blog</title>
+  <script src="https://cdn.tailwindcss.com/4.0"></script>
+  <link href="https://cdn.jsdelivr.net/npm/daisyui@5/themes.css" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/daisyui@5/full.css" rel="stylesheet" />
+  <style>
+    :focus-visible { outline: 2px solid #4f46e5; outline-offset: 2px; }
+  </style>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Blog",
+    "name": "Blog",
+    "description": "Blog with articles, categories, and search",
+    "blogPost": [
+      {
+        "@type": "BlogPosting",
+        "headline": "Getting Started with Accessible Design",
+        "datePublished": "2026-02-08",
+        "author": { "@type": "Person", "name": "Jane Doe" }
+      }
+    ]
+  }
+  </script>
+</head>
+<body class="min-h-screen bg-base-100">
+  <header class="navbar bg-base-200 sticky top-0 z-50">
+    <div class="navbar-start">
+      <a data-testid="nav-logo" href="/" class="btn btn-ghost text-xl">BlogName</a>
+    </div>
+    <nav class="navbar-center" aria-label="Main navigation">
+      <ul class="menu menu-horizontal px-1">
+        <li><a data-testid="nav-home" href="?view=all">All Posts</a></li>
+        <li><a data-testid="nav-tutorials" href="?filter=tutorials">Tutorials</a></li>
+        <li><a data-testid="nav-news" href="?filter=news">News</a></li>
+      </ul>
+    </nav>
+    <div class="navbar-end">
+      <label for="blog-search" class="sr-only">Search articles</label>
+      <input id="blog-search" data-testid="blog-search-input" type="search" placeholder="Search..." class="input input-bordered input-sm" oninput="filterPosts(this.value)">
+    </div>
+  </header>
+
+  <main class="container mx-auto px-4 py-8">
+    <h1 class="text-4xl font-bold mb-8">Latest Articles</h1>
+
+    <div class="flex flex-col lg:flex-row gap-8">
+      <!-- Article List -->
+      <div class="flex-1">
+        <section aria-label="Article list">
+          <article class="card bg-base-200 shadow-md mb-6" data-testid="article-1" data-category="tutorials">
+            <div class="card-body">
+              <div class="flex gap-2 mb-2">
+                <span class="badge badge-primary">Tutorials</span>
+                <time datetime="2026-02-08" class="text-sm text-base-content/60">Feb 8, 2026</time>
+              </div>
+              <h2 class="card-title"><a data-testid="article-1-link" href="?article=1" class="link link-hover">Getting Started with Accessible Design</a></h2>
+              <p>Learn the fundamentals of creating web interfaces that work for everyone, including AI agents.</p>
+              <div class="card-actions justify-end mt-4">
+                <a data-testid="article-1-read" href="?article=1" class="btn btn-primary btn-sm">Read More</a>
+              </div>
+            </div>
+          </article>
+
+          <article class="card bg-base-200 shadow-md mb-6" data-testid="article-2" data-category="news">
+            <div class="card-body">
+              <div class="flex gap-2 mb-2">
+                <span class="badge badge-secondary">News</span>
+                <time datetime="2026-02-07" class="text-sm text-base-content/60">Feb 7, 2026</time>
+              </div>
+              <h2 class="card-title"><a data-testid="article-2-link" href="?article=2" class="link link-hover">The Future of Human-Agent Collaboration</a></h2>
+              <p>How semantic HTML and accessibility standards are enabling a new generation of AI-powered tools.</p>
+              <div class="card-actions justify-end mt-4">
+                <a data-testid="article-2-read" href="?article=2" class="btn btn-primary btn-sm">Read More</a>
+              </div>
+            </div>
+          </article>
+
+          <article class="card bg-base-200 shadow-md mb-6" data-testid="article-3" data-category="tutorials">
+            <div class="card-body">
+              <div class="flex gap-2 mb-2">
+                <span class="badge badge-primary">Tutorials</span>
+                <time datetime="2026-02-06" class="text-sm text-base-content/60">Feb 6, 2026</time>
+              </div>
+              <h2 class="card-title"><a data-testid="article-3-link" href="?article=3" class="link link-hover">Building Data-Driven Dashboards</a></h2>
+              <p>Step-by-step guide to creating dashboards that are both visually appealing and agent-navigable.</p>
+              <div class="card-actions justify-end mt-4">
+                <a data-testid="article-3-read" href="?article=3" class="btn btn-primary btn-sm">Read More</a>
+              </div>
+            </div>
+          </article>
+        </section>
+      </div>
+
+      <!-- Sidebar -->
+      <aside class="w-full lg:w-72" aria-label="Blog sidebar">
+        <section class="mb-8">
+          <h2 class="text-lg font-semibold mb-3">Categories</h2>
+          <nav aria-label="Category navigation">
+            <ul class="menu bg-base-200 rounded-box">
+              <li><a data-testid="cat-all" href="?filter=all" class="active">All (3)</a></li>
+              <li><a data-testid="cat-tutorials" href="?filter=tutorials">Tutorials (2)</a></li>
+              <li><a data-testid="cat-news" href="?filter=news">News (1)</a></li>
+            </ul>
+          </nav>
+        </section>
+
+        <section>
+          <h2 class="text-lg font-semibold mb-3">Newsletter</h2>
+          <form data-testid="newsletter-form" class="flex flex-col gap-2" onsubmit="event.preventDefault(); alert('Subscribed!');">
+            <label for="newsletter-email" class="text-sm">Get updates delivered to your inbox.</label>
+            <input id="newsletter-email" data-testid="newsletter-email-input" type="email" placeholder="you@example.com" class="input input-bordered input-sm" required>
+            <button data-testid="newsletter-submit" type="submit" class="btn btn-primary btn-sm">Subscribe</button>
+          </form>
+        </section>
+      </aside>
+    </div>
+  </main>
+
+  <footer class="footer footer-center p-4 bg-base-200 text-base-content mt-8">
+    <p>Blog Prototype</p>
+  </footer>
+
+  <script>
+    var params = new URLSearchParams(window.location.search);
+    var currentFilter = params.get('filter') || 'all';
+
+    function updateState(key, value) {
+      var url = new URL(window.location);
+      url.searchParams.set(key, value);
+      window.history.pushState({}, '', url);
+    }
+
+    function filterPosts(query) {
+      var articles = document.querySelectorAll('[data-testid^="article-"]');
+      var q = query.toLowerCase();
+      articles.forEach(function(a) {
+        if (a.tagName === 'ARTICLE') {
+          a.style.display = a.textContent.toLowerCase().includes(q) ? '' : 'none';
+        }
+      });
+      updateState('search', query);
+    }
+
+    // Apply category filter from URL
+    if (currentFilter !== 'all') {
+      document.querySelectorAll('article[data-category]').forEach(function(a) {
+        a.style.display = a.getAttribute('data-category') === currentFilter ? '' : 'none';
+      });
+    }
+  </script>
+</body>
+</html>

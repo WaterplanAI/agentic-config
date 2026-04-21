@@ -1,0 +1,40 @@
+skill_id: mux
+kind: standard
+summary: "Parallel research-to-deliverable orchestration via the shared mux foundation. Use for one-coordinator, multi-worker plans that need explicit session, report, and signal tracking."
+project_agnostic: true
+body_file: body.md
+assets: []
+attachment_refs: []
+renders:
+  claude:
+    status: supported
+    output_path: skills/mux/SKILL.md
+    display_name: mux
+    allowed_tools:
+      - Task
+      - Bash
+      - AskUserQuestion
+      - mcp__voicemode__converse
+      - TaskCreate
+      - TaskUpdate
+      - TaskList
+    frontmatter_enabled: true
+    description: "Parallel research-to-deliverable orchestration via multi-agent multiplexer. Single orchestrator fans out to agents, all context funnels back. Triggers on keywords: mux, orchestrate, multi-agent, parallel research, fan-out, multiplex"
+    frontmatter_extra:
+      hooks:
+        PreToolUse:
+          - matcher: Read|Write|Edit|NotebookEdit|Grep|Glob|WebSearch|WebFetch|TaskOutput|Skill|Bash|Task
+            hooks:
+              - type: command
+                command: uv run --no-project --script {{PACKAGE_ASSETS}}/skills/mux/hooks/mux-orchestrator-guard.py
+  pi:
+    status: supported
+    output_path: skills/ac-workflow-mux/SKILL.md
+    display_name: ac-workflow-mux
+    allowed_tools:
+      - pimux
+      - AskUserQuestion
+      - say
+    frontmatter_enabled: true
+    description: "pi-adapted mux coordinator. Uses pimux as the authoritative runtime while preserving shared mux foundation semantics."
+    body_file: body.pi.md

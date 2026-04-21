@@ -1,10 +1,14 @@
 # Distribution Guide
 
-Team and enterprise distribution of agentic-config plugins.
+Team and enterprise distribution of agentic-config for Claude Code plugins and pi packages.
 
-## Prerequisites
+Claude Code uses the marketplace flow below. Pi currently uses validated git-tag installs of the root umbrella package as the primary distribution path, with branch refs for development and local package-root installs for validation. Per-package npm distribution remains future work.
 
-Add the marketplace (required for all distribution methods):
+## Claude Code Marketplace Distribution
+
+### Prerequisites
+
+Add the marketplace (required for Claude Code distribution methods):
 
 ```bash
 claude plugin marketplace add <owner>/agentic-config
@@ -93,9 +97,75 @@ When `enabledPlugins` references a plugin from `extraKnownMarketplaces`:
 
 One `.claude/settings.json` commit replaces per-member setup instructions.
 
+## Pi Package Distribution
+
+Pi package sources generally support npm, git, and local paths. For the current `agentic-config` monorepo package layout:
+- git-tag installs of the validated root umbrella package are the primary team and automation path
+- branch refs are the preferred repo-based path for local testing and development
+- local package-root installs remain useful for focused package validation
+- per-package npm distribution remains future work
+
+For `@agentic-config/pi-ac-workflow`, open-source users should read the runtime ownership as:
+- `pimux` = package-owned tmux control plane, including generic long-lived non-mux hierarchies
+- `ac-workflow-mux`, `ac-workflow-mux-ospec`, `ac-workflow-mux-roadmap` = structured wrappers on top of `pimux`
+
+See [pimux Workflow Topologies](pimux-workflow-topologies.md) for the practical hierarchy guide.
+
+### Team and automation rollout: pinned git tag
+
+Use the current public release tag when you want reproducible rollout from the repository itself:
+
+```bash
+pi install "git:github.com/WaterplanAI/agentic-config@v0.2.6" -l
+```
+
+Equivalent committed `.pi/settings.json` source:
+
+```json
+{
+  "packages": [
+    "git:github.com/WaterplanAI/agentic-config@v0.2.6"
+  ]
+}
+```
+
+Use the equivalent SSH git source for the same repository and tag when needed.
+
+This path has been validated end to end against the root umbrella package layout, including representative skill and extension loading.
+
+### Local testing and development: branch refs
+
+Use a branch ref when you want repo-based rollout for local testing or development without cutting a new tag yet:
+
+```bash
+pi install "git:github.com/WaterplanAI/agentic-config@main" -l
+```
+
+Replace `main` with a feature branch name when testing unpublished pi changes.
+
+### Local package-root installs for focused validation
+
+Local-path installs remain primarily for local development and pre-distribution testing, not as the main repo-based distribution path for this monorepo.
+
+Direct local-path installs are appropriate for standalone package roots such as:
+
+```bash
+pi install ./packages/pi-compat -l
+pi install ./packages/pi-ac-meta -l
+pi install ./packages/pi-ac-workflow -l
+```
+
+For bundled package roots such as `pi-all`, use the staged local testing flow from the [Pi Package Adoption Guide](../packages/README.md#local-package-testing-before-distribution).
+
+### Future npm distribution
+
+Publishing the per-package npm surface remains future work. When that distribution path is enabled, it will complement the git-based root install path rather than replace the validated repo-based rollout described above.
+
+For the full current package surface and install matrix, see the [Pi Package Adoption Guide](../packages/README.md).
+
 ---
 
-## Private Marketplace (Enterprise)
+## Claude Code Private Marketplace (Enterprise)
 
 Run a private marketplace from a private GitHub repository.
 
@@ -167,5 +237,6 @@ All customizations are isolated to the private fork.
 
 ## See Also
 
-- [Getting Started](getting-started.md) -- Setup and first use
+- [Getting Started](getting-started.md) -- Claude Code and pi setup
+- [Pi Package Adoption Guide](../packages/README.md) -- npm installs, alternative git installs, committed `.pi/settings.json`, and local pre-distribution testing
 - [Migration Guide v0.2.0](migration-v0.2.0.md) -- Migrate from v0.1.x symlinks

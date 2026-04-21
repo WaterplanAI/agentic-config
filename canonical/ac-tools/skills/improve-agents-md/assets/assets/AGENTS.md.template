@@ -1,0 +1,41 @@
+# Project Guidelines
+
+## Environment & Tooling
+- **Package Manager:** {{PACKAGE_MANAGER}}
+- **Type Checking:** {{TYPE_CHECKER}}
+- **Linting:** {{LINTER}}
+- **Build:** Only when explicitly requested
+
+## Style & Conventions
+- {{STYLE}}
+- After edits: {{AFTER_EDIT}}
+
+## Core Rules
+- Verify over assume; failures first; always re-raise (never swallow exceptions)
+- Type hints for all public functions, descriptive names, small pure functions
+- Minimal changes; avoid ambiguity; no placeholders
+- EFFICIENCY in application and UX - reflect in every implementation
+- Glob excludes hidden dirs: use explicit non-hidden roots, e.g. `Glob(pattern="*.md", path="{{SKILL_EXAMPLE_PATH}}")`
+
+## Skill Triggering
+
+**MANDATORY** - No exceptions:
+- `/<name>` = look up in `.claude/commands/`, `.claude/skills/` (if present), and `{{SKILL_GLOB_ROOT}}`; invoke via Skill tool
+- 1% match = invoke. Never skip. Never reimplement skill behavior manually.
+- Explicit user request (e.g., "/mux", "/spec") = invoke IMMEDIATELY
+
+## Git Workflow
+- Base branch: main (not master); never commit to main
+- NEVER amend unless user says 'amend commit'
+- NEVER commit gitignored files; do NOT `git add -f`
+- Use CWD-relative paths from git status for git add
+- Conventional Commits: `<type>(<scope>): <description>`
+  - Types: feat, fix, docs, chore, refactor, test, style, perf, build, ci
+
+## CHANGELOG
+- Entries only against origin/main; unreleased changes = ONE logical unit
+- No "Fixed" entries for pre-merge iterations
+- Add to `[Unreleased]`; do NOT modify released/tagged versions
+
+## Session Resume
+READ @RESUME.md only when user asks "where we left off" / "what's next" / "resume"

@@ -1,5 +1,16 @@
 # Stage Patterns
 
+
+> Authoritative contract (wins on conflict):
+> - full: CREATE (optional) -> GATHER -> CONSOLIDATE -> SUCCESS_CRITERIA -> CONFIRM_SC -> PLAN -> IMPLEMENT -> REVIEW -> FIX -> TEST -> DOCUMENT -> SENTINEL
+> - lean: CREATE (optional) -> CONFIRM_SC -> PLAN -> IMPLEMENT -> REVIEW -> FIX -> TEST -> DOCUMENT -> SELF_VALIDATION
+> - leanest: CREATE (optional) -> CONFIRM_SC -> PLAN -> IMPLEMENT -> REVIEW -> FIX -> TEST -> SELF_VALIDATION
+> - GATHER = RESEARCH; CONFIRM_SC is mandatory before PLAN
+> - REVIEW/TEST/SENTINEL/SELF_VALIDATION are PASS-only gates
+> - notify-first pacing; no polling loops; blocked/stuck defaults to user escalation
+> - every stage must commit every changed repo and report `repo_scope`, `root_commit`, `spec_commit` (root first, spec second when both changed)
+
+
 Patterns for executing o_spec stages via MUX delegation.
 
 ## Stage Delegation Template
@@ -33,7 +44,7 @@ OUTPUT: {spec_path}
 SIGNAL: {{session}}/.signals/create.done
 
 Return EXACTLY: done""",
-    model="opus",
+    model="high-tier",
     run_in_background=True
 )
 ```
@@ -52,7 +63,7 @@ OUTPUT: {{session}}/research/findings.md
 SIGNAL: {{session}}/.signals/research.done
 
 Return EXACTLY: done""",
-    model="opus",
+    model="high-tier",
     run_in_background=True
 )
 ```
@@ -69,7 +80,7 @@ OUTPUT: {{session}}/research/{topic}.md
 SIGNAL: {{session}}/.signals/research-{topic}.done
 
 Return EXACTLY: done""",
-        model="opus",
+        model="high-tier",
         run_in_background=True
     )
 ```
@@ -86,27 +97,41 @@ OUTPUT: {{session}}/plan/strategy.md
 SIGNAL: {{session}}/.signals/plan.done
 
 Return EXACTLY: done""",
-    model="opus",
+    model="high-tier",
     run_in_background=True
 )
 ```
 
 **TDD Strategy**: Plan includes test-first approach.
 
-### PLAN_REVIEW Stage (Full Mode)
+### SUCCESS_CRITERIA Stage (Full Mode)
 
-Review plan quality before implementation.
+Materialize explicit acceptance criteria before confirmation.
 
 ```python
 Task(
-    prompt=f"""Invoke Skill(skill="spec", args="PLAN_REVIEW {spec_path} ultrathink").
+    prompt=f"""Invoke Skill(skill=\"spec\", args=\"SUCCESS_CRITERIA {spec_path}\").
 
-OUTPUT: {{session}}/plan/review.md
-SIGNAL: {{session}}/.signals/plan-review.done
+OUTPUT: {{session}}/plan/success-criteria.md
+SIGNAL: {{session}}/.signals/success-criteria.done
 
 Return EXACTLY: done""",
-    model="opus",
+    model="high-tier",
     run_in_background=True
+)
+```
+
+### CONFIRM_SC Stage (All Modes)
+
+Get user approval before PLAN.
+
+```python
+AskUserQuestion(
+    question="Approve SUCCESS_CRITERIA before PLAN?",
+    options=[
+        {"label": "Approve", "description": "Proceed to PLAN"},
+        {"label": "Refine", "description": "Update criteria first"},
+    ],
 )
 ```
 
@@ -123,7 +148,7 @@ Commit changes with: spec(NNN): IMPLEMENT - {title}
 SIGNAL: {{session}}/.signals/implement.done
 
 Return EXACTLY: done""",
-    model="sonnet",
+    model="medium-tier",
     run_in_background=True
 )
 ```
@@ -140,7 +165,7 @@ Commit changes with: spec(NNN): IMPLEMENT phase-{phase_num}
 SIGNAL: {{session}}/.signals/phase-{phase_num}-implement.done
 
 Return EXACTLY: done""",
-    model="sonnet",
+    model="medium-tier",
     run_in_background=True
 )
 ```
@@ -162,7 +187,7 @@ OUTPUT: {{session}}/reviews/phase-{phase_num}-review-{cycle_num}.md
 SIGNAL: {{session}}/.signals/phase-{phase_num}-review-{cycle_num}.done
 
 Return EXACTLY: done""",
-    model="opus",
+    model="high-tier",
     run_in_background=True
 )
 ```
@@ -193,7 +218,7 @@ Commit changes with: spec(NNN): FIX phase-{phase_num} cycle-{cycle_num}
 SIGNAL: {{session}}/.signals/phase-{phase_num}-fix-{cycle_num}.done
 
 Return EXACTLY: done""",
-    model="sonnet",
+    model="medium-tier",
     run_in_background=True
 )
 ```
@@ -221,7 +246,7 @@ OUTPUT: {{session}}/tests/test-results.json
 SIGNAL: {{session}}/.signals/test.done
 
 Return EXACTLY: done""",
-    model="sonnet",
+    model="medium-tier",
     run_in_background=True
 )
 ```
@@ -246,7 +271,7 @@ OUTPUT: Documentation artifacts
 SIGNAL: {{session}}/.signals/document.done
 
 Return EXACTLY: done""",
-    model="sonnet",
+    model="medium-tier",
     run_in_background=True
 )
 ```
@@ -266,7 +291,7 @@ for cycle in range(1, MAX_LOOPS + 1):
 SIGNAL: {{session}}/.signals/phase-{phase_num}-review-{cycle}.done
 
 Return EXACTLY: done""",
-        model="opus",
+        model="high-tier",
         run_in_background=True
     )
 
@@ -284,7 +309,7 @@ Return EXACTLY: done""",
 SIGNAL: {{session}}/.signals/phase-{phase_num}-fix-{cycle}.done
 
 Return EXACTLY: done""",
-            model="sonnet",
+            model="medium-tier",
             run_in_background=True
         )
 ```
@@ -297,9 +322,9 @@ Independent stages execute in parallel.
 
 ```python
 # Multiple researchers (parallel)
-Task(prompt="Research architecture...", model="opus", run_in_background=True)
-Task(prompt="Research integrations...", model="opus", run_in_background=True)
-Task(prompt="Research edge-cases...", model="opus", run_in_background=True)
+Task(prompt="Research architecture...", model="high-tier", run_in_background=True)
+Task(prompt="Research integrations...", model="high-tier", run_in_background=True)
+Task(prompt="Research edge-cases...", model="high-tier", run_in_background=True)
 
 ```
 
@@ -325,31 +350,20 @@ phases:
 
 ## Commit Protocol
 
-Each stage commits its changes.
+Each stage commits every changed repo and reports repo-scoped evidence.
 
-```bash
-# Commit message format
-spec(NNN): {STAGE} - {title}
-
-# Examples
-spec(042): CREATE - Add user authentication
-spec(042): IMPLEMENT phase-1 - Foundation
-spec(042): FIX phase-2 cycle-1 - Address review
-spec(042): DOCUMENT - API reference
+```yaml
+repo_scope: spec-only | root-only | root+spec
+root_commit: <hash|N/A>
+spec_commit: <hash|N/A>
 ```
 
-## Stage Skip Behavior
+Ordering rule when both repos changed: root commit first, spec commit second.
 
-Stages can be skipped via `--skip` flag.
+## Stage Bypass Policy
 
-```python
-# Parse skip list
-skip_stages = args.skip.split(",") if args.skip else []
+Primary stages are mandatory for the selected modifier contract and must not be bypassed at runtime.
 
-# Check before execution
-if "TEST" in skip_stages:
-    # Skip TEST stage, signal as skipped
-    signal(f"{{session}}/.signals/test.done", status="skipped")
-```
-
-**Warning**: Skipping stages reduces quality assurance.
+- `full` executes every listed stage in order.
+- `lean` and `leanest` follow their explicit reduced sequences.
+- `REVIEW`, `TEST`, `SENTINEL`, and `SELF_VALIDATION` remain PASS-only gates.

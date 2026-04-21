@@ -2,6 +2,7 @@
 """Unit tests for plugin hook scripts and hooks.json configuration."""
 
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -160,14 +161,26 @@ def test_dry_run_guard_no_hardcoded_paths():
 # ===== Behavioral tests =====
 
 
-def _run_hook(script_path: Path, stdin_data: dict) -> dict:
+def _run_hook(
+    script_path: Path,
+    stdin_data: dict,
+    *,
+    cwd: Path | None = None,
+    env: dict[str, str] | None = None,
+) -> dict:
     """Run a hook script with given stdin and return parsed JSON output."""
+    process_env = os.environ.copy()
+    if env:
+        process_env.update(env)
+
     result = subprocess.run(
         [sys.executable, str(script_path)],
         input=json.dumps(stdin_data),
         capture_output=True,
         text=True,
         timeout=10,
+        cwd=str(cwd) if cwd else None,
+        env=process_env,
     )
     output_line = result.stdout.strip().split("\n")[0]
     return json.loads(output_line)
@@ -237,6 +250,48 @@ def test_dry_run_guard_allows_when_no_status():
     output = _run_hook(AC_TOOLS_SCRIPTS / "dry-run-guard.py", stdin)
     decision = output["hookSpecificOutput"]["permissionDecision"]
     assert decision == "allow", f"Expected allow (no status file), got {decision}"
+
+
+def test_dry_run_guard_blocks_session_scoped_write(tmp_path: Path):
+    """dry-run-guard uses CLAUDE_SESSION_ID-scoped status files when present."""
+    status_path = tmp_path / "outputs" / "session" / "session-123" / "status.yml"
+    status_path.parent.mkdir(parents=True)
+    status_path.write_text("dry_run: true\n")
+
+    stdin = {
+        "tool_name": "Write",
+        "tool_input": {"file_path": "/tmp/test.txt"},
+    }
+    output = _run_hook(
+        AC_TOOLS_SCRIPTS / "dry-run-guard.py",
+        stdin,
+        cwd=tmp_path,
+        env={"CLAUDE_SESSION_ID": "session-123"},
+    )
+    decision = output["hookSpecificOutput"]["permissionDecision"]
+    assert decision == "deny", f"Expected deny, got {decision}"
+
+
+def test_dry_run_guard_blocks_python_bash_write(tmp_path: Path):
+    """dry-run-guard blocks common interpreter-mediated Bash writes during dry-run."""
+    status_path = tmp_path / "outputs" / "session" / "session-456" / "status.yml"
+    status_path.parent.mkdir(parents=True)
+    status_path.write_text("dry_run: true\n")
+
+    stdin = {
+        "tool_name": "Bash",
+        "tool_input": {
+            "command": "python -c \"from pathlib import Path; Path('x.txt').write_text('blocked')\""
+        },
+    }
+    output = _run_hook(
+        AC_TOOLS_SCRIPTS / "dry-run-guard.py",
+        stdin,
+        cwd=tmp_path,
+        env={"CLAUDE_SESSION_ID": "session-456"},
+    )
+    decision = output["hookSpecificOutput"]["permissionDecision"]
+    assert decision == "deny", f"Expected deny, got {decision}"
 
 
 if __name__ == "__main__":

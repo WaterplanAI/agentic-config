@@ -1,0 +1,56 @@
+{
+  "name": "@agentic-config/pi-ac-tools",
+  "version": "0.2.6",
+  "description": "Pi package for the agentic-config ac-tools plugin.",
+  "license": "MIT",
+  "homepage": "https://github.com/WaterplanAI/agentic-config",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/WaterplanAI/agentic-config.git",
+    "directory": "packages/pi-ac-tools"
+  },
+  "keywords": [
+    "pi-package",
+    "agentic-config",
+    "pi",
+    "ac-tools",
+    "tools",
+    "gsuite",
+    "dry-run",
+    "adr",
+    "milestone",
+    "video"
+  ],
+  "type": "module",
+  "peerDependencies": {
+    "@mariozechner/pi-ai": "*",
+    "@mariozechner/pi-coding-agent": "*",
+    "@sinclair/typebox": "*"
+  },
+  "peerDependenciesMeta": {
+    "@mariozechner/pi-ai": {
+      "optional": true
+    },
+    "@mariozechner/pi-coding-agent": {
+      "optional": true
+    },
+    "@sinclair/typebox": {
+      "optional": true
+    }
+  },
+  "pi": {
+    "skills": [
+      "./skills"
+    ],
+    "extensions": [
+      "./extensions",
+      "node_modules/@agentic-config/pi-compat/extensions"
+    ]
+  },
+  "dependencies": {
+    "@agentic-config/pi-compat": "0.2.6"
+  },
+  "bundledDependencies": [
+    "@agentic-config/pi-compat"
+  ]
+}

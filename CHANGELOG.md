@@ -4,6 +4,41 @@ All notable changes to agentic-config.
 
 ## [Unreleased]
 
+### Added
+
+- `pi-ac-safety`: generated `ac-safety-harden-supply-chain-sec` pi wrapper
+  - adapts the dependency-review worker step to pi's current `subagent` tool while preserving the guided safety flow
+- `pi-ac-tools`: generated `ac-tools-gcp-setup`, `ac-tools-gsuite`, and `ac-tools-setup-voice-mode` pi wrappers
+  - bundles the required skill-local GCP and GSuite support trees through the canonical generator
+  - keeps `gsuite` subagent orchestration honest by allowing direct Bash fallback when the runtime subagent tool is unavailable
+- `pi-ac-tools`: `gsuite-public-asset-guard.py` package-local parity through `@agentic-config/pi-compat`
+  - blocks accidental public GSuite sharing overrides in shipped pi flows
+- `pi-compat`: shared `AskUserQuestion` and `NotebookEdit` compat tools for deferred pi ports
+  - closes the shared `NotebookEdit` runtime gap for packaged hook-backed surfaces
+  - adds reusable approval/selection/text-input prompting for later generated wrappers
+  - keeps generic nested/background `Task` / subagent runtime primitives explicitly deferred beyond the current worker-wave foundation
+- `pi-ac-git`: generated `ac-git-worktree` pi wrapper
+  - keeps branch/spec bootstrap serial through the bundled package scripts instead of generic skill-to-skill invocation
+  - uses the shared `pi-compat` worker-wave helpers only for ordered environment setup
+  - ships the bundled `worktree` cookbook in the pi package surface
+- `pi-ac-qa`: generated `ac-qa-gh-pr-review` pi wrapper
+  - uses the shared `pi-compat` worker-wave helpers for the fixed review-worker fan-out and result collection
+  - keeps final report synthesis and `gh pr review` actions skill-owned with explicit user confirmation
+  - reports diff-only validation limits honestly when the local checkout does not match the PR head
+- `pi-ac-safety`: packaged `playwright-guardian.py` parity for the current Bash-based `playwright-cli` surface
+  - extends the shared hook-compat registration so safety policy now applies to shipped Playwright browser automation flows in pi
+  - keeps domain allowlists, always-blocked actions, and unknown-action prompts explicit without adding a first-party browser tool
+
+### Changed
+
+- `pi-ac-workflow`: authoritative `pimux` mux-family parent pacing is now notify-first instead of poll-friendly
+  - explicit `mux`, `mux-ospec`, and `mux-roadmap` parents get one initial supervision check and one recovery `send_message` per child-activity window
+  - new child bridge activity or terminal settlement re-arms supervision deliberately, including exactly one final `pimux status` verification after settlement
+  - canonical, packaged, and local skill surfaces now describe the same runtime-enforced supervision contract
+- canonical generator coverage now includes the shipped `ac-git-worktree` and `ac-qa-gh-pr-review` pi renders across the full canonical skill tree
+- package status surfaces now describe the `42`-skill shipped pi surface and the remaining generic runtime boundary honestly
+
+
 ## [0.2.6] - 2026-04-01
 
 ### Added

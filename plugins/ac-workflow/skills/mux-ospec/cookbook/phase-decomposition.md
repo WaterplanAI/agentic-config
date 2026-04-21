@@ -30,7 +30,7 @@ Output: {{session}}/phases/phase-manifest.yml
 Signal: {{session}}/.signals/decomposition.done
 
 FINAL: Return EXACTLY: done""",
-    model="opus",
+    model="high-tier",
     run_in_background=True
 )
 ```
@@ -198,7 +198,7 @@ Bundled phases:
 
 ## Per-Phase Implementation
 
-After decomposition, phases execute via PHASE_LOOP.
+After decomposition, phases execute via PLAN -> IMPLEMENT -> REVIEW -> FIX.
 
 ```python
 # Load manifest
@@ -218,7 +218,7 @@ STACK: {phase["stack"]}
 SIGNAL: {{session}}/.signals/phase-{phase_num}-implement.done
 
 FINAL: Return EXACTLY: done""",
-            model="sonnet",
+            model="medium-tier",
             run_in_background=True
         )
 

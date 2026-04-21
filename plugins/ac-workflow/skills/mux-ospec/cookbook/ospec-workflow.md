@@ -1,5 +1,16 @@
 # O-Spec Workflow
 
+
+> Authoritative contract (wins on conflict):
+> - full: CREATE (optional) -> GATHER -> CONSOLIDATE -> SUCCESS_CRITERIA -> CONFIRM_SC -> PLAN -> IMPLEMENT -> REVIEW -> FIX -> TEST -> DOCUMENT -> SENTINEL
+> - lean: CREATE (optional) -> CONFIRM_SC -> PLAN -> IMPLEMENT -> REVIEW -> FIX -> TEST -> DOCUMENT -> SELF_VALIDATION
+> - leanest: CREATE (optional) -> CONFIRM_SC -> PLAN -> IMPLEMENT -> REVIEW -> FIX -> TEST -> SELF_VALIDATION
+> - GATHER = RESEARCH; CONFIRM_SC is mandatory before PLAN
+> - REVIEW/TEST/SENTINEL/SELF_VALIDATION are PASS-only gates
+> - notify-first pacing; no polling loops; blocked/stuck defaults to user escalation
+> - every stage must commit every changed repo and report `repo_scope`, `root_commit`, `spec_commit` (root first, spec second when both changed)
+
+
 Source of truth: SKILL.md defines the canonical workflow. This cookbook expands on execution details but does NOT override stage sequences or signal formats.
 
 Stage sequences, model assignments, and execution patterns for o_spec modifiers.
@@ -11,56 +22,66 @@ Stage sequences, model assignments, and execution patterns for o_spec modifiers.
 Complete workflow with research and validation.
 
 ```
-CREATE (optional) -> GATHER -> CONSOLIDATE -> [CONFIRM SC] -> [PHASE_LOOP] -> TEST -> DOCUMENT -> SENTINEL
+CREATE (optional) -> GATHER -> CONSOLIDATE -> SUCCESS_CRITERIA -> CONFIRM_SC -> PLAN -> IMPLEMENT -> REVIEW -> FIX -> TEST -> DOCUMENT -> SENTINEL
 ```
 
 | Stage | Tier | Purpose |
 |-------|------|---------|
-| GATHER | high | Parallel research collection |
-| CONSOLIDATE | high | Research synthesis |
-| CONFIRM SC | user | SUCCESS_CRITERIA validation from research output |
-| PHASE_LOOP | varies | Per-phase implementation cycle |
-| TEST | medium | Adaptive test execution |
-| DOCUMENT | medium | Documentation artifacts |
-| SENTINEL | high | Cross-cutting final review |
+| GATHER | medium-tier | Parallel research collection (`GATHER = RESEARCH`) |
+| CONSOLIDATE | high-tier | Research synthesis |
+| SUCCESS_CRITERIA | high-tier | Explicit acceptance contract |
+| CONFIRM_SC | user gate | Mandatory approval before `PLAN` |
+| PLAN | high-tier | Strategy and phase sequencing |
+| IMPLEMENT | medium-tier | Bounded implementation |
+| REVIEW | high-tier | PASS-only quality gate |
+| FIX | medium-tier | Targeted remediation |
+| TEST | medium-tier | PASS-only validation gate |
+| DOCUMENT | medium-tier | Documentation artifacts |
+| SENTINEL | high-tier | Final PASS-only gate |
 
 ### Lean Mode
 
 Skips research, assumes spec is already validated.
 
 ```
-CREATE (optional) -> [CONFIRM SC] -> [PHASE_LOOP] -> TEST -> DOCUMENT -> SELF-VALIDATION
+CREATE (optional) -> CONFIRM_SC -> PLAN -> IMPLEMENT -> REVIEW -> FIX -> TEST -> DOCUMENT -> SELF_VALIDATION
 ```
 
 | Stage | Tier | Purpose |
 |-------|------|---------|
-| CONFIRM SC | user | SUCCESS_CRITERIA validation from spec file |
-| PHASE_LOOP | varies | Per-phase implementation cycle |
-| TEST | medium | Adaptive test execution |
-| DOCUMENT | medium | Documentation artifacts |
-| SELF-VALIDATION | medium | Orchestrator self-check |
+| CONFIRM_SC | user gate | SUCCESS_CRITERIA validation from spec file |
+| PLAN | high-tier | Strategy and sequencing |
+| IMPLEMENT | medium-tier | Bounded implementation |
+| REVIEW | high-tier | PASS-only quality gate |
+| FIX | medium-tier | Targeted remediation |
+| TEST | medium-tier | PASS-only validation gate |
+| DOCUMENT | medium-tier | Documentation artifacts |
+| SELF_VALIDATION | high-tier | Final PASS-only gate for lean mode |
 
 ### Leanest Mode
 
 Minimal workflow for well-defined specs.
 
 ```
-CREATE (optional) -> [CONFIRM SC] -> [PHASE_LOOP] -> TEST -> SELF-VALIDATION
+CREATE (optional) -> CONFIRM_SC -> PLAN -> IMPLEMENT -> REVIEW -> FIX -> TEST -> SELF_VALIDATION
 ```
 
 | Stage | Tier | Purpose |
 |-------|------|---------|
-| CONFIRM SC | user | SUCCESS_CRITERIA validation from spec file |
-| PHASE_LOOP | medium/low | Per-phase implementation cycle |
-| TEST | low | Adaptive test execution |
-| SELF-VALIDATION | low | Orchestrator self-check |
+| CONFIRM_SC | user gate | SUCCESS_CRITERIA validation from spec file |
+| PLAN | high-tier | Strategy and sequencing |
+| IMPLEMENT | medium-tier | Bounded implementation |
+| REVIEW | high-tier | PASS-only quality gate |
+| FIX | medium-tier | Targeted remediation |
+| TEST | medium-tier | PASS-only validation gate |
+| SELF_VALIDATION | high-tier | Final PASS-only gate for leanest mode |
 
-## PHASE_LOOP Structure
+## Explicit implementation stages and REVIEW/FIX loop
 
-Per-phase cycle with TDD enforcement.
+Implementation remains explicit (`PLAN -> IMPLEMENT -> REVIEW -> FIX`) and loops only between `REVIEW` and `FIX` until `PASS` or user escalation.
 
 ```
-PLAN -> IMPLEMENT -> REVIEW -> FIX (if WARN/FAIL)
+PLAN -> IMPLEMENT -> REVIEW -> FIX (on WARN/FAIL) -> REVIEW ...
 ```
 
 ### Per-Phase Execution
@@ -80,7 +101,7 @@ OUTPUT: {{session}}/phases/{phase_num}/plan.md
 SIGNAL: {{session}}/.signals/phase-{phase_num}-plan.done
 
 Return EXACTLY: done""",
-        model="opus",
+        model="high-tier",
         run_in_background=True
     )
 
@@ -97,28 +118,15 @@ OUTPUT: Implementation artifacts
 SIGNAL: {{session}}/.signals/phase-{phase_num}-implement.done
 
 Return EXACTLY: done""",
-        model="sonnet",
+        model="medium-tier",
         run_in_background=True
     )
 
     # REVIEW (N-cycle loop)
     # See review-cycles.md for loop details
 
-    # Per-phase SENTINEL (optional, --phased flag)
-    Task(
-        prompt=f"""Read agents/sentinel.md.
-
-SESSION: {{session}}
-PHASE: {phase_num}
-SCOPE: phase-only
-
-OUTPUT: {{session}}/phases/{phase_num}/sentinel.md
-SIGNAL: {{session}}/.signals/phase-{phase_num}-sentinel.done
-
-Return EXACTLY: done""",
-        model="opus",
-        run_in_background=True
-    )
+    # SENTINEL is the final full-mode gate (single run after DOCUMENT), not a per-phase optional stage.
+    # Use REVIEW/FIX within each phase; reserve SENTINEL for workflow completion verification.
 ```
 
 ## Model Tier Assignments
@@ -127,65 +135,80 @@ Return EXACTLY: done""",
 
 | Stage | Tier | Rationale |
 |-------|------|-----------|
-| CREATE | high | Strategic decisions, template application, smart path resolution |
-| GATHER | high | Deep understanding required |
-| CONSOLIDATE | high | Synthesis requires judgment |
-| CONFIRM SC | user | Human validation |
-| PLAN | high | Strategic decisions, TDD strategy |
-| IMPLEMENT | medium | Well-defined scope |
-| REVIEW | high | Quality assessment |
-| FIX | medium | Targeted changes |
-| TEST | medium | Execution-focused |
-| DOCUMENT | medium | Template-based |
-| SENTINEL | high | Cross-cutting coordination |
+| CREATE | high-tier | Strategic decisions, template application, path resolution |
+| GATHER | medium-tier | Research collection and extraction |
+| CONSOLIDATE | high-tier | Synthesis and prioritization |
+| SUCCESS_CRITERIA | high-tier | Acceptance-contract framing |
+| CONFIRM_SC | user gate | Human approval |
+| PLAN | high-tier | Strategy and TDD planning |
+| IMPLEMENT | medium-tier | Bounded execution |
+| REVIEW | high-tier | Strict quality judgment |
+| FIX | medium-tier | Targeted remediation |
+| TEST | medium-tier | Validation execution |
+| DOCUMENT | medium-tier | Documentation alignment |
+| SENTINEL | high-tier | Final cross-cutting gate |
 
 ### Lean Mode
 
 | Stage | Tier | Rationale |
 |-------|------|-----------|
-| CREATE | high | Strategic decisions, template application, smart path resolution |
-| PLAN | high | Strategic decisions |
-| IMPLEMENT | medium | Well-defined scope |
-| REVIEW | high | Quality assessment |
-| FIX | medium | Targeted changes |
-| TEST | medium | Execution-focused |
-| DOCUMENT | medium | Template-based |
-| SELF-VALIDATION | medium | Basic check |
+| CREATE | high-tier | Strategic decisions, template application, path resolution |
+| PLAN | high-tier | Strategy and decomposition |
+| IMPLEMENT | medium-tier | Well-defined scope |
+| REVIEW | high-tier | Quality assessment |
+| FIX | medium-tier | Targeted changes |
+| TEST | medium-tier | Validation execution |
+| DOCUMENT | medium-tier | Template-based output |
+| SELF_VALIDATION | high-tier | Final PASS-only gate |
 
 ### Leanest Mode
 
 | Stage | Tier | Rationale |
 |-------|------|-----------|
-| CREATE | high | Strategic decisions, template application, smart path resolution |
-| PLAN | medium | Quick planning |
-| IMPLEMENT | medium | Well-defined scope |
-| REVIEW | medium | Lightweight review |
-| FIX | low | Simple fixes |
-| TEST | low | Basic validation |
-| SELF-VALIDATION | low | Minimal check |
+| CREATE | high-tier | Strategic decisions, template application, path resolution |
+| PLAN | high-tier | Quick but explicit planning |
+| IMPLEMENT | medium-tier | Well-defined scope |
+| REVIEW | high-tier | Lightweight but strict review gate |
+| FIX | medium-tier | Simple targeted fixes |
+| TEST | medium-tier | Basic validation execution |
+| SELF_VALIDATION | high-tier | Final PASS-only gate |
 
-## Skip Patterns by Modifier
+## Modifier-defined stage deltas (fixed contract)
 
-### Full Mode Skips
+Primary stages are **not** runtime-bypassable. Required gates must execute for the selected modifier.
 
-None by default. Optional via `--skip` flag.
+### Full Mode
 
-### Lean Mode Skips
+No omitted primary stages; execute the full sequence exactly as defined.
 
-| Skipped | Reason |
-|---------|--------|
+### Lean Mode
+
+| Not Included | Reason |
+|--------------|--------|
 | GATHER | Context assumed sufficient |
 | CONSOLIDATE | No research to synthesize |
-| SENTINEL | Replaced by SELF-VALIDATION |
+| SENTINEL | Replaced by SELF_VALIDATION |
 
-### Leanest Mode Skips
+### Leanest Mode
 
-| Skipped | Reason |
-|---------|--------|
+| Not Included | Reason |
+|--------------|--------|
 | GATHER | Context assumed sufficient |
 | CONSOLIDATE | No research to synthesize |
 | DOCUMENT | Documentation deferred |
-| SENTINEL | Replaced by SELF-VALIDATION |
+| SENTINEL | Replaced by SELF_VALIDATION |
+
+## Repo-scoped commit evidence (mandatory)
+
+Every stage that changes files must report:
+
+```yaml
+repo_scope: spec-only | root-only | root+spec
+root_commit: <hash|N/A>
+spec_commit: <hash|N/A>
+```
+
+If both repos changed, commit root first and spec second.
 
 ## SUCCESS_CRITERIA Derivation
 
@@ -256,8 +279,8 @@ if voice_available:
 
 | Stage | Confirmation | Modifier |
 |-------|--------------|----------|
-| CONFIRM SC | Required | full only |
-| COMMIT | Configurable | all |
+| CONFIRM_SC | Required | all modifiers |
+| COMMIT | Mandatory repo-scoped evidence (`repo_scope`, `root_commit`, `spec_commit`) | all |
 | FIX (final cycle) | Optional | all |
 
 ## MUX Phase Integration
@@ -266,7 +289,7 @@ if voice_available:
 |-----------|---------------|-------------|
 | Setup | CREATE (optional) | Spec creation via /spec CREATE delegation |
 | Research | GATHER, CONSOLIDATE | Parallel researcher delegation |
-| Planning | PLAN, CONFIRM SC | Strategic preparation |
+| Planning | SUCCESS_CRITERIA, CONFIRM_SC, PLAN | Strategic preparation |
 | Execution | IMPLEMENT (phased) | Per-phase Task() delegation |
 | Validation | REVIEW, FIX, TEST | N-cycle quality loops |
 | Finalization | DOCUMENT, SENTINEL | Completion verification |

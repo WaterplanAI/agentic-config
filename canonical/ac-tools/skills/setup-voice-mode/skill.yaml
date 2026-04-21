@@ -1,0 +1,30 @@
+skill_id: setup-voice-mode
+kind: standard
+summary: 'Installs and configures VoiceMode for local speech input/output with explicit endpoint configuration and verification
+  guidance. Triggers on keywords: setup voice, voice mode, install voicemode, configure voice'
+project_agnostic: true
+body_file: body.md
+assets: []
+attachment_refs: []
+renders:
+  claude:
+    status: supported
+    output_path: skills/setup-voice-mode/SKILL.md
+    display_name: setup-voice-mode
+    allowed_tools:
+    - Bash
+    - Read
+    frontmatter_enabled: true
+    description: 'Installs and configures VoiceMode MCP for voice interactions in the target client. Triggers on keywords: setup
+      voice, voice mode, install voicemode, configure voice'
+  pi:
+    status: supported
+    output_path: skills/ac-tools-setup-voice-mode/SKILL.md
+    display_name: ac-tools-setup-voice-mode
+    allowed_tools:
+    - Bash
+    - Read
+    frontmatter_enabled: true
+    body_file: body.pi.md
+    description: 'Installs and configures VoiceMode MCP for voice interactions in the target client. Triggers on keywords: setup
+      voice, voice mode, install voicemode, configure voice'

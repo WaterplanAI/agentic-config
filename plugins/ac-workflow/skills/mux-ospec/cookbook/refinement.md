@@ -1,5 +1,16 @@
 # Refinement
 
+
+> Authoritative contract (wins on conflict):
+> - full: CREATE (optional) -> GATHER -> CONSOLIDATE -> SUCCESS_CRITERIA -> CONFIRM_SC -> PLAN -> IMPLEMENT -> REVIEW -> FIX -> TEST -> DOCUMENT -> SENTINEL
+> - lean: CREATE (optional) -> CONFIRM_SC -> PLAN -> IMPLEMENT -> REVIEW -> FIX -> TEST -> DOCUMENT -> SELF_VALIDATION
+> - leanest: CREATE (optional) -> CONFIRM_SC -> PLAN -> IMPLEMENT -> REVIEW -> FIX -> TEST -> SELF_VALIDATION
+> - GATHER = RESEARCH; CONFIRM_SC is mandatory before PLAN
+> - REVIEW/TEST/SENTINEL/SELF_VALIDATION are PASS-only gates
+> - notify-first pacing; no polling loops; blocked/stuck defaults to user escalation
+> - every stage must commit every changed repo and report `repo_scope`, `root_commit`, `spec_commit` (root first, spec second when both changed)
+
+
 Refinement loop protocol for collecting user feedback and resolving ambiguity before implementation.
 
 ## When Refinement Triggers
@@ -7,7 +18,7 @@ Refinement loop protocol for collecting user feedback and resolving ambiguity be
 | Trigger | Context | Gate |
 |---------|---------|------|
 | User explicitly requests refinement | Any mode | After PLAN |
-| CONFIRM SC loop rejects SC | All modes | Before PLAN (mandatory gate) |
+| CONFIRM_SC loop rejects SC | All modes | Before PLAN (mandatory gate) |
 | Stage returns NEEDS_REFINEMENT | Any mode | Current stage |
 | Orchestrator detects unresolved decisions in plan | Any mode | After PLAN |
 
@@ -44,7 +55,7 @@ IMPORTANT: Path is RELATIVE to project root. Do NOT prepend '/'.
 
 Return EXACTLY: the extracted items or "NO_UNRESOLVED" if none found.""",
         subagent_type="Explore",
-        model="haiku",
+        model="low-tier",
         run_in_background=True
     )
 
@@ -85,7 +96,7 @@ Signal: uv run {MUX_TOOLS}/signal.py {session}/.signals/phase-{N}-plan-refine-{i
 RETURN: "PLAN_REFINED"
 """,
         subagent_type="general-purpose",
-        model="opus",
+        model="high-tier",
         run_in_background=True
     )
 
@@ -158,7 +169,7 @@ After PLAN stage completes, orchestrator MAY enter refinement before IMPLEMENT.
 PLAN complete
     |
     v
-Extract plan summary via Task(haiku/explore)
+Extract plan summary via Task(low-tier/explore)
     |
     v
 Unresolved decisions? ----NO----> Proceed to IMPLEMENT
@@ -174,7 +185,7 @@ User approves? ----YES----> Proceed to IMPLEMENT
    NO (provides direction)
     |
     v
-Delegate plan update to FRESH Task(opus)
+Delegate plan update to FRESH Task(high-tier)
     |
     v
 Loop (max 3 iterations)
@@ -199,7 +210,7 @@ If nothing unresolved, return: NO_UNRESOLVED
 
 IMPORTANT: Path is RELATIVE to project root. Do NOT prepend '/'.""",
     subagent_type="Explore",
-    model="haiku",
+    model="low-tier",
     run_in_background=True
 )
 ```
@@ -232,9 +243,9 @@ Refinement iterations produce distinct signals:
   phase-{N}-plan-refine-3.done     # Refinement iteration 3 (max)
 ```
 
-## CONFIRM SC Refinement (All Modes)
+## CONFIRM_SC Refinement (All Modes)
 
-The CONFIRM SC loop is a MANDATORY refinement gate for success criteria that applies BEFORE PLAN in ALL workflow modifiers (full, lean, leanest):
+The CONFIRM_SC loop is a MANDATORY refinement gate for success criteria that applies BEFORE PLAN in ALL workflow modifiers (full, lean, leanest):
 
 ```python
 # Already in SKILL.md - max 3 iterations
@@ -281,7 +292,7 @@ RIGHT:
 ```python
 # Delegate research to Task agent, receive structured summary
 Task(prompt="Analyze auth patterns in codebase. Return: current approach, dependencies, migration cost.",
-     model="haiku", run_in_background=True)
+     model="low-tier", run_in_background=True)
 ```
 
 ### Vague Questions
@@ -325,5 +336,5 @@ RIGHT:
 ```python
 # FRESH agent for every refinement update
 # Clean context = clean execution
-Task(prompt="Apply refinement...", model="opus", run_in_background=True)
+Task(prompt="Apply refinement...", model="high-tier", run_in_background=True)
 ```

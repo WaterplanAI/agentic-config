@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Landing Page</title>
+  <script src="https://cdn.tailwindcss.com/4.0"></script>
+  <link href="https://cdn.jsdelivr.net/npm/daisyui@5/themes.css" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/daisyui@5/full.css" rel="stylesheet" />
+  <style>
+    :focus-visible { outline: 2px solid #4f46e5; outline-offset: 2px; }
+  </style>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebPage",
+    "name": "Landing Page",
+    "description": "Product landing page with hero, features, and call-to-action",
+    "mainEntity": {
+      "@type": "Product",
+      "name": "Product Name",
+      "description": "Product description"
+    }
+  }
+  </script>
+</head>
+<body class="min-h-screen bg-base-100">
+  <!-- Header / Navigation -->
+  <header class="navbar bg-base-200 sticky top-0 z-50">
+    <div class="navbar-start">
+      <a data-testid="nav-logo" href="/" class="btn btn-ghost text-xl">Brand</a>
+    </div>
+    <nav class="navbar-center" aria-label="Main navigation">
+      <ul class="menu menu-horizontal px-1">
+        <li><a data-testid="nav-features" href="#features">Features</a></li>
+        <li><a data-testid="nav-testimonials" href="#testimonials">Testimonials</a></li>
+        <li><a data-testid="nav-pricing" href="#pricing">Pricing</a></li>
+      </ul>
+    </nav>
+    <div class="navbar-end">
+      <button data-testid="theme-toggle" class="btn btn-ghost btn-circle" aria-label="Toggle theme" onclick="toggleTheme()">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" /></svg>
+      </button>
+      <a data-testid="cta-header" href="#signup" class="btn btn-primary ml-2">Get Started</a>
+    </div>
+  </header>
+
+  <main class="container mx-auto px-4">
+    <!-- Hero Section -->
+    <section aria-label="Hero" class="hero min-h-[60vh] bg-base-200 rounded-box my-8">
+      <div class="hero-content text-center">
+        <div class="max-w-2xl">
+          <h1 class="text-5xl font-bold">Build Something Amazing</h1>
+          <p class="py-6 text-lg">A compelling description of the product value proposition. Explain the primary benefit in one clear sentence.</p>
+          <div class="flex gap-4 justify-center">
+            <a data-testid="cta-primary" href="#signup" class="btn btn-primary btn-lg">Start Free Trial</a>
+            <a data-testid="cta-secondary" href="#features" class="btn btn-outline btn-lg">Learn More</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Features Section -->
+    <section id="features" aria-label="Features" class="py-16">
+      <h2 class="text-3xl font-bold text-center mb-12">Why Choose Us</h2>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <article class="card bg-base-200 shadow-md" data-testid="feature-1">
+          <div class="card-body items-center text-center">
+            <div class="text-4xl mb-4" aria-hidden="true">&#9889;</div>
+            <h3 class="card-title">Fast Performance</h3>
+            <p>Lightning-fast load times and smooth interactions for the best user experience.</p>
+          </div>
+        </article>
+        <article class="card bg-base-200 shadow-md" data-testid="feature-2">
+          <div class="card-body items-center text-center">
+            <div class="text-4xl mb-4" aria-hidden="true">&#128274;</div>
+            <h3 class="card-title">Secure by Default</h3>
+            <p>Enterprise-grade security built into every layer of the platform.</p>
+          </div>
+        </article>
+        <article class="card bg-base-200 shadow-md" data-testid="feature-3">
+          <div class="card-body items-center text-center">
+            <div class="text-4xl mb-4" aria-hidden="true">&#128640;</div>
+            <h3 class="card-title">Scale Effortlessly</h3>
+            <p>From prototype to production with zero configuration changes needed.</p>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <!-- Testimonials Section -->
+    <section id="testimonials" aria-label="Testimonials" class="py-16 bg-base-200 rounded-box px-8">
+      <h2 class="text-3xl font-bold text-center mb-12">What People Say</h2>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+        <article class="card bg-base-100 shadow-md" data-testid="testimonial-1">
+          <div class="card-body">
+            <p class="italic">"This product transformed our workflow. Highly recommended for any team."</p>
+            <p class="font-semibold mt-4">-- Jane Doe, Example Corp</p>
+          </div>
+        </article>
+        <article class="card bg-base-100 shadow-md" data-testid="testimonial-2">
+          <div class="card-body">
+            <p class="italic">"The best tool we have adopted this year. Simple, powerful, effective."</p>
+            <p class="font-semibold mt-4">-- John Smith, Acme Inc</p>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <!-- Signup / CTA Section -->
+    <section id="signup" aria-label="Sign up" class="py-16 text-center">
+      <h2 class="text-3xl font-bold mb-6">Ready to Get Started?</h2>
+      <p class="mb-8 text-lg max-w-xl mx-auto">Join thousands of teams already using our platform. Start your free trial today.</p>
+      <form data-testid="signup-form" class="flex flex-col sm:flex-row gap-4 justify-center max-w-md mx-auto" onsubmit="event.preventDefault(); alert('Form submitted!');">
+        <div class="flex-1">
+          <label for="signup-email" class="sr-only">Email address</label>
+          <input id="signup-email" data-testid="signup-email-input" type="email" placeholder="you@example.com" class="input input-bordered w-full" required aria-describedby="email-hint">
+          <span id="email-hint" class="text-xs text-base-content/60 mt-1 block">We will never share your email.</span>
+        </div>
+        <button data-testid="signup-submit" type="submit" class="btn btn-primary">Sign Up Free</button>
+      </form>
+    </section>
+  </main>
+
+  <!-- Footer -->
+  <footer class="footer footer-center p-10 bg-base-200 text-base-content">
+    <nav aria-label="Footer navigation" class="grid grid-flow-col gap-4">
+      <a data-testid="footer-about" href="#" class="link link-hover">About</a>
+      <a data-testid="footer-contact" href="#" class="link link-hover">Contact</a>
+      <a data-testid="footer-privacy" href="#" class="link link-hover">Privacy</a>
+      <a data-testid="footer-terms" href="#" class="link link-hover">Terms</a>
+    </nav>
+    <p>Copyright 2026 Example Corp. All rights reserved.</p>
+  </footer>
+
+  <script>
+    // URL-driven state
+    const params = new URLSearchParams(window.location.search);
+    const currentView = params.get('view') || 'default';
+
+    function updateState(key, value) {
+      const url = new URL(window.location);
+      url.searchParams.set(key, value);
+      window.history.pushState({}, '', url);
+    }
+
+    // Theme toggle
+    function toggleTheme() {
+      const html = document.documentElement;
+      const next = html.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+      html.setAttribute('data-theme', next);
+      updateState('theme', next);
+    }
+
+    // Apply theme from URL on load
+    const themeParam = params.get('theme');
+    if (themeParam) {
+      document.documentElement.setAttribute('data-theme', themeParam);
+    }
+  </script>
+</body>
+</html>

@@ -2,13 +2,24 @@
 name: spec-fixer
 role: Fix gaps identified in validation/review
 tier: medium
-model: sonnet
+model: medium-tier
 triggers:
   - validation WARN
   - validation FAIL
   - review gap fix
   - fix cycle
 ---
+
+
+> Authoritative contract (wins on conflict):
+> - full: CREATE (optional) -> GATHER -> CONSOLIDATE -> SUCCESS_CRITERIA -> CONFIRM_SC -> PLAN -> IMPLEMENT -> REVIEW -> FIX -> TEST -> DOCUMENT -> SENTINEL
+> - lean: CREATE (optional) -> CONFIRM_SC -> PLAN -> IMPLEMENT -> REVIEW -> FIX -> TEST -> DOCUMENT -> SELF_VALIDATION
+> - leanest: CREATE (optional) -> CONFIRM_SC -> PLAN -> IMPLEMENT -> REVIEW -> FIX -> TEST -> SELF_VALIDATION
+> - GATHER = RESEARCH; CONFIRM_SC is mandatory before PLAN
+> - REVIEW/TEST/SENTINEL/SELF_VALIDATION are PASS-only gates
+> - notify-first pacing; no polling loops; blocked/stuck defaults to user escalation
+> - every stage must commit every changed repo and report `repo_scope`, `root_commit`, `spec_commit` (root first, spec second when both changed)
+
 # Spec Fixer Agent
 
 ## Persona
@@ -46,7 +57,7 @@ WHY THIS MATTERS:
 
 ## Model
 
-Use: `sonnet` (medium-tier for precision fixes)
+Use: `medium-tier` (medium-tier for precision fixes)
 
 ## Subagent Type
 

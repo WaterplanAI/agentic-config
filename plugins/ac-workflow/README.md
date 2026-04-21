@@ -32,24 +32,29 @@ claude plugin install ac-workflow@agentic-plugins --scope local
 
 ## Agents (Spec Stages)
 
+Primary/public stage set used by mux-ospec/spec workflows:
+
 | Agent | Stage | Description |
 |-------|-------|-------------|
 | `CREATE` | Create | Generate new spec from prompt or template |
-| `RESEARCH` | Research | Gather information and context for spec |
+| `GATHER` | Gather | Gather information and context for spec (`GATHER` is the public alias for compatibility `RESEARCH`) |
+| `CONSOLIDATE` | Consolidate | Synthesize gathered evidence into a coherent implementation direction |
+| `SUCCESS_CRITERIA` | Success Criteria | Define explicit pass/fail outcomes before planning |
+| `CONFIRM_SC` | Confirm Success Criteria | Mandatory user approval gate before `PLAN` |
 | `PLAN` | Plan | Write detailed implementation plan with diffs |
-| `PLAN_REVIEW` | Plan Review | Review and refine the implementation plan |
 | `IMPLEMENT` | Implement | Execute plan tasks with exact diffs |
-| `REVIEW` | Review | Code review of implementation |
-| `TEST` | Test | Run tests and validate implementation |
+| `REVIEW` | Review | Code review of implementation (PASS-only advancement) |
+| `FIX` | Fix | Apply fixes from review/test/sentinel feedback |
+| `TEST` | Test | Run tests and validate implementation (PASS-only advancement) |
 | `DOCUMENT` | Document | Update documentation for changes |
-| `VALIDATE` | Validate | Final validation against acceptance criteria |
-| `VALIDATE_INLINE` | Validate (Inline) | Inline validation variant |
-| `FIX` | Fix | Apply fixes from review/test feedback |
-| `AMEND` | Amend | Amend previous commit with fixes |
+| `SENTINEL` | Sentinel | Final full-mode validation gate (PASS-only advancement) |
+| `SELF_VALIDATION` | Self Validation | Final lean/leanest validation gate (PASS-only advancement) |
+
+Compatibility/internal stages may still exist (`RESEARCH`, `PLAN_REVIEW`, `VALIDATE`, `VALIDATE_INLINE`, `AMEND`), but public mux-ospec flows use the primary stages above.
 
 ## Configuration
 
-Spec files are stored in `specs/<YYYY>/<MM>/<branch>/<NNN>-<title>.md` by default.
+Spec files use `.specs/specs/<YYYY>/<MM>/<branch>/<NNN>-<title>.md` by default.
 
 External spec storage is supported via `.env` or `.agentic-config.conf.yml`:
 
@@ -64,13 +69,13 @@ EXT_SPECS_LOCAL_PATH=.specs
 
 ```
 # Create a new spec
-/spec CREATE specs/2026/02/main/001-my-feature.md
+/spec CREATE .specs/specs/2026/02/main/001-my-feature.md
 
 # Plan implementation (writes exact diffs)
-/spec PLAN specs/2026/02/main/001-my-feature.md
+/spec PLAN .specs/specs/2026/02/main/001-my-feature.md
 
 # Implement the plan
-/spec IMPLEMENT specs/2026/02/main/001-my-feature.md
+/spec IMPLEMENT .specs/specs/2026/02/main/001-my-feature.md
 ```
 
 ## License

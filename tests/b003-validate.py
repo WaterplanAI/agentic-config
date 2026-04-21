@@ -3,8 +3,8 @@
 
 Validates marketplace submission and team distribution deliverables:
 - SC-1: Self-hosted marketplace functional (marketplace.json on main-ready branch)
-- SC-2: Plugin marketplace add works (5 plugins listed)
-- SC-3: All 5 plugins installable (plugin.json exists for each)
+- SC-2: Plugin marketplace add works (all marketplace plugins listed)
+- SC-3: All marketplace plugins installable (plugin.json exists for each)
 - SC-4: Per-plugin README quality
 - SC-5: Version management operational
 - SC-6: Team adoption via settings.json
@@ -21,8 +21,6 @@ from pathlib import Path
 PASS = 0
 FAIL = 0
 
-PLUGINS = ["ac-workflow", "ac-git", "ac-qa", "ac-tools", "ac-meta"]
-
 README_REQUIRED_SECTIONS = ["Installation", "Skills", "Usage Examples", "License"]
 
 
@@ -36,9 +34,21 @@ def check(label: str, condition: bool, detail: str = "") -> None:
         print(f"  FAIL: {label} -- {detail}")
 
 
+def discover_expected_plugin_names(root: Path) -> list[str]:
+    """Return marketplace plugin names from shipped plugin manifests."""
+    plugins_dir = root / "plugins"
+    return sorted(
+        plugin_dir.name
+        for plugin_dir in plugins_dir.iterdir()
+        if plugin_dir.is_dir() and (plugin_dir / ".claude-plugin" / "plugin.json").exists()
+    )
+
+
 def main() -> None:
     global PASS, FAIL
     root = Path(__file__).resolve().parent.parent
+    expected_plugins = discover_expected_plugin_names(root)
+    expected_count = len(expected_plugins)
 
     # ===== SC-1: Self-hosted marketplace functional =====
     print("\nSC-1: Self-hosted marketplace functional")
@@ -48,14 +58,18 @@ def main() -> None:
         mp = json.loads(mp_path.read_text())
         check("marketplace name is agentic-plugins", mp.get("name") == "agentic-plugins")
         check("plugins array exists", isinstance(mp.get("plugins"), list))
-        check("5 plugins listed", len(mp.get("plugins", [])) == 5, f"found {len(mp.get('plugins', []))}")
+        check(
+            f"{expected_count} plugins listed",
+            len(mp.get("plugins", [])) == expected_count,
+            f"found {len(mp.get('plugins', []))}",
+        )
 
     # ===== SC-2: Plugin marketplace add (structural) =====
     print("\nSC-2: Plugin marketplace add (structural)")
     if mp_path.exists():
         mp = json.loads(mp_path.read_text())
         plugin_names = {p.get("name") for p in mp.get("plugins", [])}
-        for name in PLUGINS:
+        for name in expected_plugins:
             check(f"{name} in marketplace.json", name in plugin_names)
         for p in mp.get("plugins", []):
             name = p.get("name", "?")
@@ -64,9 +78,9 @@ def main() -> None:
             source_path = root / p.get("source", "")
             check(f"{name}: source directory exists", source_path.is_dir(), str(source_path))
 
-    # ===== SC-3: All 5 plugins installable =====
-    print("\nSC-3: All 5 plugins installable")
-    for name in PLUGINS:
+    # ===== SC-3: All marketplace plugins installable =====
+    print("\nSC-3: All marketplace plugins installable")
+    for name in expected_plugins:
         pj = root / "plugins" / name / ".claude-plugin" / "plugin.json"
         check(f"{name}: plugin.json exists", pj.exists())
         if pj.exists():
@@ -79,7 +93,7 @@ def main() -> None:
 
     # ===== SC-4: Per-plugin README quality =====
     print("\nSC-4: Per-plugin README quality")
-    for name in PLUGINS:
+    for name in expected_plugins:
         readme = root / "plugins" / name / "README.md"
         check(f"{name}: README.md exists", readme.exists())
         if readme.exists():
@@ -93,7 +107,7 @@ def main() -> None:
 
     # ===== SC-5: Version management operational =====
     print("\nSC-5: Version management operational")
-    for name in PLUGINS:
+    for name in expected_plugins:
         pj = root / "plugins" / name / ".claude-plugin" / "plugin.json"
         if pj.exists():
             pdata = json.loads(pj.read_text())
@@ -121,7 +135,7 @@ def main() -> None:
         check("template has agentic-plugins marketplace", "agentic-plugins" in tcontent)
         check("template references github source", '"github"' in tcontent)
         # Verify all plugins are listed
-        for name in PLUGINS:
+        for name in expected_plugins:
             check(f"template enables {name}", f"{name}@agentic-plugins" in tcontent)
 
     # ===== SC-7: Auto-prompt on trust =====

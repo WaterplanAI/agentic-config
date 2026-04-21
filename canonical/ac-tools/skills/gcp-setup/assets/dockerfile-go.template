@@ -1,0 +1,32 @@
+# ---------- Stage 1: Build ----------
+# Compiles a static Go binary. This stage is thrown away.
+FROM golang:1.23-alpine AS builder
+
+WORKDIR /app
+
+# Cache deps (only re-downloaded if go.mod/go.sum change)
+COPY go.mod go.sum ./
+RUN go mod download
+
+# Copy source and build static binary
+COPY . .
+RUN CGO_ENABLED=0 GOOS=linux go build -o /app/server .
+
+# ---------- Stage 2: Production ----------
+# Distroless image — no shell, no package manager, minimal attack surface.
+FROM gcr.io/distroless/static-debian12
+
+# Non-root user (Cloud Run best practice)
+USER nonroot:nonroot
+
+WORKDIR /app
+
+# Copy binary from builder
+COPY --from=builder /app/server /app/server
+
+# Cloud Run injects PORT=8080 — your app MUST listen on this port
+ENV PORT=8080
+EXPOSE 8080
+
+# Start the binary
+ENTRYPOINT ["/app/server"]

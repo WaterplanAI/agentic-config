@@ -1,0 +1,57 @@
+skill_id: gcp-setup
+kind: standard
+summary: 'Bootstraps secure Cloud Build plus Cloud Run deployment foundations with guided GCP project provisioning, secrets,
+  OAuth, and verification flows. Triggers on keywords: gcp setup, cloud run setup, deploy setup, infrastructure setup, gcp
+  provision'
+project_agnostic: true
+body_file: body.md
+assets:
+- asset_id: bundled-agents
+  source: agents
+  outputs:
+    claude: agents
+    pi: agents
+- asset_id: bundled-assets
+  source: assets
+  outputs:
+    claude: assets
+    pi: assets
+- asset_id: bundled-cookbook
+  source: cookbook
+  outputs:
+    claude: cookbook
+    pi: cookbook
+- asset_id: bundled-tools
+  source: tools
+  outputs:
+    claude: tools
+    pi: tools
+attachment_refs: []
+renders:
+  claude:
+    status: supported
+    output_path: skills/gcp-setup/SKILL.md
+    display_name: gcp-setup
+    allowed_tools:
+    - Bash
+    - Read
+    - Write
+    - Glob
+    - Grep
+    - AskUserQuestion
+    - mcp__voicemode__converse
+    frontmatter_enabled: true
+    description: Interactive GCP Cloud Build + Cloud Run setup. Provisions APIs, AR, SAs, IAM, secrets, and triggers.
+  pi:
+    status: supported
+    output_path: skills/ac-tools-gcp-setup/SKILL.md
+    display_name: ac-tools-gcp-setup
+    allowed_tools:
+    - Bash
+    - Read
+    - Write
+    - Glob
+    - Grep
+    - AskUserQuestion
+    frontmatter_enabled: true
+    description: Interactive GCP Cloud Build + Cloud Run setup. Provisions APIs, AR, SAs, IAM, secrets, and triggers.

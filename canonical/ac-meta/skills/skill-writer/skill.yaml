@@ -1,0 +1,50 @@
+skill_id: skill-writer
+kind: standard
+summary: 'Expert assistant for authoring SKILL.md skills. Creates SKILL.md files
+  with proper YAML frontmatter, validates naming conventions, enforces tool minimalism,
+  and applies official best practices. Triggers on keywords: writing skills, creating
+  skills, skill authoring, SKILL.md, new skill, skill template, skill validation,
+  skill structure, create skill, update skill'
+project_agnostic: true
+body_file: body.md
+assets:
+- asset_id: bundled-skill-files
+  source: assets
+  outputs:
+    claude: .
+    pi: .
+attachment_refs: []
+renders:
+  claude:
+    status: supported
+    output_path: skills/skill-writer/SKILL.md
+    display_name: skill-writer
+    allowed_tools:
+    - Read
+    - Write
+    - Edit
+    - Glob
+    - Grep
+    frontmatter_enabled: true
+    description: 'Expert assistant for authoring SKILL.md skills. Creates SKILL.md
+      files with proper YAML frontmatter, validates naming conventions, enforces tool
+      minimalism, and applies official best practices. Triggers on keywords: writing
+      skills, creating skills, skill authoring, SKILL.md, new skill, skill template,
+      skill validation, skill structure, create skill, update skill'
+  pi:
+    status: supported
+    output_path: skills/ac-meta-skill-writer/SKILL.md
+    display_name: ac-meta-skill-writer
+    allowed_tools:
+    - Read
+    - Write
+    - Edit
+    - Glob
+    - Grep
+    frontmatter_enabled: true
+    description: 'Expert assistant for authoring SKILL.md skills. Creates SKILL.md
+      files with proper YAML frontmatter, validates naming conventions, enforces tool
+      minimalism, and applies official best practices. Triggers on keywords: writing
+      skills, creating skills, skill authoring, SKILL.md, new skill, skill template,
+      skill validation, skill structure, create skill, update skill'
+    body_file: body.pi.md

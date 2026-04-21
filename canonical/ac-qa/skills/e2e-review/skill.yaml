@@ -1,0 +1,35 @@
+skill_id: e2e-review
+kind: standard
+summary: 'Reviews spec implementation with E2E visual browser validation via Playwright.
+  Triggers on keywords: e2e review, visual review, spec review, browser validation'
+project_agnostic: true
+body_file: body.md
+assets: []
+attachment_refs: []
+renders:
+  claude:
+    status: supported
+    output_path: skills/e2e-review/SKILL.md
+    display_name: e2e-review
+    allowed_tools:
+    - Read
+    - Bash
+    - Glob
+    - Grep
+    frontmatter_enabled: true
+    description: 'Reviews spec implementation with E2E visual browser validation via
+      Playwright. Triggers on keywords: e2e review, visual review, spec review, browser
+      validation'
+  pi:
+    status: supported
+    output_path: skills/ac-qa-e2e-review/SKILL.md
+    display_name: ac-qa-e2e-review
+    allowed_tools:
+    - Read
+    - Bash
+    - Glob
+    - Grep
+    frontmatter_enabled: true
+    description: 'Reviews spec implementation with E2E visual browser validation via
+      Playwright. Triggers on keywords: e2e review, visual review, spec review, browser
+      validation'
