@@ -1,6 +1,6 @@
 {
   "name": "@agentic-config/pi-ac-safety",
-  "version": "0.2.6",
+  "version": "0.3.0-alpha",
   "description": "Pi package for the agentic-config ac-safety plugin.",
   "license": "MIT",
   "homepage": "https://github.com/WaterplanAI/agentic-config",
@@ -32,7 +32,7 @@
     ]
   },
   "dependencies": {
-    "@agentic-config/pi-compat": "0.2.6"
+    "@agentic-config/pi-compat": "0.3.0-alpha"
   },
   "bundledDependencies": [
     "@agentic-config/pi-compat"

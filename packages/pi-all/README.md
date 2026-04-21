@@ -42,14 +42,14 @@ Choose per-plugin packages instead when you want:
 ## Install
 ### One-shot manual install
 ```bash
-pi install npm:@agentic-config/pi-all@0.2.6
+pi install npm:@agentic-config/pi-all@0.3.0-alpha
 ```
 
 ### Recommended team adoption with committed `.pi/settings.json`
 ```json
 {
   "packages": [
-    "npm:@agentic-config/pi-all@0.2.6"
+    "npm:@agentic-config/pi-all@0.3.0-alpha"
   ]
 }
 ```

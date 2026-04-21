@@ -1,6 +1,6 @@
 {
   "name": "@agentic-config/pi-all",
-  "version": "0.2.6",
+  "version": "0.3.0-alpha",
   "description": "Umbrella pi package that aggregates the current agentic-config pi package set.",
   "license": "MIT",
   "homepage": "https://github.com/WaterplanAI/agentic-config",
@@ -18,14 +18,14 @@
   ],
   "type": "module",
   "dependencies": {
-    "@agentic-config/pi-compat": "0.2.6",
-    "@agentic-config/pi-ac-audit": "0.2.6",
-    "@agentic-config/pi-ac-git": "0.2.6",
-    "@agentic-config/pi-ac-meta": "0.2.6",
-    "@agentic-config/pi-ac-qa": "0.2.6",
-    "@agentic-config/pi-ac-safety": "0.2.6",
-    "@agentic-config/pi-ac-tools": "0.2.6",
-    "@agentic-config/pi-ac-workflow": "0.2.6"
+    "@agentic-config/pi-compat": "0.3.0-alpha",
+    "@agentic-config/pi-ac-audit": "0.3.0-alpha",
+    "@agentic-config/pi-ac-git": "0.3.0-alpha",
+    "@agentic-config/pi-ac-meta": "0.3.0-alpha",
+    "@agentic-config/pi-ac-qa": "0.3.0-alpha",
+    "@agentic-config/pi-ac-safety": "0.3.0-alpha",
+    "@agentic-config/pi-ac-tools": "0.3.0-alpha",
+    "@agentic-config/pi-ac-workflow": "0.3.0-alpha"
   },
   "bundledDependencies": [
     "@agentic-config/pi-compat",

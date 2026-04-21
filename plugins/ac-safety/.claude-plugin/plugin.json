@@ -1,12 +1,19 @@
 {
   "name": "ac-safety",
   "description": "Security guardrails - credential protection, destructive command blocking, write scope enforcement, supply chain control, browser restrictions",
-  "version": "0.2.6",
+  "version": "0.3.0-alpha",
   "author": {
     "name": "Agentic Config Contributors"
   },
   "homepage": "https://github.com/WaterplanAI/agentic-config",
   "repository": "https://github.com/WaterplanAI/agentic-config",
   "license": "MIT",
-  "keywords": ["safety", "security", "guardian", "hooks", "credentials", "destructive"]
+  "keywords": [
+    "safety",
+    "security",
+    "guardian",
+    "hooks",
+    "credentials",
+    "destructive"
+  ]
 }

@@ -10,6 +10,7 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 GENERATOR = PROJECT_ROOT / "tools" / "generate_canonical_wrappers.py"
+RELEASE_VERSION = (PROJECT_ROOT / "VERSION").read_text().strip()
 
 
 def run_generator(*args: str) -> subprocess.CompletedProcess[str]:
@@ -211,7 +212,7 @@ def test_generator_ships_worktree_and_gh_pr_review_on_shared_runtime() -> None:
     assert "report aggregation still assumes task-worker fan-out" not in review_skill
 
     qa_package = json.loads((PROJECT_ROOT / "packages" / "pi-ac-qa" / "package.json").read_text())
-    assert qa_package["dependencies"] == {"@agentic-config/pi-compat": "0.2.6"}
+    assert qa_package["dependencies"] == {"@agentic-config/pi-compat": RELEASE_VERSION}
     assert qa_package["bundledDependencies"] == ["@agentic-config/pi-compat"]
     assert "node_modules/@agentic-config/pi-compat/extensions" in qa_package["pi"]["extensions"]
 

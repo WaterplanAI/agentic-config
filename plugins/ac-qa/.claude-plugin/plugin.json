@@ -1,12 +1,19 @@
 {
   "name": "ac-qa",
   "description": "Quality assurance - E2E testing, PR review, browser automation",
-  "version": "0.2.6",
+  "version": "0.3.0-alpha",
   "author": {
     "name": "Agentic Config Contributors"
   },
   "homepage": "https://github.com/WaterplanAI/agentic-config",
   "repository": "https://github.com/WaterplanAI/agentic-config",
   "license": "MIT",
-  "keywords": ["qa", "e2e", "review", "testing", "browser", "playwright"]
+  "keywords": [
+    "qa",
+    "e2e",
+    "review",
+    "testing",
+    "browser",
+    "playwright"
+  ]
 }

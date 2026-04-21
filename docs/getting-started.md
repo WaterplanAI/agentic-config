@@ -31,7 +31,7 @@ The current primary pi install path uses the validated root umbrella package fro
 ### Team and automation install: pin a release tag
 
 ```bash
-pi install "git:github.com/WaterplanAI/agentic-config@v0.2.6" -l
+pi install "git:github.com/WaterplanAI/agentic-config@v0.3.0-alpha" -l
 ```
 
 Use the equivalent SSH git source for the same repository and tag when needed.
@@ -41,7 +41,7 @@ For teams, prefer a committed `.pi/settings.json` pinned to the release tag so p
 ```json
 {
   "packages": [
-    "git:github.com/WaterplanAI/agentic-config@v0.2.6"
+    "git:github.com/WaterplanAI/agentic-config@v0.3.0-alpha"
   ]
 }
 ```
