@@ -2,7 +2,7 @@
   "name": "agentic-config-pi-root",
   "private": true,
   "version": "0.3.0-alpha",
-  "description": "Git-installable umbrella pi package for agentic-config.",
+  "description": "Umbrella pi package for agentic-config, alongside the repository's Claude Code plugin surface.",
   "license": "MIT",
   "homepage": "https://github.com/WaterplanAI/agentic-config",
   "repository": {

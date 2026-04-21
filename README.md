@@ -1,6 +1,6 @@
 # agentic-config
 
-Project-agnostic, composable configuration system for AI-assisted development workflows.
+Project-agnostic, composable AI workflow automation via pi packages and Claude Code plugins.
 
 ## Quick Start
 
@@ -45,7 +45,7 @@ claude plugin install ac-audit@agentic-plugins
 > Enable them via `/plugins` > Marketplaces > agentic-plugins > Enable auto-update
 > to stay in sync with new releases automatically.
 
-See [Getting Started](docs/getting-started.md) for Claude Code and pi setup.
+See [Getting Started](docs/getting-started.md) for pi and Claude Code setup.
 
 ## Pi Packages
 
@@ -67,7 +67,7 @@ See the [Pi Package Adoption Guide](packages/README.md) for the primary git-tag 
 
 ## What is agentic-config?
 
-A centralized configuration system with Claude Code plugins and a shipped pi package surface.
+A centralized configuration system shipped as pi packages and Claude Code plugins.
 
 Future releases will extend the same plugin approach to additional tools (Cursor, Codex CLI, Gemini CLI, and Antigravity).
 
@@ -75,7 +75,7 @@ Core principles:
 
 1. **Project-agnostic** -- Works in any codebase without modification
 2. **Composable** -- Skills invoke other skills, creating compounding automation
-3. **Native distribution surfaces** -- Claude via `claude plugin install`; pi via `pi install`
+3. **Native distribution surfaces** -- pi via `pi install`; Claude Code via `claude plugin install`
 
 ## Plugins
 
@@ -94,7 +94,7 @@ Core principles:
 - [Getting Started](docs/getting-started.md) -- Install, setup, first use
 - [Plugin Catalog](docs/plugin-catalog.md) -- All 42 skills with composition patterns
 - [pimux Workflow Topologies](docs/pimux-workflow-topologies.md) -- `pimux`, mux, ospec, and roadmap hierarchy guide
-- [Distribution Guide](docs/distribution.md) -- Claude marketplace rollout plus pi git-tag distribution, dev branch installs, and future npm notes
+- [Distribution Guide](docs/distribution.md) -- pi git-tag installs, Claude marketplace rollout, dev branch installs, and future npm notes
 - [Pi Package Adoption Guide](packages/README.md) -- primary git-tag installs, branch-based dev installs, local package-root testing, and future npm distribution notes
 - [Migration Guide v0.2.0](docs/migration-v0.2.0.md) -- Migrate from v0.1.x
 - [Uninstall Legacy (v0.1.x)](docs/migration-v0.2.0.md#step-1-remove-old-symlinks) -- Remove legacy symlink wiring

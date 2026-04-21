@@ -4,7 +4,7 @@
     "name": "Agentic Config Contributors"
   },
   "metadata": {
-    "description": "Agentic workflow automation plugins for AI-assisted development",
+    "description": "Agentic workflow automation via pi packages and Claude Code plugins",
     "pluginRoot": "./plugins"
   },
   "plugins": [
