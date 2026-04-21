@@ -63,7 +63,7 @@ User: "Send email to Jane Doe"
 
 1. Check people.md -> Not found
 2. People API: uv run people.py search "Jane Doe"
-3. Results: jane.doe@example.com, jane.d@external.org
+3. Results: jane.doe@example.com, jane.doe@example.org
 4. AskUserQuestion: "Which Jane Doe?"
 5. On selection, proceed with gmail.py send
 ```

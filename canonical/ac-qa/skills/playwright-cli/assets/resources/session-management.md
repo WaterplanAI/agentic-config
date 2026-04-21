@@ -20,7 +20,7 @@ PLAYWRIGHT_CLI_SESSION=login-flow playwright-cli open https://example.com
 ```bash
 # All subsequent commands use the same session
 playwright-cli -s=login-flow fill "#email" "user@example.com"
-playwright-cli -s=login-flow fill "#password" "pass123"
+playwright-cli -s=login-flow fill "#password" "abc123"
 playwright-cli -s=login-flow click "Sign In"
 playwright-cli -s=login-flow snapshot
 ```

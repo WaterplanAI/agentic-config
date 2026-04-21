@@ -42,9 +42,9 @@ renders:
     placeholder_values:
       INTRO_BLOCK: |
         # improve-agents-md
-        
+
         ## Compatibility Note
-        
+
         This pi wrapper preserves the original setup/update workflow while expressing any confirmation points as explicit manual checkpoints in the current chat instead of assuming a runtime interactive-question primitive.
       SKILL_EXAMPLE_PATH: packages/pi-ac-tools/skills/x
       SKILL_GLOB_ROOT: packages/pi-*/skills/

@@ -92,4 +92,3 @@ export async function reportManagedLauncherExit(params: {
 
 	await appendExitedEventIfMissing(params.bridgeDir);
 }
-

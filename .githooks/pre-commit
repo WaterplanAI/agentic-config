@@ -20,6 +20,7 @@ import subprocess
 import sys
 
 TIMEOUT_SECONDS = 30
+MAX_AUDIT_DIFF_CHARS = 40_000
 PII_AUDIT_PI_MODEL = "openai-codex/gpt-5.3-codex:medium"
 
 # Allowed placeholder domains (case-insensitive)
@@ -203,6 +204,8 @@ def run_regex_checks(diff: str) -> list[str]:
 
 AUDIT_PROMPT = """Audit the following git diff for PII (personally identifiable information).
 
+Only evaluate ADDED lines in the diff (lines beginning with `+`). Ignore removed lines (`-`), hunk headers (`@@`), and other diff metadata.
+
 BLOCK (real PII):
 - Real email addresses (not @example.com, @example.org, @corp.com, @corporate.com, @external.com)
 - Real phone numbers
@@ -212,15 +215,17 @@ BLOCK (real PII):
 - Real company names (not Example Corp, Acme Inc, Test Company)
 - Monetary values with specific real amounts (salaries, prices, budgets)
 
-ALLOW (anonymized):
+ALLOW (anonymized / non-PII technical references):
 - @example.com, @example.org, @corp.com, @corporate.com, @external.com domains
 - @google.com, @gmail.com (API references), @anthropic.com (Co-Authored-By)
 - Generic names: John Smith, Jane Doe
 - Generic companies: Example Corp, Acme Inc, Test Company
 - Public distribution exception: WaterplanAI when referencing this repository's published GitHub organization for plugin/package distribution
+- Public technology/vendor/platform names when used in product, provider, model, package, domain, or documentation references (for example: OpenAI, Google, GitHub, Anthropic, npm, PyPI, GCP, GSuite)
+- Public pricing, token-cost, quota, and benchmark values in technical docs when they are not tied to a real person's finances, salary, budget, or invoice
 - Placeholder IDs: <id>, abc123, <email>, <file_id>
 - System emails: noreply@, no-reply@
-- Placeholder monetary: $X, <amount>
+- Placeholder monetary: $X, <amount>, $<total_cost_usd>
 - Code patterns: @app.command (Python decorators)
 
 Respond with EXACTLY one line:
@@ -232,7 +237,7 @@ DIFF:
 {diff_content}"""
 
 
-def get_audit_command(prompt: str) -> tuple[str, list[str]] | None:
+def get_audit_command() -> tuple[str, list[str]] | None:
     """Return the pi audit command for the local environment."""
     if not shutil.which("pi"):
         return None
@@ -247,9 +252,36 @@ def get_audit_command(prompt: str) -> tuple[str, list[str]] | None:
             "--no-tools",
             "--no-session",
             "--no-extensions",
-            prompt,
         ],
     )
+
+
+def chunk_diff_for_audit(diff: str, max_chars: int = MAX_AUDIT_DIFF_CHARS) -> list[str]:
+    """Split large diffs into line-preserving chunks for the LLM audit."""
+    chunks: list[str] = []
+    current_lines: list[str] = []
+    current_length = 0
+
+    for line in diff.splitlines(keepends=True):
+        line_length = len(line)
+
+        if current_lines and current_length + line_length > max_chars:
+            chunks.append("".join(current_lines))
+            current_lines = []
+            current_length = 0
+
+        if line_length > max_chars:
+            for start in range(0, line_length, max_chars):
+                chunks.append(line[start:start + max_chars])
+            continue
+
+        current_lines.append(line)
+        current_length += line_length
+
+    if current_lines:
+        chunks.append("".join(current_lines))
+
+    return chunks or [diff]
 
 
 def main() -> int:
@@ -273,44 +305,62 @@ def main() -> int:
         return 1
 
     # Tier 2: LLM audit via pi for nuanced cases (fail-closed)
-    prompt = AUDIT_PROMPT.format(diff_content=diff_content)
-    audit_command = get_audit_command(prompt)
+    audit_command = get_audit_command()
     if audit_command is None:
         print("PII_AUDIT: FAIL - pi not found (fail-closed)")
         print("  Install Pi to enable the LLM PII audit tier.")
         return 1
 
     audit_runner, command = audit_command
+    audit_chunks = chunk_diff_for_audit(diff_content)
 
     try:
-        result = subprocess.run(
-            command,
-            capture_output=True,
-            text=True,
-            timeout=TIMEOUT_SECONDS,
-            check=False,
-        )
+        for chunk_index, diff_chunk in enumerate(audit_chunks, 1):
+            chunk_prefix = (
+                f"This is chunk {chunk_index} of {len(audit_chunks)} from a larger staged diff. "
+                "Evaluate only the content shown.\n\n"
+                if len(audit_chunks) > 1
+                else ""
+            )
+            prompt = chunk_prefix + AUDIT_PROMPT.format(diff_content=diff_chunk)
 
-        if result.returncode != 0:
-            error_output = result.stderr.strip() or result.stdout.strip()
-            print(f"PII_AUDIT: FAIL - {audit_runner} exited with error (fail-closed): {error_output}")
-            return 1
+            result = subprocess.run(
+                command,
+                input=prompt,
+                capture_output=True,
+                text=True,
+                timeout=TIMEOUT_SECONDS,
+                check=False,
+            )
 
-        response = result.stdout.strip()
-
-        for line in response.split("\n"):
-            line = line.strip()
-            if line.startswith("PII_AUDIT: PASS"):
-                print("PII_AUDIT: PASS")
-                return 0
-            if line.startswith("PII_AUDIT: FAIL"):
-                print(line)
-                print("\nCommit BLOCKED due to PII detection.")
-                print("Fix the PII issue and re-commit.")
+            if result.returncode != 0:
+                error_output = result.stderr.strip() or result.stdout.strip()
+                print(
+                    f"PII_AUDIT: FAIL - {audit_runner} exited with error on chunk {chunk_index}/{len(audit_chunks)} "
+                    f"(fail-closed): {error_output}"
+                )
                 return 1
 
-        print("PII_AUDIT: FAIL - No clear verdict in response (fail-closed)")
-        return 1
+            response = result.stdout.strip()
+
+            for line in response.split("\n"):
+                line = line.strip()
+                if line.startswith("PII_AUDIT: PASS"):
+                    break
+                if line.startswith("PII_AUDIT: FAIL"):
+                    print(line)
+                    print("\nCommit BLOCKED due to PII detection.")
+                    print("Fix the PII issue and re-commit.")
+                    return 1
+            else:
+                print(
+                    f"PII_AUDIT: FAIL - No clear verdict in response for chunk {chunk_index}/{len(audit_chunks)} "
+                    "(fail-closed)"
+                )
+                return 1
+
+        print("PII_AUDIT: PASS")
+        return 0
 
     except subprocess.TimeoutExpired:
         print(f"PII_AUDIT: FAIL - {audit_runner} audit timed out (fail-closed)")
