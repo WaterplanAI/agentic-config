@@ -34,6 +34,8 @@ The current primary pi install path uses the validated root umbrella package fro
 pi install "git:github.com/WaterplanAI/agentic-config@v0.3.0-alpha" -l
 ```
 
+The `-l` flag installs it into the local project config. For a global/user install, remove `-l`.
+
 Use the equivalent SSH git source for the same repository and tag when needed.
 
 For teams, prefer a committed `.pi/settings.json` pinned to the release tag so pi can auto-install the same reproducible package set on startup:

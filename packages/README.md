@@ -85,6 +85,8 @@ Install the full shipped surface:
 pi install "git:github.com/WaterplanAI/agentic-config@v0.3.0-alpha" -l
 ```
 
+The `-l` flag installs it into the local project config. For a global/user install, remove `-l`.
+
 Equivalent committed `.pi/settings.json` source:
 
 ```json
