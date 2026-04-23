@@ -2,6 +2,8 @@
 
 ## Single worker
 
+First after spawn: do not poll pimux or use Bash sleep/wait loops; wait for delivered child activity.
+
 Use one child when the task is bounded but should stay long-lived or visually inspectable.
 
 ## Scout -> planner replacement
@@ -12,7 +14,7 @@ Use one child when the task is bounded but should stay long-lived or visually in
 4. let the planner return the execution plan
 
 Do not rely on prose inference between steps; hand off file paths or bounded summaries.
-Do not keep the parent blocked with sleep loops or repeated pings while waiting; inspect only at a real handoff, live-watch request, or suspected problem.
+Do not keep the parent blocked with Bash sleep/wait loops or repeated pings while waiting; inspect only at a real handoff, live-watch request, or suspected problem.
 
 ## Team / brainstorm pattern
 

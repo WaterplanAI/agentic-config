@@ -91,6 +91,7 @@ def test_generator_keeps_mux_ospec_pimux_markers_in_sync() -> None:
         "pimux`-only cross-stage orchestrator",
         "The first real move is to spawn the authoritative stage-owning `pimux` child.",
         "The first observable parent tool call must be `pimux spawn`.",
+        "FIRST after spawn: do not poll pimux or use Bash sleep/wait loops; wait for delivered child bridge activity.",
         "no-spec invocation starts at Stage `000 CREATE`",
         "route to `BLOCK`",
     ]
@@ -120,6 +121,7 @@ def test_generator_keeps_mux_sibling_pimux_markers_in_sync() -> None:
         "pimux`-only control plane",
         "The first real move is to spawn the authoritative `pimux` child coordinator.",
         "The first observable parent tool call must be `pimux spawn`.",
+        "FIRST after spawn: do not poll pimux or use Bash sleep/wait loops; wait for delivered child bridge activity.",
         "../../assets/mux/protocol/foundation.md",
         "coordinator -> subagent",
         "--strict-runtime --session-key <key>",
@@ -134,6 +136,7 @@ def test_generator_keeps_mux_sibling_pimux_markers_in_sync() -> None:
         "pimux`-only roadmap orchestrator",
         "Do not inspect roadmap files, phase docs, or repo targets in the parent before spawn.",
         "The first observable parent tool call must be `pimux spawn`.",
+        "FIRST after spawn: do not poll pimux or use Bash sleep/wait loops; wait for delivered child bridge activity.",
         "phase-owning `/mux-ospec` child",
         "stage-owning `pimux` child",
         "No silent fallback to non-`pimux` runtime",

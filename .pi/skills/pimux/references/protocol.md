@@ -2,6 +2,7 @@
 
 ## Messaging model
 
+- FIRST: do not poll pimux and do not use Bash sleep/wait loops; wait for delivered child activity.
 - parent -> child: explicit bridge inbox events via `send_message`
 - child -> parent: explicit bridge reports via `report_parent`
 - one hop only: L2 reports to L1, L1 reports to L0
@@ -56,7 +57,7 @@ When the parent session entered this family through an explicit `pimux`, `mux`, 
 
 Default parent behavior is asynchronous.
 
-After dispatch, the parent should let the child work instead of busy-waiting with sleep loops, repeated `status` checks, or repeated nudges.
+After dispatch, the parent should let the child work instead of busy-waiting with Bash sleep/wait loops, repeated `status` checks, or repeated nudges.
 
 Inspect or intervene only when:
 - the child emits a bridge report
@@ -71,7 +72,7 @@ For explicit mux-family wrappers, the notify-first default is stricter:
 - treat `status`, `capture`, `tree`, `list`, and `open` as recovery-only tools for explicit live inspection, suspected stall/protocol violation/failure, or the inactivity-only watchdog
 - after terminal settlement, use one final `pimux status` check before advancing
 
-Do not poll pimux; wait for delivered child activity. One targeted `status` / `capture` check at a real recovery decision point is fine. Continuous polling is not.
+Do not poll pimux or use Bash sleep/wait loops; wait for delivered child activity. One targeted `status` / `capture` check at a real recovery decision point is fine. Continuous polling is not.
 
 ## Session scope rule
 

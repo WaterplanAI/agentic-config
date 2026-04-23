@@ -15,6 +15,7 @@ Use `pimux` when work should continue in its own tmux-backed Pi session while re
 
 ## Core contract
 
+- FIRST: do not poll pimux and do not use Bash sleep/wait loops; wait for delivered child activity.
 - Parent -> child messaging uses `pimux send_message`.
 - Child -> parent reporting uses `pimux report_parent`.
 - Reporting is one hop only.
@@ -55,12 +56,13 @@ If the user explicitly invokes `pimux`, `mux`, `mux-ospec`, or `mux-roadmap`, tr
 
 ## Defaults
 
+- first after spawn: do not poll pimux or use Bash sleep/wait loops; wait for delivered child activity
 - headless by default; open visually only when the user wants to watch
 - notification behavior is fixed to `notify-and-follow-up`; alternative notification modes are not supported
 - live-session actions such as `open`, `capture`, `send`, and `kill` should prefer currently running agents in interactive selectors
 - keep prompts narrow and role-specific
 - prefer file-path context handoff over large pasted context
 - supervise asynchronously by default: after spawn, let the child work and return control unless the user asked to watch live or the next control-plane step truly depends on settlement now
-- do not poll pimux; wait for delivered child activity, and treat `status` / `capture` / `tree` / `list` / `open` as recovery-only
-- do not busy-wait with sleep loops or repeated nudges; wait for explicit child reports and use `status` / `capture` only at real recovery, handoff, or inspection points
+- treat `status` / `capture` / `tree` / `list` / `open` as recovery-only after spawn
+- do not busy-wait with Bash sleep/wait loops or repeated nudges; wait for explicit child reports and use `status` / `capture` only at real recovery, handoff, or inspection points
 - terminated or missing historical entries aged at least `1d` are auto-pruned from the active registry

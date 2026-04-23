@@ -26,6 +26,7 @@
 - `leanest`: `CREATE (optional) -> CONFIRM_SC -> PLAN -> IMPLEMENT -> REVIEW -> FIX -> TEST -> SELF_VALIDATION`
 
 Gate rules:
+- first after spawn: do not poll pimux or use Bash sleep/wait loops; wait for delivered child activity
 - `GATHER = RESEARCH`
 - `CONFIRM_SC` is mandatory before `PLAN`
 - only `PASS` advances through REVIEW/TEST/SENTINEL/SELF_VALIDATION

@@ -64,6 +64,26 @@ if (payload.action === "terminal_settlement") {
   process.exit(0);
 }
 
+if (payload.action === "build_no_polling_supervision") {
+  writeJson(runtime.buildNoPollingSupervisionForSpawn(payload.agentId, payload.now));
+  process.exit(0);
+}
+
+if (payload.action === "evaluate_no_polling_supervision") {
+  writeJson(runtime.evaluateNoPollingSupervisionToolCall(payload.supervision, payload.event, payload.now));
+  process.exit(0);
+}
+
+if (payload.action === "no_polling_tool_result") {
+  writeJson(runtime.updateNoPollingSupervisionForToolResult(payload.supervision, payload.event, payload.now));
+  process.exit(0);
+}
+
+if (payload.action === "no_polling_terminal_settlement") {
+  writeJson(runtime.updateNoPollingSupervisionForTerminalSettlement(payload.supervision, payload.event, payload.now));
+  process.exit(0);
+}
+
 throw new Error(`Unsupported action: ${payload.action}`);
 """.strip()
 
@@ -120,6 +140,17 @@ def create_branch_spec_workspace(tmp_path: Path, branch_name: str = "pi-adoption
     spec_dir.mkdir(parents=True)
     (spec_dir / "007-existing-spec.md").write_text("# Existing spec\n")
     return workspace
+
+
+def no_polling_supervision(spawned_at: str = "2026-04-17T10:00:00Z") -> dict[str, Any]:
+    """Create a generic post-spawn no-polling supervision state."""
+    return run_runtime(
+        {
+            "action": "build_no_polling_supervision",
+            "agentId": "pimux-worker-001",
+            "now": spawned_at,
+        }
+    )
 
 
 def spawn_post_lock(spawned_at: str = "2026-04-17T10:00:00Z") -> dict[str, Any]:
@@ -853,3 +884,100 @@ def test_inactivity_watchdog_can_reopen_one_recovery_message() -> None:
         "allow": False,
         "reason": "Explicit mux-ospec parent is control-plane locked. Notify-first pacing is active. A recovery send_message already went out for the current activity window. Wait for new child activity or the 10m inactivity watchdog before nudging again.",
     }
+
+
+def test_no_polling_supervision_blocks_routine_pimux_inspection_after_spawn() -> None:
+    """Generic pimux supervision should block routine inspection during the no-activity window."""
+    supervision = no_polling_supervision()
+    blocked_status = run_runtime(
+        {
+            "action": "evaluate_no_polling_supervision",
+            "supervision": supervision,
+            "event": {"toolName": "pimux", "input": {"action": "status", "target": "pimux-worker-001"}},
+            "now": "2026-04-17T10:01:00Z",
+        }
+    )
+    assert blocked_status == {
+        "allow": False,
+        "reason": "pimux no-polling supervision is active. Do not poll pimux; wait for delivered child activity. status/capture/tree/list/open are recovery-only and allowed only after terminal settlement or the 10m inactivity watchdog.",
+    }
+
+    allowed_watchdog_status = run_runtime(
+        {
+            "action": "evaluate_no_polling_supervision",
+            "supervision": supervision,
+            "event": {"toolName": "pimux", "input": {"action": "status", "target": "pimux-worker-001"}},
+            "now": "2026-04-17T10:11:00Z",
+        }
+    )
+    assert allowed_watchdog_status == {"allow": True}
+
+
+def test_no_polling_supervision_blocks_bash_sleep_wait_loops_but_allows_normal_commands() -> None:
+    """The generic guard should target supervision waits without blocking normal repository commands."""
+    supervision = no_polling_supervision()
+    blocked_sleep = run_runtime(
+        {
+            "action": "evaluate_no_polling_supervision",
+            "supervision": supervision,
+            "event": {"toolName": "Bash", "input": {"command": "while true; do sleep 5; done"}},
+            "now": "2026-04-17T10:01:00Z",
+        }
+    )
+    assert blocked_sleep == {
+        "allow": False,
+        "reason": "pimux no-polling supervision is active. Do not use Bash sleep/wait loops for supervision; stop and wait for delivered bridge activity instead.",
+    }
+
+    allowed_git = run_runtime(
+        {
+            "action": "evaluate_no_polling_supervision",
+            "supervision": supervision,
+            "event": {"toolName": "Bash", "input": {"command": "git status --short"}},
+            "now": "2026-04-17T10:01:00Z",
+        }
+    )
+    assert allowed_git == {"allow": True}
+
+
+def test_no_polling_supervision_allows_one_final_status_after_terminal_settlement() -> None:
+    """Terminal settlement should reopen exactly one final status check for verification."""
+    supervision = no_polling_supervision()
+    settled = run_runtime(
+        {
+            "action": "no_polling_terminal_settlement",
+            "supervision": supervision,
+            "event": {
+                "agentId": "pimux-worker-001",
+                "eventId": "evt-closeout-1",
+                "timestamp": "2026-04-17T10:03:00Z",
+            },
+        }
+    )
+    allowed_status = run_runtime(
+        {
+            "action": "evaluate_no_polling_supervision",
+            "supervision": settled,
+            "event": {"toolName": "pimux", "input": {"action": "status", "target": "pimux-worker-001"}},
+        }
+    )
+    assert allowed_status == {"allow": True}
+
+    after_status = run_runtime(
+        {
+            "action": "no_polling_tool_result",
+            "supervision": settled,
+            "event": {"toolName": "pimux", "details": {"action": "status"}, "isError": False},
+            "now": "2026-04-17T10:03:05Z",
+        }
+    )
+    assert after_status["active"] is False
+    allowed_after_supervision = run_runtime(
+        {
+            "action": "evaluate_no_polling_supervision",
+            "supervision": after_status,
+            "event": {"toolName": "Bash", "input": {"command": "git status --short"}},
+            "now": "2026-04-17T10:03:10Z",
+        }
+    )
+    assert allowed_after_supervision == {"allow": True}

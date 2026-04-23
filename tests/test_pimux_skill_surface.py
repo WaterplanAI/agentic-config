@@ -22,6 +22,7 @@ def test_core_skill_requires_explicit_messaging_settlement_and_trigger_commitmen
     """The base skill should document explicit messaging, authority, settlement, and trigger discipline."""
     text = PIMUX_SKILL.read_text()
     protocol = PIMUX_PROTOCOL.read_text()
+    assert "FIRST: do not poll pimux and do not use Bash sleep/wait loops; wait for delivered child activity." in text
     assert "Parent -> child messaging uses `pimux send_message`." in text
     assert "Child -> parent reporting uses `pimux report_parent`." in text
     assert "Parent-side interface delivery should also show bridge message traffic concisely; parent -> child messages stay visible without forcing an extra turn." in text
@@ -34,6 +35,7 @@ def test_core_skill_requires_explicit_messaging_settlement_and_trigger_commitmen
     assert "the parent is fail-closed to `pimux`, `AskUserQuestion`, and `say`" in protocol
     assert "that trigger is a runtime commitment, not a suggestion." in protocol
     assert "Default supervision is scoped to the current session hierarchy." in protocol
+    assert "Do not poll pimux or use Bash sleep/wait loops; wait for delivered child activity." in protocol
     assert "the supervising wrapper should propagate the matching terminal kind and exit cleanly instead of forcing `closeout` or relying on manual kill" in protocol
     assert "For cascade-kill testing, keep the wrapper alive and kill a disposable child parent/descendant pair under it rather than making the wrapper itself the killed parent." in protocol
 
@@ -76,6 +78,7 @@ def test_wrapper_skills_point_back_to_core_pimux_contract() -> None:
 
     for text in (mux_text, ospec_text, roadmap_text):
         assert "pimux" in text
+        assert "do not poll pimux or use Bash sleep/wait loops" in text
 
     assert not LEGACY_PIMUX_MUX.exists()
     assert not LEGACY_PIMUX_OSPEC.exists()

@@ -3,6 +3,7 @@ import { promises as fs, readdirSync, type Dirent } from "node:fs";
 import * as path from "node:path";
 
 export const CONTROL_PLANE_LOCK_ENTRY_TYPE = "pimux-control-plane-lock";
+export const NO_POLLING_SUPERVISION_ENTRY_TYPE = "pimux-no-polling-supervision";
 
 export type ControlPlaneMode = "mux" | "mux-ospec" | "mux-roadmap";
 export type ControlPlanePhase = "pre_spawn" | "post_spawn";
@@ -35,6 +36,15 @@ export interface ControlPlaneLockState {
 export interface ControlPlaneToolDecision {
 	allow: boolean;
 	reason?: string;
+}
+
+export interface NoPollingSupervisionState {
+	active: boolean;
+	lastSpawnedAgentId?: string;
+	lastChildEventId?: string;
+	lastChildActivityAt?: string;
+	lastSupervisionResetAt?: string;
+	settlementVerificationPending?: boolean;
 }
 
 export interface PreparedControlPlaneSpawn {
@@ -76,6 +86,8 @@ const POST_SPAWN_ALLOWED_ACTIONS = new Set(["spawn", "status", "capture", "tree"
 const SUPERVISION_CHECK_ACTIONS = new Set(["status", "capture", "tree", "list", "open"]);
 const SUPERVISION_RECOVERY_ACTIONS = new Set(["send_message"]);
 const UNRESTRICTED_POST_SPAWN_ACTIONS = new Set(["spawn", "kill"]);
+const BASH_WAIT_LOOP_PATTERN = /\b(?:while|until|for)\b[\s\S]*\b(?:sleep|wait)\b/i;
+const BASH_SLEEP_OR_WAIT_PATTERN = /(?:^|[\s;&|()])(?:sleep\s+\d+(?:\.\d+)?|wait)(?:\s|[;&|)]|$)/i;
 const ROADMAP_CONTROL_TOKENS = new Set(["START", "CONTINUE"]);
 export const CONTROL_PLANE_INACTIVITY_WATCHDOG_MS = 10 * 60_000;
 const CONTROL_PLANE_INACTIVITY_WATCHDOG_LABEL = "10m";
@@ -473,6 +485,20 @@ function buildNotifyFirstReason(lock: ControlPlaneLockState, detail: string): Co
 	};
 }
 
+function buildNoPollingReason(detail: string): ControlPlaneToolDecision {
+	return {
+		allow: false,
+		reason: `pimux no-polling supervision is active. ${detail}`,
+	};
+}
+
+function isRoutineWaitBashCommand(command: unknown): boolean {
+	if (typeof command !== "string") return false;
+	const trimmed = command.trim();
+	if (!trimmed) return false;
+	return BASH_WAIT_LOOP_PATTERN.test(trimmed) || BASH_SLEEP_OR_WAIT_PATTERN.test(trimmed);
+}
+
 export function resolveControlPlaneSpecPath(lock: ControlPlaneLockState, specPath: string): ControlPlaneLockState {
 	if (!lock.active) return lock;
 	return {
@@ -486,6 +512,15 @@ export function buildUnlockedControlPlaneLock(previousActiveTools?: string[]): C
 	return {
 		active: false,
 		previousActiveTools,
+	};
+}
+
+export function buildNoPollingSupervisionForSpawn(agentId: string | undefined, now?: string | number): NoPollingSupervisionState {
+	return {
+		active: true,
+		lastSpawnedAgentId: agentId,
+		lastSupervisionResetAt: resolveNowIso(now),
+		settlementVerificationPending: false,
 	};
 }
 
@@ -505,8 +540,41 @@ function isSayTool(toolName: string): boolean {
 	return normalizeToolName(toolName) === "say";
 }
 
+function isBashTool(toolName: string): boolean {
+	return normalizeToolName(toolName) === "bash";
+}
+
 function buildRestrictedReason(lock: ControlPlaneLockState, detail: string): string {
 	return `Explicit ${lock.mode ?? "mux-family"} parent is control-plane locked. ${detail}`;
+}
+
+export function evaluateNoPollingSupervisionToolCall(
+	supervision: NoPollingSupervisionState | undefined,
+	event: { toolName?: string; input?: Record<string, unknown> },
+	now?: string | number,
+): ControlPlaneToolDecision {
+	if (!supervision?.active) return { allow: true };
+
+	if (isPimuxTool(event.toolName)) {
+		const action = String(event.input?.action ?? "").trim();
+		if (!action || !isSupervisionCheckAction(action)) return { allow: true };
+		if (supervision.settlementVerificationPending && action === "status") return { allow: true };
+		if (supervision.settlementVerificationPending) {
+			return buildNoPollingReason("Terminal settlement is ready. Use one final pimux status check, then stop supervising this child.");
+		}
+		if (isInactivityWatchdogReached(supervision, now)) return { allow: true };
+		return buildNoPollingReason(
+			`Do not poll pimux; wait for delivered child activity. status/capture/tree/list/open are recovery-only and allowed only after terminal settlement or the ${CONTROL_PLANE_INACTIVITY_WATCHDOG_LABEL} inactivity watchdog.`,
+		);
+	}
+
+	if (isBashTool(event.toolName) && isRoutineWaitBashCommand(event.input?.command)) {
+		return buildNoPollingReason(
+			"Do not use Bash sleep/wait loops for supervision; stop and wait for delivered bridge activity instead.",
+		);
+	}
+
+	return { allow: true };
 }
 
 export function evaluateControlPlaneToolCall(
@@ -617,6 +685,32 @@ export function evaluateControlPlaneToolCall(
 	return { allow: true };
 }
 
+export function updateNoPollingSupervisionForToolResult(
+	supervision: NoPollingSupervisionState | undefined,
+	event: { toolName?: string; details?: Record<string, unknown>; isError?: boolean },
+	now?: string | number,
+): NoPollingSupervisionState | undefined {
+	if (!supervision?.active || !isPimuxTool(event.toolName)) return supervision;
+	const action = String(event.details?.action ?? "").trim();
+	if (!action || event.isError || typeof event.details?.error === "string") return supervision;
+	const occurredAt = resolveNowIso(now);
+	if (supervision.settlementVerificationPending && action === "status") {
+		return {
+			...supervision,
+			active: false,
+			lastSupervisionResetAt: occurredAt,
+			settlementVerificationPending: false,
+		};
+	}
+	if (isSupervisionCheckAction(action) && isInactivityWatchdogReached(supervision, now)) {
+		return {
+			...supervision,
+			lastSupervisionResetAt: occurredAt,
+		};
+	}
+	return supervision;
+}
+
 export function updateControlPlaneLockForToolResult(
 	lock: ControlPlaneLockState | undefined,
 	event: { toolName?: string; details?: Record<string, unknown>; isError?: boolean },
@@ -675,6 +769,44 @@ export function updateControlPlaneLockForToolResult(
 	}
 
 	return lock;
+}
+
+export function updateNoPollingSupervisionForChildActivity(
+	supervision: NoPollingSupervisionState | undefined,
+	event: { agentId?: string; eventId?: string; timestamp?: string },
+	now?: string | number,
+): NoPollingSupervisionState | undefined {
+	if (!supervision?.active || !isTrackedDirectChild({ active: true, lastSpawnedAgentId: supervision.lastSpawnedAgentId }, event.agentId)) {
+		return supervision;
+	}
+	const occurredAt = event.timestamp?.trim() || resolveNowIso(now);
+	return {
+		...supervision,
+		lastSpawnedAgentId: event.agentId ?? supervision.lastSpawnedAgentId,
+		lastChildEventId: event.eventId ?? supervision.lastChildEventId,
+		lastChildActivityAt: occurredAt,
+		lastSupervisionResetAt: occurredAt,
+		settlementVerificationPending: false,
+	};
+}
+
+export function updateNoPollingSupervisionForTerminalSettlement(
+	supervision: NoPollingSupervisionState | undefined,
+	event: { agentId?: string; eventId?: string; timestamp?: string },
+	now?: string | number,
+): NoPollingSupervisionState | undefined {
+	if (!supervision?.active || !isTrackedDirectChild({ active: true, lastSpawnedAgentId: supervision.lastSpawnedAgentId }, event.agentId)) {
+		return supervision;
+	}
+	const occurredAt = event.timestamp?.trim() || resolveNowIso(now);
+	return {
+		...supervision,
+		lastSpawnedAgentId: event.agentId ?? supervision.lastSpawnedAgentId,
+		lastChildEventId: event.eventId ?? supervision.lastChildEventId,
+		lastChildActivityAt: occurredAt,
+		lastSupervisionResetAt: occurredAt,
+		settlementVerificationPending: true,
+	};
 }
 
 export function updateControlPlaneLockForChildActivity(
@@ -766,9 +898,25 @@ export function normalizeControlPlaneLockState(data: unknown): ControlPlaneLockS
 	};
 }
 
+export function normalizeNoPollingSupervisionState(data: unknown): NoPollingSupervisionState | undefined {
+	if (!data || typeof data !== "object" || Array.isArray(data)) return undefined;
+	const record = data as Record<string, unknown>;
+	if (typeof record.active !== "boolean") return undefined;
+	if (!record.active) return { active: false };
+	return {
+		active: true,
+		lastSpawnedAgentId: typeof record.lastSpawnedAgentId === "string" ? record.lastSpawnedAgentId : undefined,
+		lastChildEventId: typeof record.lastChildEventId === "string" ? record.lastChildEventId : undefined,
+		lastChildActivityAt: typeof record.lastChildActivityAt === "string" ? record.lastChildActivityAt : undefined,
+		lastSupervisionResetAt: typeof record.lastSupervisionResetAt === "string" ? record.lastSupervisionResetAt : undefined,
+		settlementVerificationPending: typeof record.settlementVerificationPending === "boolean" ? record.settlementVerificationPending : false,
+	};
+}
+
 export function buildControlPlaneSystemPrompt(lock: ControlPlaneLockState | undefined): string | undefined {
 	if (!lock?.active || !lock.mode || !lock.phase) return undefined;
 	const lines = [
+		"FIRST: do not poll pimux and do not use Bash sleep/wait loops; wait for delivered child activity.",
 		"pimux control-plane lock is active.",
 		`- wrapper mode: ${lock.mode}`,
 		"- parent may use only pimux, AskUserQuestion, and say while this lock is active.",
@@ -779,7 +927,7 @@ export function buildControlPlaneSystemPrompt(lock: ControlPlaneLockState | unde
 	];
 	if (lock.phase === "post_spawn") {
 		lines.push("- PIMUX HAPPY-PATH DISCIPLINE: this run is notify-first, not poll-first.");
-		lines.push("- Do not poll pimux; wait for delivered child activity, and treat status/capture/tree/list/open as recovery-only.");
+		lines.push("- Do not poll pimux or use Bash sleep/wait loops; wait for delivered child activity, and treat status/capture/tree/list/open as recovery-only.");
 		lines.push("- Allowed happy-path sequence: spawn -> wait for child report -> send_message once if needed -> wait for closeout -> final status verification.");
 		lines.push(
 			`- Use status/capture/tree/list/open only for explicit live inspection, suspected stall/protocol violation/failure, terminal settlement verification, or the ${CONTROL_PLANE_INACTIVITY_WATCHDOG_LABEL} inactivity watchdog.`,
