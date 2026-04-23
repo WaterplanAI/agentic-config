@@ -4,6 +4,12 @@ All notable changes to agentic-config.
 
 ## [Unreleased]
 
+### Added
+
+- `pi-compat`, `pi-ac-safety`: scoped hook approval persistence for safety ask flows
+  - adds once/session/project/user approval scopes in `hook-compat`
+  - persists narrow `safety.yaml` allow rules for exact Playwright actions/domains and selected supply-chain allowlists
+
 ## [0.3.0-alpha] - 2026-04-21
 
 ### Added
