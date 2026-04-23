@@ -24,7 +24,7 @@ from typing import Any
 from urllib.parse import urlparse
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from _lib import allow, ask, deny, fail_close, get_category_decision, load_config
+from _lib import allow, ask, build_permission_decision_metadata, deny, fail_close, get_category_decision, load_config
 
 MCP_PREFIXES = ["mcp__playwright__", "mcp__plugin_playwright_playwright__"]
 _PLAYWRIGHT_CLI_NAME = "playwright-cli"
@@ -105,6 +105,7 @@ class PlaywrightInvocation:
     url: str = ""
 
 
+
 def _get_mcp_action(tool_name: str) -> str | None:
     """Return the Playwright MCP action name for a tool name."""
     for prefix in MCP_PREFIXES:
@@ -113,20 +114,31 @@ def _get_mcp_action(tool_name: str) -> str | None:
     return None
 
 
-def _is_domain_allowed(url: str, allowed_domains: set[str]) -> bool:
-    """Return True when the URL hostname matches the allowlist."""
+
+def _normalize_hostname(url: str) -> str:
+    """Return a normalized hostname used for domain allowlisting."""
     try:
         parsed = urlparse(url)
         hostname = parsed.hostname or ""
-        bare_host = hostname.removeprefix("www.")
-        return hostname in allowed_domains or bare_host in allowed_domains or f"www.{bare_host}" in allowed_domains
     except Exception:
+        return ""
+    return hostname.removeprefix("www.")
+
+
+
+def _is_domain_allowed(url: str, allowed_domains: set[str]) -> bool:
+    """Return True when the URL hostname matches the allowlist."""
+    bare_host = _normalize_hostname(url)
+    if not bare_host:
         return False
+    return bare_host in allowed_domains or f"www.{bare_host}" in allowed_domains
+
 
 
 def _is_env_assignment(token: str) -> bool:
     """Return True when a token is a shell environment assignment."""
     return re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*=.*", token) is not None
+
 
 
 def _split_shell_segments(command: str) -> list[list[str]]:
@@ -155,6 +167,7 @@ def _split_shell_segments(command: str) -> list[list[str]]:
     return segments
 
 
+
 def _trim_cli_wrappers(args: list[str]) -> list[str]:
     """Remove shell wrappers and leading env assignments before command lookup."""
     idx = 0
@@ -168,6 +181,7 @@ def _trim_cli_wrappers(args: list[str]) -> list[str]:
             continue
         break
     return args[idx:]
+
 
 
 def _extract_cli_action(args: list[str]) -> tuple[str | None, list[str]]:
@@ -191,6 +205,7 @@ def _extract_cli_action(args: list[str]) -> tuple[str | None, list[str]]:
     return None, []
 
 
+
 def _extract_cli_url(action: str, action_args: list[str]) -> str:
     """Return the URL carried by a navigation-style playwright-cli action."""
     if action not in _URL_ACTIONS:
@@ -199,6 +214,7 @@ def _extract_cli_url(action: str, action_args: list[str]) -> str:
         if not arg.startswith("-"):
             return arg
     return ""
+
 
 
 def _resolve_cli_invocation(segment_args: list[str]) -> PlaywrightInvocation | None:
@@ -222,6 +238,7 @@ def _resolve_cli_invocation(segment_args: list[str]) -> PlaywrightInvocation | N
         source="bash",
         url=_extract_cli_url(raw_action, action_args),
     )
+
 
 
 def _resolve_playwright_invocations(tool_name: str, tool_input: dict[str, Any]) -> list[PlaywrightInvocation]:
@@ -249,11 +266,13 @@ def _resolve_playwright_invocations(tool_name: str, tool_input: dict[str, Any]) 
     return invocations
 
 
+
 def _format_action_label(invocation: PlaywrightInvocation) -> str:
     """Return a human-readable action label for policy messages."""
     if invocation.source == "bash":
         return f"playwright-cli {invocation.raw_action}"
     return invocation.raw_action
+
 
 
 def _decide_from_category(
@@ -271,7 +290,57 @@ def _decide_from_category(
     return "allow", ""
 
 
-def _evaluate_invocation(invocation: PlaywrightInvocation, config: dict[str, Any]) -> tuple[str, str]:
+
+def _build_action_allow_metadata(invocation: PlaywrightInvocation) -> dict[str, Any] | None:
+    """Return persistence metadata for an exact Playwright action override."""
+    raw_action = invocation.raw_action.strip()
+    if not raw_action:
+        return None
+
+    patch_key = "allowed_cli_actions" if invocation.source == "bash" else "allowed_mcp_actions"
+    patch = {
+        "playwright": {
+            patch_key: [raw_action],
+        }
+    }
+    return build_permission_decision_metadata(
+        allow_key=f"playwright:{invocation.source}:action:{raw_action}",
+        project_patch=patch,
+        user_patch=patch,
+    )
+
+
+
+def _build_domain_allow_metadata(invocation: PlaywrightInvocation) -> dict[str, Any] | None:
+    """Return persistence metadata for an exact blocked-domain override."""
+    bare_host = _normalize_hostname(invocation.url)
+    if not bare_host:
+        return None
+
+    patch = {
+        "playwright": {
+            "allowed_domains": [bare_host],
+        }
+    }
+    return build_permission_decision_metadata(
+        allow_key=f"playwright:domain:{bare_host}",
+        project_patch=patch,
+        user_patch=patch,
+    )
+
+
+
+def _build_invocation_allow_metadata(invocation: PlaywrightInvocation, category: str) -> dict[str, Any] | None:
+    """Return richer ask metadata for narrowly persistable Playwright prompts."""
+    if category == "navigate-blocked-domain":
+        return _build_domain_allow_metadata(invocation)
+    if category in {"browser-file-upload", "unknown-mcp-action"}:
+        return _build_action_allow_metadata(invocation)
+    return None
+
+
+
+def _evaluate_invocation(invocation: PlaywrightInvocation, config: dict[str, Any]) -> tuple[str, str, dict[str, Any] | None]:
     """Return the policy decision for a normalized Playwright invocation."""
     action_label = _format_action_label(invocation)
     pw = config.get("playwright", {})
@@ -281,39 +350,51 @@ def _evaluate_invocation(invocation: PlaywrightInvocation, config: dict[str, Any
     always_blocked = set(pw.get("always_blocked_tools", list(DEFAULT_ALWAYS_BLOCKED)))
     always_allowed = set(pw.get("always_allowed_tools", list(DEFAULT_ALWAYS_ALLOWED)))
     allowed_domains = set(pw.get("allowed_domains", list(DEFAULT_ALLOWED_DOMAINS)))
+    allowed_cli_actions = set(str(item) for item in pw.get("allowed_cli_actions", []))
+    allowed_mcp_actions = set(str(item) for item in pw.get("allowed_mcp_actions", []))
 
     if invocation.action in always_blocked:
-        return "deny", f"BLOCKED: {action_label} is always blocked (arbitrary code execution / credential risk)"
+        return "deny", f"BLOCKED: {action_label} is always blocked (arbitrary code execution / credential risk)", None
 
     if invocation.action in always_allowed:
-        return "allow", ""
+        return "allow", "", None
 
     if invocation.url and not _is_domain_allowed(invocation.url, allowed_domains):
-        return _decide_from_category(
+        decision, message = _decide_from_category(
             config,
             "navigate-blocked-domain",
             f"BLOCKED: {action_label} targeting '{invocation.url}' denied (domain not in allowlist)",
             f"{action_label} targeting '{invocation.url}' is outside the allowed domain list. Allow?",
         )
+        metadata = _build_invocation_allow_metadata(invocation, "navigate-blocked-domain") if decision == "ask" else None
+        return decision, message, metadata
+
+    raw_allowlist = allowed_cli_actions if invocation.source == "bash" else allowed_mcp_actions
+    if invocation.raw_action in raw_allowlist:
+        return "allow", "", None
 
     if invocation.action == "browser_navigate":
-        return "allow", ""
+        return "allow", "", None
 
     category = CATEGORY_BY_ACTION.get(invocation.action)
     if category is not None:
-        return _decide_from_category(
+        decision, message = _decide_from_category(
             config,
             category,
             f"BLOCKED: {action_label} denied by Playwright policy",
             f"{action_label} detected -- confirm to proceed?",
         )
+        metadata = _build_invocation_allow_metadata(invocation, category) if decision == "ask" else None
+        return decision, message, metadata
 
-    return _decide_from_category(
+    decision, message = _decide_from_category(
         config,
         "unknown-mcp-action",
         f"BLOCKED: Unknown Playwright action '{action_label}' denied by default",
         f"Unknown Playwright action '{action_label}' -- confirm to proceed?",
     )
+    metadata = _build_invocation_allow_metadata(invocation, "unknown-mcp-action") if decision == "ask" else None
+    return decision, message, metadata
 
 
 @fail_close
@@ -332,13 +413,13 @@ def main() -> None:
 
     config = load_config()
     for invocation in invocations:
-        decision, message = _evaluate_invocation(invocation, config)
+        decision, message, metadata = _evaluate_invocation(invocation, config)
         if decision == "allow":
             continue
         if decision == "deny":
             deny(message)
             return
-        ask(message)
+        ask(message, metadata=metadata)
         return
 
     allow()

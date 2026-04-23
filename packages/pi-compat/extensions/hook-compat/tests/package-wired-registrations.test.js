@@ -5,6 +5,7 @@ import { join, resolve } from "node:path";
 import test from "node:test";
 
 import { listRegisteredHookCompatPackages } from "../index.js";
+import { resetHookCompatAllowStateForTests } from "../allow-state.js";
 import { resetHookCompatRegistryForTests } from "../registry.js";
 import { runHookCompatPreflight, runHookCompatToolCall } from "../runtime.js";
 import {
@@ -59,8 +60,17 @@ async function withTemporaryEnv(overrides, fn) {
   }
 }
 
-function createRuntime(name) {
-  return { name };
+function createRuntime(name, branchEntries = []) {
+  return {
+    name,
+    appendEntry(customType, data) {
+      branchEntries.push({
+        type: "custom",
+        customType,
+        data,
+      });
+    },
+  };
 }
 
 test("package extensions register packaged asset roots and expected hook tables", async () => {
@@ -388,6 +398,108 @@ test(
       });
     } finally {
       await cleanupPath(workspace.rootDir);
+      resetHookCompatRegistryForTests();
+    }
+  },
+);
+
+test(
+  "package-wired safety ask flow can remember approval for the rest of the session",
+  { skip: !UV_IS_AVAILABLE, concurrency: false },
+  async () => {
+    resetHookCompatAllowStateForTests();
+    resetHookCompatRegistryForTests();
+    const workspace = await createRuntimeWorkspace("phase007-safety-session-allow");
+
+    try {
+      await withTemporaryEnv({ HOME: workspace.homeDir, UV_CACHE_DIR }, async () => {
+        const branchEntries = [];
+        const runtime = createRuntime("safety-runtime-session-allow", branchEntries);
+        registerAcSafetyHookCompat(runtime);
+
+        const interactiveContext = createTestContext({
+          cwd: workspace.projectDir,
+          hasUI: true,
+          selectResult: ({ selections }) => (selections.length === 1 ? "Allow for rest of this session" : "Deny"),
+          branchEntries,
+        });
+
+        const firstResult = await runHookCompatToolCall(
+          createToolCallEvent("bash", { command: 'playwright-cli eval "document.title"' }),
+          interactiveContext.ctx,
+          { runtime },
+        );
+        assert.equal(firstResult, undefined);
+        assert.equal(interactiveContext.selections.length, 1);
+        assert.equal(branchEntries.length, 1);
+        assert.equal(branchEntries[0]?.customType, "hook-compat-allow");
+
+        const secondResult = await runHookCompatToolCall(
+          createToolCallEvent("bash", { command: 'playwright-cli eval "document.title"' }),
+          interactiveContext.ctx,
+          { runtime },
+        );
+        assert.equal(secondResult, undefined);
+        assert.equal(interactiveContext.selections.length, 1);
+      });
+    } finally {
+      await cleanupPath(workspace.rootDir);
+      resetHookCompatAllowStateForTests();
+      resetHookCompatRegistryForTests();
+    }
+  },
+);
+
+test(
+  "package-wired safety ask flow can persist project allowlists for exact Playwright actions",
+  { skip: !UV_IS_AVAILABLE, concurrency: false },
+  async () => {
+    resetHookCompatAllowStateForTests();
+    resetHookCompatRegistryForTests();
+    const workspace = await createRuntimeWorkspace("phase007-safety-project-allow");
+
+    try {
+      await withTemporaryEnv({ HOME: workspace.homeDir, UV_CACHE_DIR }, async () => {
+        const branchEntries = [];
+        const runtime = createRuntime("safety-runtime-project-allow", branchEntries);
+        registerAcSafetyHookCompat(runtime);
+
+        const interactiveContext = createTestContext({
+          cwd: workspace.projectDir,
+          hasUI: true,
+          selectResult: "Always allow in this project",
+          branchEntries,
+        });
+
+        const firstResult = await runHookCompatToolCall(
+          createToolCallEvent("bash", { command: 'playwright-cli eval "document.title"' }),
+          interactiveContext.ctx,
+          { runtime },
+        );
+        assert.equal(firstResult, undefined);
+        assert.equal(interactiveContext.selections.length, 1);
+
+        const persistedConfig = await readFile(resolve(workspace.projectDir, "safety.yaml"), "utf8");
+        assert.match(persistedConfig, /allowed_cli_actions:/);
+        assert.match(persistedConfig, /- eval/);
+
+        const freshRuntime = createRuntime("safety-runtime-project-allow-fresh", []);
+        registerAcSafetyHookCompat(freshRuntime);
+        const nonInteractiveContext = createTestContext({
+          cwd: workspace.projectDir,
+          hasUI: false,
+          branchEntries: [],
+        });
+        const secondResult = await runHookCompatToolCall(
+          createToolCallEvent("bash", { command: 'playwright-cli eval "document.title"' }),
+          nonInteractiveContext.ctx,
+          { runtime: freshRuntime },
+        );
+        assert.equal(secondResult, undefined);
+      });
+    } finally {
+      await cleanupPath(workspace.rootDir);
+      resetHookCompatAllowStateForTests();
       resetHookCompatRegistryForTests();
     }
   },

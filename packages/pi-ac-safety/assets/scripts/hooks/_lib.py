@@ -37,6 +37,10 @@ def _most_restrictive(a: str, b: str) -> str:
 # (overlay adds to base, never replaces). Matched by suffix.
 _UNION_MERGE_SUFFIXES = ("_prefixes", "_allowlist", "_files", "_filenames", "_extensions", "_tools", "_roots")
 
+# Specific list keys that also require union-merge semantics even though they do
+# not use one of the generic suffixes above.
+_UNION_MERGE_KEYS = frozenset({"allowed_domains", "allowed_cli_actions", "allowed_mcp_actions"})
+
 
 def _deep_merge(base: dict, overlay: dict) -> dict:
     """
@@ -44,7 +48,8 @@ def _deep_merge(base: dict, overlay: dict) -> dict:
 
     For category decision dicts, applies most-restrictive-wins.
     For security-critical lists (keys ending in _prefixes, _allowlist,
-    _files, _filenames, _extensions), merges by union (combine + deduplicate).
+    _files, _filenames, _extensions) plus selected explicit allow-list keys,
+    merges by union (combine + deduplicate).
     For other lists, overlay replaces base entirely.
     For dicts, recursively merge.
     """
@@ -70,7 +75,7 @@ def _deep_merge(base: dict, overlay: dict) -> dict:
                 result[key] = _deep_merge(result[key], overlay_val)
         elif isinstance(result[key], list) and isinstance(overlay_val, list):
             # Security-critical lists: union-merge to prevent accidental loss of defaults
-            if any(key.endswith(suffix) for suffix in _UNION_MERGE_SUFFIXES):
+            if key in _UNION_MERGE_KEYS or any(key.endswith(suffix) for suffix in _UNION_MERGE_SUFFIXES):
                 seen: set[str] = set()
                 merged_list: list[Any] = []
                 for item in result[key] + overlay_val:
@@ -289,14 +294,47 @@ def allow() -> None:
     }))
 
 
-def ask(reason: str) -> None:
-    """Print JSON ask decision to stdout."""
-    print(json.dumps({
-        "hookSpecificOutput": {
-            "hookEventName": "PreToolUse",
-            "permissionDecision": "ask",
-            "permissionDecisionReason": reason,
+def build_permission_decision_metadata(
+    allow_key: str | None = None,
+    project_patch: dict[str, Any] | None = None,
+    user_patch: dict[str, Any] | None = None,
+    script_path: str = "scripts/hooks/persist-allow.py",
+) -> dict[str, Any]:
+    """Build optional metadata consumed by hook-compat's richer ask UI."""
+    metadata: dict[str, Any] = {}
+    if allow_key:
+        metadata["allowKey"] = allow_key
+    if project_patch:
+        metadata["projectPersistence"] = {
+            "scriptPath": script_path,
+            "payload": {
+                "target": "project",
+                "patch": project_patch,
+            },
         }
+    if user_patch:
+        metadata["userPersistence"] = {
+            "scriptPath": script_path,
+            "payload": {
+                "target": "user",
+                "patch": user_patch,
+            },
+        }
+    return metadata
+
+
+
+def ask(reason: str, metadata: dict[str, Any] | None = None) -> None:
+    """Print JSON ask decision to stdout."""
+    hook_output: dict[str, Any] = {
+        "hookEventName": "PreToolUse",
+        "permissionDecision": "ask",
+        "permissionDecisionReason": reason,
+    }
+    if metadata:
+        hook_output["permissionDecisionMetadata"] = metadata
+    print(json.dumps({
+        "hookSpecificOutput": hook_output
     }))
 
 

@@ -83,7 +83,9 @@ export default function registerGitCompat(pi) {
 - For each matched hook:
   - `allow`: continue
   - `deny`: block immediately
-  - `ask`: use UI confirmation when available; otherwise apply `askFallback.nonInteractive`
+  - `ask`: use UI selection when available; otherwise apply `askFallback.nonInteractive`
+    - default interactive options: `Allow once`, `Allow for rest of this session`, `Deny`
+    - hooks may optionally provide project/user persistence metadata to add `Always allow in this project` and `Always allow from now on`
   - no `permissionDecision`: continue (side-effects and optional `systemMessage` are valid)
 - `user_bash` deny paths return a synthetic blocked bash result so pi does not execute the command.
 - Script execution uses:
@@ -93,7 +95,8 @@ export default function registerGitCompat(pi) {
 - Adapter-layer failures follow each hook's `failureMode` (`fail-open` or `fail-close`).
 
 ## Non-interactive `ask` behavior
-- If `ctx.hasUI` is true and `ctx.ui.confirm(...)` exists, `ask` opens a confirmation dialog.
+- If `ctx.hasUI` is true and `ctx.ui.select(...)` exists, `ask` opens a selection dialog.
+- If select is unavailable but `ctx.ui.confirm(...)` exists, hook-compat falls back to a yes/no confirmation dialog.
 - Otherwise hook-compat treats `ask` as non-interactive and applies the package registration fallback:
   - `askFallback.nonInteractive: "deny"` blocks by default
   - `askFallback.nonInteractive: "allow"` continues without prompting

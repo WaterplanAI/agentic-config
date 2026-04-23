@@ -155,6 +155,8 @@ playwright:
     - "www.google.com"
     - "serper.dev"
     - "serpapi.com"
+  allowed_cli_actions: []
+  allowed_mcp_actions: []
   always_blocked_tools:
     - "browser_evaluate"
     - "browser_fill_form"
