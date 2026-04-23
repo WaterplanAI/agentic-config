@@ -14,7 +14,7 @@ FIRST: do not poll pimux and do not use Bash sleep/wait loops; wait for delivere
 
 This skill is a non-authoritative trigger shim for the package-owned `pimux` extension runtime. Runtime semantics are owned by `packages/pi-ac-workflow/extensions/pimux/` and its docs.
 
-Use `/pimux` or the `pimux` tool to spawn and supervise tmux-backed Pi agents.
+Use `/pimux` or the `pimux` tool to spawn and supervise tmux-backed Pi agents. The notification behavior is fixed to `notify-and-follow-up`.
 
 See:
 - `../../extensions/pimux/docs/commands.md`

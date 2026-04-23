@@ -13,7 +13,7 @@ PIMUX_PACKAGE_DIR = PROJECT_ROOT / "packages" / "pi-ac-workflow" / "extensions" 
 REGISTRY_RUNTIME = PIMUX_PACKAGE_DIR / "registry.ts"
 PIMUX_INDEX = PIMUX_PACKAGE_DIR / "index.ts"
 PIMUX_SCHEMA = PIMUX_PACKAGE_DIR / "schema.ts"
-PIMUX_COMMANDS = PROJECT_ROOT / ".pi" / "skills" / "pimux" / "references" / "commands.md"
+PIMUX_COMMANDS = PIMUX_PACKAGE_DIR / "docs" / "commands.md"
 
 NODE_RUNTIME_EVAL = """
 import { pathToFileURL } from "node:url";

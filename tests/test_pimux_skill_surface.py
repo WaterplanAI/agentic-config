@@ -1,15 +1,12 @@
 #!/usr/bin/env python3
-"""Surface checks for local pimux skills and references."""
+"""Surface checks for package-owned pimux skills and references."""
 
 from __future__ import annotations
 
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-PIMUX_SKILL = PROJECT_ROOT / ".pi" / "skills" / "pimux" / "SKILL.md"
-PIMUX_COMMANDS = PROJECT_ROOT / ".pi" / "skills" / "pimux" / "references" / "commands.md"
-PIMUX_PROTOCOL = PROJECT_ROOT / ".pi" / "skills" / "pimux" / "references" / "protocol.md"
-PIMUX_PATTERNS = PROJECT_ROOT / ".pi" / "skills" / "pimux" / "references" / "patterns.md"
+LOCAL_PIMUX_SKILL_DIR = PROJECT_ROOT / ".pi" / "skills" / "pimux"
 PACKAGE_PIMUX_DOCS = PROJECT_ROOT / "packages" / "pi-ac-workflow" / "extensions" / "pimux" / "docs"
 PACKAGE_PIMUX_COMMANDS = PACKAGE_PIMUX_DOCS / "commands.md"
 PACKAGE_PIMUX_PROTOCOL = PACKAGE_PIMUX_DOCS / "protocol.md"
@@ -27,19 +24,12 @@ LEGACY_PIMUX_OSPEC = PROJECT_ROOT / ".pi" / "skills" / ("pimux" + "-ospec") / "S
 LEGACY_PIMUX_ROADMAP = PROJECT_ROOT / ".pi" / "skills" / ("pimux" + "-roadmap") / "SKILL.md"
 
 
-def test_core_skill_requires_explicit_messaging_settlement_and_trigger_commitment() -> None:
-    """The base skill should document explicit messaging, authority, settlement, and trigger discipline."""
-    text = PIMUX_SKILL.read_text()
-    protocol = PIMUX_PROTOCOL.read_text()
+def test_core_runtime_docs_require_explicit_messaging_settlement_and_trigger_commitment() -> None:
+    """Package runtime docs should document explicit messaging, authority, settlement, and trigger discipline."""
+    text = PACKAGE_PIMUX_SKILL.read_text()
+    protocol = PACKAGE_PIMUX_PROTOCOL.read_text()
     assert "FIRST: do not poll pimux and do not use Bash sleep/wait loops; wait for delivered child activity." in text
-    assert "Parent -> child messaging uses `pimux send_message`." in text
-    assert "Child -> parent reporting uses `pimux report_parent`." in text
-    assert "Parent-side interface delivery should also show bridge message traffic concisely; parent -> child messages stay visible without forcing an extra turn." in text
-    assert "`list`, `tree`, and `navigate` should keep agent IDs visible while adding role/goal labels, clearer hierarchy connectors, and best-effort safe styling when the host interface supports it." in text
-    assert "Success settles only after `report_parent(closeout)` plus child exit." in text
-    assert "live-session actions such as `open`, `capture`, `send`, and `kill` should prefer currently running agents in interactive selectors" in text
-    assert "If the user explicitly invokes `pimux`, `mux`, `mux-ospec`, or `mux-roadmap`, treat that as a commitment to the pimux runtime." in text
-    assert "fail-closed parent control-plane lock" in text
+    assert "non-authoritative trigger shim" in text
     assert "Only the authoritative direct child session for a bridge may call `report_parent`." in protocol
     assert "the parent is fail-closed to `pimux`, `AskUserQuestion`, and `say`" in protocol
     assert "that trigger is a runtime commitment, not a suggestion." in protocol
@@ -51,7 +41,7 @@ def test_core_skill_requires_explicit_messaging_settlement_and_trigger_commitmen
 
 def test_commands_reference_exposes_minimal_surface() -> None:
     """The commands reference should document the reduced pimux surface."""
-    text = PIMUX_COMMANDS.read_text()
+    text = PACKAGE_PIMUX_COMMANDS.read_text()
     assert "- `spawn`" in text
     assert "- `open`" in text
     assert "- `tree`" in text
@@ -66,7 +56,7 @@ def test_commands_reference_exposes_minimal_surface() -> None:
 
 
 def test_package_pimux_runtime_docs_are_canonical() -> None:
-    """Package-owned runtime docs should exist before local pimux references are retired."""
+    """Package-owned runtime docs should exist after local pimux references are retired."""
     commands = PACKAGE_PIMUX_COMMANDS.read_text()
     protocol = PACKAGE_PIMUX_PROTOCOL.read_text()
     patterns = PACKAGE_PIMUX_PATTERNS.read_text()
@@ -115,9 +105,14 @@ def test_package_mux_aliases_are_non_authoritative() -> None:
         assert "do not poll pimux or use Bash sleep/wait loops" in text
 
 
+def test_local_pimux_skill_is_retired() -> None:
+    """The project-local pimux skill directory should no longer own protocol docs."""
+    assert not LOCAL_PIMUX_SKILL_DIR.exists()
+
+
 def test_wrapper_skills_point_back_to_core_pimux_contract() -> None:
     """The mux/ospec/roadmap aliases should stay thin and runtime-bound to pimux."""
-    patterns = PIMUX_PATTERNS.read_text()
+    patterns = PACKAGE_PIMUX_PATTERNS.read_text()
     assert "Use pimux as the control-plane runtime for:" in patterns
     assert "If `pimux`, `mux`, `mux-ospec`, or `mux-roadmap` is explicitly invoked" in patterns
     assert "fail-closed to `pimux`, `AskUserQuestion`, and `say`" in patterns
