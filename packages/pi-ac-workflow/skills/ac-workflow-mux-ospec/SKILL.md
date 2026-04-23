@@ -35,7 +35,9 @@ While this skill is active, the parent is runtime-locked to `pimux`, `AskUserQue
 
 - before first child: `pimux spawn` only
 - `AskUserQuestion` is allowed only when the user has not provided an explicit spec path or inline prompt, or when a later required user gate is reached
-- after spawn: `spawn` / `status` / `capture` / `tree` / `list` / `send_message` / `open` / `kill` for supervision or recovery
+- after spawn: notify-first, not poll-first; wait for delivered child bridge activity instead of inspecting live state
+- happy path after spawn forbids `status`, `capture`, `tree`, `list`, and `open`; those are recovery-only tools for explicit live inspection, suspected stall/protocol violation/failure, or the inactivity watchdog
+- after a child progress report arrives, use at most one `send_message` when the child needs input; then wait for closeout or another child report
 - `say` is allowed only for short user-attention prompts
 
 ## Locked stage model
@@ -63,7 +65,8 @@ While this skill is active, the parent is runtime-locked to `pimux`, `AskUserQue
 - only `PASS` advances through `REVIEW`, `TEST`, `SENTINEL`, and `SELF_VALIDATION`
 - `WARN`/`FAIL` route to `FIX`; retry exhaustion escalates to user
 - child bridge notifications are delivered automatically; default pacing is notify-first
-- after spawn, use at most one initial `status` / `capture` / `tree` / `list` check and at most one recovery `send_message` per activity window, then wait for new child activity or the inactivity watchdog
+- do not poll pimux; if you are about to inspect routine progress, stop and wait for delivered child activity instead
+- after spawn, do not call `status`, `capture`, `tree`, `list`, or `open` on the happy path
 - terminal settlement re-arms exactly one final `pimux status` verification before advancing
 - optional watchdog is inactivity-only and concise
 - default blocked/stuck behavior escalates to user unless explicit override exists
@@ -90,6 +93,7 @@ Each authoritative stage-owning `pimux` child must:
 - execute only assigned stage scope
 - preserve evidence-gated reporting with repo-scoped commit metadata
 - use `pimux report_parent` exactly once for terminal settlement
+- for same-session parent input needed before continuing, use `report_parent(progress, requiresResponse=true)`; `question` is terminal waiting-on-parent settlement
 - exit promptly after terminal report
 
 Local helpers under the stage child are data-plane only and must not call `pimux` / `report_parent`.

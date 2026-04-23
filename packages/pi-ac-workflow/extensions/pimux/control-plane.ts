@@ -73,9 +73,9 @@ const MUX_OSPEC_MODIFIERS = new Set([
 ]);
 
 const POST_SPAWN_ALLOWED_ACTIONS = new Set(["spawn", "status", "capture", "tree", "list", "send_message", "open", "kill"]);
-const SUPERVISION_CHECK_ACTIONS = new Set(["status", "capture", "tree", "list"]);
+const SUPERVISION_CHECK_ACTIONS = new Set(["status", "capture", "tree", "list", "open"]);
 const SUPERVISION_RECOVERY_ACTIONS = new Set(["send_message"]);
-const UNRESTRICTED_POST_SPAWN_ACTIONS = new Set(["spawn", "open", "kill"]);
+const UNRESTRICTED_POST_SPAWN_ACTIONS = new Set(["spawn", "kill"]);
 const ROADMAP_CONTROL_TOKENS = new Set(["START", "CONTINUE"]);
 export const CONTROL_PLANE_INACTIVITY_WATCHDOG_MS = 10 * 60_000;
 const CONTROL_PLANE_INACTIVITY_WATCHDOG_LABEL = "10m";
@@ -440,6 +440,10 @@ function isInactivityWatchdogReached(lock: ControlPlaneLockState, now?: string |
 	return resolveNowMs(now) - referenceMs >= CONTROL_PLANE_INACTIVITY_WATCHDOG_MS;
 }
 
+function hasDeliveredChildActivity(lock: ControlPlaneLockState): boolean {
+	return Boolean(lock.lastChildActivityAt || lock.lastChildEventId || lock.settlementVerificationPending);
+}
+
 function buildPostSpawnSupervisionState(
 	lock: ControlPlaneLockState,
 	occurredAt: string,
@@ -584,23 +588,30 @@ export function evaluateControlPlaneToolCall(
 	}
 
 	if (isSupervisionCheckAction(action)) {
-		if (!lock.initialVerificationUsed || isInactivityWatchdogReached(lock, now)) {
+		if (isInactivityWatchdogReached(lock, now)) {
 			return { allow: true };
 		}
 		return buildNotifyFirstReason(
 			lock,
-			`Notify-first pacing is active. Child bridge activity is delivered automatically. After spawn, use at most one initial status/capture/tree/list check per activity window, then wait for new child activity or the ${CONTROL_PLANE_INACTIVITY_WATCHDOG_LABEL} inactivity watchdog.`,
+			`Notify-first pacing is active. Do not poll pimux; wait for delivered child activity. status/capture/tree/list/open are recovery-only and allowed only after terminal settlement or the ${CONTROL_PLANE_INACTIVITY_WATCHDOG_LABEL} inactivity watchdog.`,
 		);
 	}
 
 	if (isRecoveryAction(action)) {
-		if (!lock.recoveryMessageUsed || isInactivityWatchdogReached(lock, now)) {
-			return { allow: true };
+		const watchdogReached = isInactivityWatchdogReached(lock, now);
+		if (lock.recoveryMessageUsed && !watchdogReached) {
+			return buildNotifyFirstReason(
+				lock,
+				`Notify-first pacing is active. A recovery send_message already went out for the current activity window. Wait for new child activity or the ${CONTROL_PLANE_INACTIVITY_WATCHDOG_LABEL} inactivity watchdog before nudging again.`,
+			);
 		}
-		return buildNotifyFirstReason(
-			lock,
-			`Notify-first pacing is active. A recovery send_message already went out for the current activity window. Wait for new child activity or the ${CONTROL_PLANE_INACTIVITY_WATCHDOG_LABEL} inactivity watchdog before nudging again.`,
-		);
+		if (!hasDeliveredChildActivity(lock) && !watchdogReached) {
+			return buildNotifyFirstReason(
+				lock,
+				`Notify-first pacing is active. Wait for a delivered child report before sending messages, unless the ${CONTROL_PLANE_INACTIVITY_WATCHDOG_LABEL} inactivity watchdog has fired for recovery.`,
+			);
+		}
+		return { allow: true };
 	}
 
 	return { allow: true };
@@ -623,7 +634,15 @@ export function updateControlPlaneLockForToolResult(
 		const agentId = agent && typeof agent === "object" && typeof (agent as { agentId?: unknown }).agentId === "string"
 			? (agent as { agentId: string }).agentId
 			: undefined;
-		return buildPostSpawnSupervisionState(lock, occurredAt, { agentId });
+		return {
+			...lock,
+			phase: "post_spawn",
+			lastSpawnedAgentId: agentId ?? lock.lastSpawnedAgentId,
+			lastSupervisionResetAt: occurredAt,
+			initialVerificationUsed: false,
+			recoveryMessageUsed: false,
+			settlementVerificationPending: false,
+		};
 	}
 
 	if (lock.phase !== "post_spawn") return lock;
@@ -639,39 +658,20 @@ export function updateControlPlaneLockForToolResult(
 	}
 
 	if (isSupervisionCheckAction(action)) {
-		if (lock.initialVerificationUsed && isInactivityWatchdogReached(lock, now)) {
-			return {
-				...lock,
-				lastSupervisionResetAt: occurredAt,
-				initialVerificationUsed: true,
-				recoveryMessageUsed: false,
-			};
-		}
-		if (!lock.initialVerificationUsed) {
-			return {
-				...lock,
-				initialVerificationUsed: true,
-			};
-		}
-		return lock;
+		return {
+			...lock,
+			lastSupervisionResetAt: isInactivityWatchdogReached(lock, now) ? occurredAt : lock.lastSupervisionResetAt,
+			initialVerificationUsed: true,
+			recoveryMessageUsed: isInactivityWatchdogReached(lock, now) ? false : lock.recoveryMessageUsed,
+		};
 	}
 
 	if (isRecoveryAction(action)) {
-		if (lock.recoveryMessageUsed && isInactivityWatchdogReached(lock, now)) {
-			return {
-				...lock,
-				lastSupervisionResetAt: occurredAt,
-				initialVerificationUsed: false,
-				recoveryMessageUsed: true,
-			};
-		}
-		if (!lock.recoveryMessageUsed) {
-			return {
-				...lock,
-				recoveryMessageUsed: true,
-			};
-		}
-		return lock;
+		return {
+			...lock,
+			lastSupervisionResetAt: isInactivityWatchdogReached(lock, now) ? occurredAt : lock.lastSupervisionResetAt,
+			recoveryMessageUsed: true,
+		};
 	}
 
 	return lock;
@@ -773,14 +773,16 @@ export function buildControlPlaneSystemPrompt(lock: ControlPlaneLockState | unde
 		`- wrapper mode: ${lock.mode}`,
 		"- parent may use only pimux, AskUserQuestion, and say while this lock is active.",
 		lock.phase === "pre_spawn"
-			? "- before the first child exists, the only allowed pimux action is spawn."
-			: "- after spawn, stay supervision-only through pimux spawn/status/capture/tree/list/send_message/open/kill.",
+			? "- Phase A before first child report: the only allowed pimux action is spawn."
+			: "- Phase B/C after spawn: wait for delivered child reports; send_message only after child activity; status/capture/tree/list/open are recovery-only.",
 		"- do not use parent-side Read/Bash/Edit/Write/NotebookEdit/Grep/Glob/web_search/subagent for repo work.",
 	];
 	if (lock.phase === "post_spawn") {
-		lines.push("- child bridge notifications are delivered automatically; do not poll for routine progress.");
+		lines.push("- PIMUX HAPPY-PATH DISCIPLINE: this run is notify-first, not poll-first.");
+		lines.push("- Do not poll pimux; wait for delivered child activity, and treat status/capture/tree/list/open as recovery-only.");
+		lines.push("- Allowed happy-path sequence: spawn -> wait for child report -> send_message once if needed -> wait for closeout -> final status verification.");
 		lines.push(
-			`- per activity window, use at most one initial status/capture/tree/list check and at most one recovery send_message, then wait for new child activity or the ${CONTROL_PLANE_INACTIVITY_WATCHDOG_LABEL} inactivity watchdog.`,
+			`- Use status/capture/tree/list/open only for explicit live inspection, suspected stall/protocol violation/failure, terminal settlement verification, or the ${CONTROL_PLANE_INACTIVITY_WATCHDOG_LABEL} inactivity watchdog.`,
 		);
 		lines.push("- after terminal settlement, use one final pimux status check before advancing.");
 	}

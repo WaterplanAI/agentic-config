@@ -22,8 +22,11 @@ Required sequence:
 3. use `AskUserQuestion` only when the user provided neither a spec path nor an inline prompt that is sufficient to spawn
 4. let the authoritative `pimux` extension enforce the fail-closed parent control-plane lock
 5. spawn the stage-owning `pimux` child before substantive stage work
-6. after spawn, rely on child notifications first: at most one initial verification check and at most one recovery `send_message` per activity window, then wait for new child activity or the inactivity watchdog
-7. after terminal settlement, do one final `pimux status` verification and then advance
+6. after spawn, run notify-first rather than poll-first: do not call `status`, `capture`, `tree`, `list`, or `open` on the happy path
+7. wait for delivered child bridge activity; after a child progress report, use at most one `send_message` if input is needed, then wait again
+8. use `status` / `capture` / `tree` / `list` / `open` only for explicit live inspection, suspected stall/protocol violation/failure, or the inactivity watchdog
+9. after terminal settlement, do one final `pimux status` verification and then advance
 
 Do not run spec-stage execution directly in the parent while this skill is active.
 Do not use parent-side `Read`, `Bash`, or manual repo discovery to figure out the spec before spawn.
+Do not poll pimux; wait for delivered child activity, and treat `status` / `capture` / `tree` / `list` / `open` as recovery-only.

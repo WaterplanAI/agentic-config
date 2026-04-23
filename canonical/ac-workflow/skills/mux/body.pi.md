@@ -25,9 +25,10 @@ While this skill is active, the parent session is runtime-locked to `pimux`, `As
 
 - before the first child exists: `pimux spawn` only
 - `AskUserQuestion` is allowed only for explicit user clarification that blocks spawn
-- after spawn: `spawn` / `status` / `capture` / `tree` / `list` / `send_message` / `open` / `kill` only for supervision or recovery
-- child bridge notifications are delivered automatically; use notify-first pacing
-- after spawn, use at most one initial `status` / `capture` / `tree` / `list` check and at most one recovery `send_message` per activity window, then wait for new child activity or the inactivity watchdog
+- after spawn: notify-first, not poll-first; wait for delivered child bridge activity instead of inspecting live state
+- happy path after spawn forbids `status`, `capture`, `tree`, `list`, and `open`; those are recovery-only tools for explicit live inspection, suspected stall/protocol violation/failure, or the inactivity watchdog
+- do not poll pimux; if you are about to inspect routine progress, stop and wait for delivered child activity instead
+- after a child progress report arrives, use at most one `send_message` when the child needs input; then wait for closeout or another child report
 - terminal settlement re-arms exactly one final `pimux status` verification before advancing
 - `say` is allowed only for short user-attention prompts
 
@@ -67,6 +68,7 @@ The authoritative `pimux` child owns the substantive mux run:
 - Child -> parent reporting: `pimux report_parent`
 - success settles only after terminal `closeout` + child exit
 - if child outcomes are intentionally non-success, propagate matching terminal kind (`question` / `blocker` / `failure`)
+- for a child that must ask and continue in the same session, use `report_parent(progress, requiresResponse=true)`; `question` is terminal waiting-on-parent settlement
 
 ## Completion
 
