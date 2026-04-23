@@ -80,7 +80,7 @@ Each authoritative stage-owning `pimux` child must:
 
 - read `../../assets/agents/spec/` stage references needed for that stage
 - read `../../assets/mux/protocol/foundation.md` and `../../assets/mux/protocol/subagent.md`
-- read `.pi/skills/pimux/references/patterns.md` (or package-local equivalent)
+- read `../../extensions/pimux/docs/patterns.md`
 - execute only assigned stage scope
 - preserve evidence-gated reporting with repo-scoped commit metadata
 - use `pimux report_parent` exactly once for terminal settlement

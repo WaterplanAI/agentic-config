@@ -10,6 +10,11 @@ PIMUX_SKILL = PROJECT_ROOT / ".pi" / "skills" / "pimux" / "SKILL.md"
 PIMUX_COMMANDS = PROJECT_ROOT / ".pi" / "skills" / "pimux" / "references" / "commands.md"
 PIMUX_PROTOCOL = PROJECT_ROOT / ".pi" / "skills" / "pimux" / "references" / "protocol.md"
 PIMUX_PATTERNS = PROJECT_ROOT / ".pi" / "skills" / "pimux" / "references" / "patterns.md"
+PACKAGE_PIMUX_DOCS = PROJECT_ROOT / "packages" / "pi-ac-workflow" / "extensions" / "pimux" / "docs"
+PACKAGE_PIMUX_COMMANDS = PACKAGE_PIMUX_DOCS / "commands.md"
+PACKAGE_PIMUX_PROTOCOL = PACKAGE_PIMUX_DOCS / "protocol.md"
+PACKAGE_PIMUX_PATTERNS = PACKAGE_PIMUX_DOCS / "patterns.md"
+PACKAGE_WORKFLOW_SKILLS = PROJECT_ROOT / "packages" / "pi-ac-workflow" / "skills"
 MUX_ALIAS = PROJECT_ROOT / ".pi" / "skills" / "mux" / "SKILL.md"
 MUX_OSPEC_ALIAS = PROJECT_ROOT / ".pi" / "skills" / "mux-ospec" / "SKILL.md"
 MUX_ROADMAP_ALIAS = PROJECT_ROOT / ".pi" / "skills" / "mux-roadmap" / "SKILL.md"
@@ -54,6 +59,24 @@ def test_commands_reference_exposes_minimal_surface() -> None:
     assert "- `kill`" in text
     assert "- `unlock`" in text
     assert "/pimux unlock" in text
+
+
+def test_package_pimux_runtime_docs_are_canonical() -> None:
+    """Package-owned runtime docs should exist before local pimux references are retired."""
+    commands = PACKAGE_PIMUX_COMMANDS.read_text()
+    protocol = PACKAGE_PIMUX_PROTOCOL.read_text()
+    patterns = PACKAGE_PIMUX_PATTERNS.read_text()
+    assert "Package-owned runtime docs" in commands
+    assert "Package-owned runtime protocol docs" in protocol
+    assert "Package-owned runtime patterns" in patterns
+    assert "FIRST: do not poll pimux and do not use Bash sleep/wait loops; wait for delivered child activity." in protocol
+    assert "Workflow wrappers should reference these docs instead of project-local `.pi` copies." in patterns
+
+
+def test_package_workflow_skills_do_not_reference_local_pimux_docs() -> None:
+    """Package skills should not depend on project-local pimux reference docs."""
+    for skill_path in sorted(PACKAGE_WORKFLOW_SKILLS.glob("ac-workflow-mux*/SKILL.md")):
+        assert ".pi/skills/pimux" not in skill_path.read_text()
 
 
 def test_wrapper_skills_point_back_to_core_pimux_contract() -> None:
