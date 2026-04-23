@@ -15,6 +15,10 @@ PACKAGE_PIMUX_COMMANDS = PACKAGE_PIMUX_DOCS / "commands.md"
 PACKAGE_PIMUX_PROTOCOL = PACKAGE_PIMUX_DOCS / "protocol.md"
 PACKAGE_PIMUX_PATTERNS = PACKAGE_PIMUX_DOCS / "patterns.md"
 PACKAGE_WORKFLOW_SKILLS = PROJECT_ROOT / "packages" / "pi-ac-workflow" / "skills"
+PACKAGE_PIMUX_SKILL = PACKAGE_WORKFLOW_SKILLS / "pimux" / "SKILL.md"
+PACKAGE_MUX_ALIAS = PACKAGE_WORKFLOW_SKILLS / "mux" / "SKILL.md"
+PACKAGE_MUX_OSPEC_ALIAS = PACKAGE_WORKFLOW_SKILLS / "mux-ospec" / "SKILL.md"
+PACKAGE_MUX_ROADMAP_ALIAS = PACKAGE_WORKFLOW_SKILLS / "mux-roadmap" / "SKILL.md"
 MUX_ALIAS = PROJECT_ROOT / ".pi" / "skills" / "mux" / "SKILL.md"
 MUX_OSPEC_ALIAS = PROJECT_ROOT / ".pi" / "skills" / "mux-ospec" / "SKILL.md"
 MUX_ROADMAP_ALIAS = PROJECT_ROOT / ".pi" / "skills" / "mux-roadmap" / "SKILL.md"
@@ -75,8 +79,40 @@ def test_package_pimux_runtime_docs_are_canonical() -> None:
 
 def test_package_workflow_skills_do_not_reference_local_pimux_docs() -> None:
     """Package skills should not depend on project-local pimux reference docs."""
-    for skill_path in sorted(PACKAGE_WORKFLOW_SKILLS.glob("ac-workflow-mux*/SKILL.md")):
+    for skill_path in sorted(PACKAGE_WORKFLOW_SKILLS.glob("*/SKILL.md")):
         assert ".pi/skills/pimux" not in skill_path.read_text()
+
+
+def test_package_pimux_trigger_alias_is_non_authoritative() -> None:
+    """The package pimux skill should preserve trigger UX without owning protocol details."""
+    text = PACKAGE_PIMUX_SKILL.read_text()
+    assert "name: pimux" in text
+    assert "project-agnostic: true" in text
+    assert "  - pimux" in text
+    assert "  - AskUserQuestion" in text
+    assert "  - say" in text
+    assert "non-authoritative trigger shim" in text
+    assert "Do not duplicate runtime protocol text here" in text
+    assert "../../extensions/pimux/docs/commands.md" in text
+    assert "../../extensions/pimux/docs/protocol.md" in text
+    assert "../../extensions/pimux/docs/patterns.md" in text
+
+
+def test_package_mux_aliases_are_non_authoritative() -> None:
+    """Package mux aliases should point at canonical ac-workflow skills and runtime docs."""
+    alias_expectations = {
+        PACKAGE_MUX_ALIAS: "../ac-workflow-mux/SKILL.md",
+        PACKAGE_MUX_OSPEC_ALIAS: "../ac-workflow-mux-ospec/SKILL.md",
+        PACKAGE_MUX_ROADMAP_ALIAS: "../ac-workflow-mux-roadmap/SKILL.md",
+    }
+    for alias_path, canonical_reference in alias_expectations.items():
+        text = alias_path.read_text()
+        assert "project-agnostic: true" in text
+        assert "package-owned trigger alias" in text
+        assert "not an independent" in text
+        assert canonical_reference in text
+        assert "../../extensions/pimux/docs/" in text
+        assert "do not poll pimux or use Bash sleep/wait loops" in text
 
 
 def test_wrapper_skills_point_back_to_core_pimux_contract() -> None:
