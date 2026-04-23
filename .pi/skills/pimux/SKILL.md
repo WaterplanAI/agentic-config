@@ -22,6 +22,8 @@ Use `pimux` when work should continue in its own tmux-backed Pi session while re
 - Success settles only after `report_parent(closeout)` plus child exit.
 - After a terminal report, the pimux runtime should finalize the managed session promptly; children must not linger in a post-closeout state.
 - `progress` is non-terminal.
+- For same-session parent input that a child needs before continuing, use `report_parent(progress, requiresResponse=true)`.
+- `question` is terminal waiting-on-parent settlement; do not use it when the child should continue after the answer.
 - Session surfaces (`list`, `tree`, `status`) default to the current session hierarchy.
 - Parent-side interface delivery should also show bridge message traffic concisely; parent -> child messages stay visible without forcing an extra turn.
 - `list`, `tree`, and `navigate` should keep agent IDs visible while adding role/goal labels, clearer hierarchy connectors, and best-effort safe styling when the host interface supports it.
@@ -59,5 +61,6 @@ If the user explicitly invokes `pimux`, `mux`, `mux-ospec`, or `mux-roadmap`, tr
 - keep prompts narrow and role-specific
 - prefer file-path context handoff over large pasted context
 - supervise asynchronously by default: after spawn, let the child work and return control unless the user asked to watch live or the next control-plane step truly depends on settlement now
-- do not busy-wait with sleep loops or repeated nudges; wait for explicit child reports and use `status` / `capture` only at real handoff or inspection points
+- do not poll pimux; wait for delivered child activity, and treat `status` / `capture` / `tree` / `list` / `open` as recovery-only
+- do not busy-wait with sleep loops or repeated nudges; wait for explicit child reports and use `status` / `capture` only at real recovery, handoff, or inspection points
 - terminated or missing historical entries aged at least `1d` are auto-pruned from the active registry

@@ -18,6 +18,8 @@ Implications:
 ## Settlement model
 
 - `progress` is non-terminal
+- for a child that must ask the parent and continue in the same session, use `progress` with `requiresResponse=true`
+- `question` is terminal waiting-on-parent settlement; do not use it when the child should keep working after the answer
 - `closeout + exit` -> `settled_completion`
 - `failure + exit` -> `settled_failure`
 - `blocker + exit` -> `settled_blocked`
@@ -64,11 +66,12 @@ Inspect or intervene only when:
 
 For explicit mux-family wrappers, the notify-first default is stricter:
 - child bridge notifications are delivered automatically
-- after spawn, use at most one initial `status` / `capture` / `tree` / `list` check and at most one recovery `send_message` per activity window
-- after that, wait for new child activity or an inactivity-only watchdog before intervening again
+- after spawn, do not call `status`, `capture`, `tree`, `list`, or `open` on the happy path
+- wait for delivered child activity; after a child progress report arrives, use at most one `send_message` when input is needed
+- treat `status`, `capture`, `tree`, `list`, and `open` as recovery-only tools for explicit live inspection, suspected stall/protocol violation/failure, or the inactivity-only watchdog
 - after terminal settlement, use one final `pimux status` check before advancing
 
-One targeted `status` / `capture` check at a real decision point is fine. Continuous polling is not.
+Do not poll pimux; wait for delivered child activity. One targeted `status` / `capture` check at a real recovery decision point is fine. Continuous polling is not.
 
 ## Session scope rule
 

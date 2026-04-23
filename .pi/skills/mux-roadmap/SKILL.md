@@ -23,8 +23,11 @@ Required sequence:
 4. let the authoritative `pimux` extension enforce the fail-closed parent control-plane lock
 5. spawn the roadmap coordinator or phase-owning `pimux` child before substantive work
 6. keep parent control-plane only except bounded user-input handoff prep
-7. after spawn, rely on child notifications first: at most one initial verification check and at most one recovery `send_message` per activity window, then wait for new child activity or the inactivity watchdog
-8. after terminal settlement, do one final `pimux status` verification and then advance
+7. after spawn, run notify-first rather than poll-first: do not call `status`, `capture`, `tree`, `list`, or `open` on the happy path
+8. wait for delivered child bridge activity; after a child progress report, use at most one `send_message` if input is needed, then wait again
+9. use `status` / `capture` / `tree` / `list` / `open` only for explicit live inspection, suspected stall/protocol violation/failure, or the inactivity watchdog
+10. after terminal settlement, do one final `pimux status` verification and then advance
 
 Do not execute roadmap work directly in the parent while this skill is active.
 Do not use parent-side `Read`, `Bash`, or manual repo discovery to plan roadmap work before spawn.
+Do not poll pimux; wait for delivered child activity, and treat `status` / `capture` / `tree` / `list` / `open` as recovery-only.

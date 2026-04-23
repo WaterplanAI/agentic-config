@@ -510,22 +510,27 @@ def test_mux_roadmap_spawn_is_blocked_only_when_no_path_or_inline_prompt_exists(
 
 
 def test_successful_spawn_transitions_lock_to_post_spawn_supervision() -> None:
-    """A successful spawn should unlock post-spawn supervision without permitting repo work."""
+    """A successful spawn should enter notify-first post-spawn supervision without permitting repo work."""
     post_spawn = spawn_post_lock()
     assert post_spawn["phase"] == "post_spawn"
     assert post_spawn["lastSpawnedAgentId"] == "mux-ospec-stage-001"
+    assert post_spawn.get("lastChildActivityAt") is None
     assert post_spawn["initialVerificationUsed"] is False
     assert post_spawn["recoveryMessageUsed"] is False
     assert post_spawn["settlementVerificationPending"] is False
 
-    allowed_status = run_runtime(
+    blocked_status = run_runtime(
         {
             "action": "evaluate",
             "lock": post_spawn,
             "event": {"toolName": "pimux", "input": {"action": "status", "target": "mux-ospec-stage-001"}},
+            "now": "2026-04-17T10:00:05Z",
         }
     )
-    assert allowed_status == {"allow": True}
+    assert blocked_status == {
+        "allow": False,
+        "reason": "Explicit mux-ospec parent is control-plane locked. Notify-first pacing is active. Do not poll pimux; wait for delivered child activity. status/capture/tree/list/open are recovery-only and allowed only after terminal settlement or the 10m inactivity watchdog.",
+    }
 
     blocked_read = run_runtime(
         {
@@ -540,69 +545,55 @@ def test_successful_spawn_transitions_lock_to_post_spawn_supervision() -> None:
     }
 
 
-def test_post_spawn_allows_only_one_initial_verification_check() -> None:
-    """The parent should get one immediate check, then must wait for child activity or watchdog."""
+def test_post_spawn_blocks_happy_path_verification_checks_until_watchdog() -> None:
+    """The parent should wait for delivered child activity instead of doing immediate checks."""
     post_spawn = spawn_post_lock()
-    first_status = run_runtime(
-        {
-            "action": "evaluate",
-            "lock": post_spawn,
-            "event": {"toolName": "pimux", "input": {"action": "status", "target": "mux-ospec-stage-001"}},
-        }
-    )
-    assert first_status == {"allow": True}
-
-    after_status = run_runtime(
-        {
-            "action": "update_tool_result",
-            "lock": post_spawn,
-            "event": {"toolName": "pimux", "details": {"action": "status"}, "isError": False},
-            "now": "2026-04-17T10:00:30Z",
-        }
-    )
     blocked_status = run_runtime(
         {
             "action": "evaluate",
-            "lock": after_status,
+            "lock": post_spawn,
             "event": {"toolName": "pimux", "input": {"action": "status", "target": "mux-ospec-stage-001"}},
             "now": "2026-04-17T10:01:00Z",
         }
     )
     assert blocked_status == {
         "allow": False,
-        "reason": "Explicit mux-ospec parent is control-plane locked. Notify-first pacing is active. Child bridge activity is delivered automatically. After spawn, use at most one initial status/capture/tree/list check per activity window, then wait for new child activity or the 10m inactivity watchdog.",
+        "reason": "Explicit mux-ospec parent is control-plane locked. Notify-first pacing is active. Do not poll pimux; wait for delivered child activity. status/capture/tree/list/open are recovery-only and allowed only after terminal settlement or the 10m inactivity watchdog.",
     }
 
-
-
-def test_capture_is_blocked_after_the_initial_verification_is_used() -> None:
-    """A different check action should still be blocked after the one initial verification is spent."""
-    post_spawn = spawn_post_lock()
-    after_status = run_runtime(
-        {
-            "action": "update_tool_result",
-            "lock": post_spawn,
-            "event": {"toolName": "pimux", "details": {"action": "status"}, "isError": False},
-            "now": "2026-04-17T10:00:30Z",
-        }
-    )
-    blocked_capture = run_runtime(
+    watchdog_status = run_runtime(
         {
             "action": "evaluate",
-            "lock": after_status,
-            "event": {"toolName": "pimux", "input": {"action": "capture", "target": "mux-ospec-stage-001"}},
-            "now": "2026-04-17T10:01:00Z",
+            "lock": post_spawn,
+            "event": {"toolName": "pimux", "input": {"action": "status", "target": "mux-ospec-stage-001"}},
+            "now": "2026-04-17T10:11:00Z",
         }
     )
-    assert blocked_capture == {
-        "allow": False,
-        "reason": "Explicit mux-ospec parent is control-plane locked. Notify-first pacing is active. Child bridge activity is delivered automatically. After spawn, use at most one initial status/capture/tree/list check per activity window, then wait for new child activity or the 10m inactivity watchdog.",
-    }
+    assert watchdog_status == {"allow": True}
 
 
 
-def test_post_spawn_allows_only_one_recovery_message_per_activity_window() -> None:
-    """Recovery nudges should be single-shot until the child reports again or the watchdog window opens."""
+def test_capture_and_open_are_recovery_only_after_spawn() -> None:
+    """Check-style actions should be blocked on the happy path, including open."""
+    post_spawn = spawn_post_lock()
+    for action in ("capture", "open"):
+        blocked = run_runtime(
+            {
+                "action": "evaluate",
+                "lock": post_spawn,
+                "event": {"toolName": "pimux", "input": {"action": action, "target": "mux-ospec-stage-001"}},
+                "now": "2026-04-17T10:01:00Z",
+            }
+        )
+        assert blocked == {
+            "allow": False,
+            "reason": "Explicit mux-ospec parent is control-plane locked. Notify-first pacing is active. Do not poll pimux; wait for delivered child activity. status/capture/tree/list/open are recovery-only and allowed only after terminal settlement or the 10m inactivity watchdog.",
+        }
+
+
+
+def test_post_spawn_blocks_recovery_message_before_child_activity() -> None:
+    """The parent should not message a child until a report arrives or the watchdog fires."""
     post_spawn = spawn_post_lock()
     first_message = run_runtime(
         {
@@ -612,59 +603,23 @@ def test_post_spawn_allows_only_one_recovery_message_per_activity_window() -> No
                 "toolName": "pimux",
                 "input": {"action": "send_message", "target": "mux-ospec-stage-001", "message": "Recover the missing path."},
             },
+            "now": "2026-04-17T10:00:05Z",
         }
     )
-    assert first_message == {"allow": True}
-
-    after_message = run_runtime(
-        {
-            "action": "update_tool_result",
-            "lock": post_spawn,
-            "event": {"toolName": "pimux", "details": {"action": "send_message"}, "isError": False},
-            "now": "2026-04-17T10:00:30Z",
-        }
-    )
-    blocked_message = run_runtime(
-        {
-            "action": "evaluate",
-            "lock": after_message,
-            "event": {
-                "toolName": "pimux",
-                "input": {"action": "send_message", "target": "mux-ospec-stage-001", "message": "Try again."},
-            },
-            "now": "2026-04-17T10:01:00Z",
-        }
-    )
-    assert blocked_message == {
+    assert first_message == {
         "allow": False,
-        "reason": "Explicit mux-ospec parent is control-plane locked. Notify-first pacing is active. A recovery send_message already went out for the current activity window. Wait for new child activity or the 10m inactivity watchdog before nudging again.",
+        "reason": "Explicit mux-ospec parent is control-plane locked. Notify-first pacing is active. Wait for a delivered child report before sending messages, unless the 10m inactivity watchdog has fired for recovery.",
     }
 
 
 
-def test_child_activity_rearms_one_check_and_one_recovery_message() -> None:
-    """A real child report should reopen the supervision window once."""
+def test_child_activity_rearms_one_recovery_message_not_polling_tools() -> None:
+    """A real child report should allow one reply but not reopen polling checks."""
     post_spawn = spawn_post_lock()
-    after_status = run_runtime(
-        {
-            "action": "update_tool_result",
-            "lock": post_spawn,
-            "event": {"toolName": "pimux", "details": {"action": "status"}, "isError": False},
-            "now": "2026-04-17T10:00:30Z",
-        }
-    )
-    exhausted = run_runtime(
-        {
-            "action": "update_tool_result",
-            "lock": after_status,
-            "event": {"toolName": "pimux", "details": {"action": "send_message"}, "isError": False},
-            "now": "2026-04-17T10:00:45Z",
-        }
-    )
     rearmed = run_runtime(
         {
             "action": "child_activity",
-            "lock": exhausted,
+            "lock": post_spawn,
             "event": {
                 "agentId": "mux-ospec-stage-001",
                 "eventId": "evt-progress-1",
@@ -672,7 +627,7 @@ def test_child_activity_rearms_one_check_and_one_recovery_message() -> None:
             },
         }
     )
-    allowed_status = run_runtime(
+    blocked_status = run_runtime(
         {
             "action": "evaluate",
             "lock": rearmed,
@@ -680,20 +635,15 @@ def test_child_activity_rearms_one_check_and_one_recovery_message() -> None:
             "now": "2026-04-17T10:02:05Z",
         }
     )
-    assert allowed_status == {"allow": True}
+    assert blocked_status == {
+        "allow": False,
+        "reason": "Explicit mux-ospec parent is control-plane locked. Notify-first pacing is active. Do not poll pimux; wait for delivered child activity. status/capture/tree/list/open are recovery-only and allowed only after terminal settlement or the 10m inactivity watchdog.",
+    }
 
-    after_rearmed_status = run_runtime(
-        {
-            "action": "update_tool_result",
-            "lock": rearmed,
-            "event": {"toolName": "pimux", "details": {"action": "status"}, "isError": False},
-            "now": "2026-04-17T10:02:05Z",
-        }
-    )
     allowed_message = run_runtime(
         {
             "action": "evaluate",
-            "lock": after_rearmed_status,
+            "lock": rearmed,
             "event": {
                 "toolName": "pimux",
                 "input": {"action": "send_message", "target": "mux-ospec-stage-001", "message": "Continue."},
@@ -702,6 +652,30 @@ def test_child_activity_rearms_one_check_and_one_recovery_message() -> None:
         }
     )
     assert allowed_message == {"allow": True}
+
+    after_message = run_runtime(
+        {
+            "action": "update_tool_result",
+            "lock": rearmed,
+            "event": {"toolName": "pimux", "details": {"action": "send_message"}, "isError": False},
+            "now": "2026-04-17T10:02:10Z",
+        }
+    )
+    blocked_message = run_runtime(
+        {
+            "action": "evaluate",
+            "lock": after_message,
+            "event": {
+                "toolName": "pimux",
+                "input": {"action": "send_message", "target": "mux-ospec-stage-001", "message": "Again."},
+            },
+            "now": "2026-04-17T10:02:30Z",
+        }
+    )
+    assert blocked_message == {
+        "allow": False,
+        "reason": "Explicit mux-ospec parent is control-plane locked. Notify-first pacing is active. A recovery send_message already went out for the current activity window. Wait for new child activity or the 10m inactivity watchdog before nudging again.",
+    }
 
 
 
@@ -773,7 +747,7 @@ def test_terminal_settlement_rearms_one_final_status_only() -> None:
     )
     assert blocked_second_status == {
         "allow": False,
-        "reason": "Explicit mux-ospec parent is control-plane locked. Notify-first pacing is active. Child bridge activity is delivered automatically. After spawn, use at most one initial status/capture/tree/list check per activity window, then wait for new child activity or the 10m inactivity watchdog.",
+        "reason": "Explicit mux-ospec parent is control-plane locked. Notify-first pacing is active. Do not poll pimux; wait for delivered child activity. status/capture/tree/list/open are recovery-only and allowed only after terminal settlement or the 10m inactivity watchdog.",
     }
 
 
@@ -781,18 +755,10 @@ def test_terminal_settlement_rearms_one_final_status_only() -> None:
 def test_inactivity_watchdog_allows_one_follow_up_check_without_restarting_polling() -> None:
     """A real inactivity threshold may reopen one check, but not a new polling loop."""
     post_spawn = spawn_post_lock()
-    after_status = run_runtime(
-        {
-            "action": "update_tool_result",
-            "lock": post_spawn,
-            "event": {"toolName": "pimux", "details": {"action": "status"}, "isError": False},
-            "now": "2026-04-17T10:00:30Z",
-        }
-    )
     blocked_early = run_runtime(
         {
             "action": "evaluate",
-            "lock": after_status,
+            "lock": post_spawn,
             "event": {"toolName": "pimux", "input": {"action": "status", "target": "mux-ospec-stage-001"}},
             "now": "2026-04-17T10:05:00Z",
         }
@@ -802,7 +768,7 @@ def test_inactivity_watchdog_allows_one_follow_up_check_without_restarting_polli
     allowed_watchdog = run_runtime(
         {
             "action": "evaluate",
-            "lock": after_status,
+            "lock": post_spawn,
             "event": {"toolName": "pimux", "input": {"action": "status", "target": "mux-ospec-stage-001"}},
             "now": "2026-04-17T10:11:00Z",
         }
@@ -812,7 +778,7 @@ def test_inactivity_watchdog_allows_one_follow_up_check_without_restarting_polli
     after_watchdog_status = run_runtime(
         {
             "action": "update_tool_result",
-            "lock": after_status,
+            "lock": post_spawn,
             "event": {"toolName": "pimux", "details": {"action": "status"}, "isError": False},
             "now": "2026-04-17T10:11:00Z",
         }
@@ -827,26 +793,18 @@ def test_inactivity_watchdog_allows_one_follow_up_check_without_restarting_polli
     )
     assert blocked_again == {
         "allow": False,
-        "reason": "Explicit mux-ospec parent is control-plane locked. Notify-first pacing is active. Child bridge activity is delivered automatically. After spawn, use at most one initial status/capture/tree/list check per activity window, then wait for new child activity or the 10m inactivity watchdog.",
+        "reason": "Explicit mux-ospec parent is control-plane locked. Notify-first pacing is active. Do not poll pimux; wait for delivered child activity. status/capture/tree/list/open are recovery-only and allowed only after terminal settlement or the 10m inactivity watchdog.",
     }
 
 
 
 def test_inactivity_watchdog_can_reopen_one_recovery_message() -> None:
-    """The watchdog should also reopen one concise recovery hint when the child has been quiet long enough."""
+    """The watchdog should also allow one concise recovery hint when the child has been quiet long enough."""
     post_spawn = spawn_post_lock()
-    after_message = run_runtime(
-        {
-            "action": "update_tool_result",
-            "lock": post_spawn,
-            "event": {"toolName": "pimux", "details": {"action": "send_message"}, "isError": False},
-            "now": "2026-04-17T10:00:30Z",
-        }
-    )
     blocked_early = run_runtime(
         {
             "action": "evaluate",
-            "lock": after_message,
+            "lock": post_spawn,
             "event": {
                 "toolName": "pimux",
                 "input": {"action": "send_message", "target": "mux-ospec-stage-001", "message": "Still there?"},
@@ -854,12 +812,15 @@ def test_inactivity_watchdog_can_reopen_one_recovery_message() -> None:
             "now": "2026-04-17T10:05:00Z",
         }
     )
-    assert blocked_early["allow"] is False
+    assert blocked_early == {
+        "allow": False,
+        "reason": "Explicit mux-ospec parent is control-plane locked. Notify-first pacing is active. Wait for a delivered child report before sending messages, unless the 10m inactivity watchdog has fired for recovery.",
+    }
 
     allowed_watchdog = run_runtime(
         {
             "action": "evaluate",
-            "lock": after_message,
+            "lock": post_spawn,
             "event": {
                 "toolName": "pimux",
                 "input": {"action": "send_message", "target": "mux-ospec-stage-001", "message": "Still there?"},
@@ -868,3 +829,27 @@ def test_inactivity_watchdog_can_reopen_one_recovery_message() -> None:
         }
     )
     assert allowed_watchdog == {"allow": True}
+
+    after_watchdog_message = run_runtime(
+        {
+            "action": "update_tool_result",
+            "lock": post_spawn,
+            "event": {"toolName": "pimux", "details": {"action": "send_message"}, "isError": False},
+            "now": "2026-04-17T10:11:00Z",
+        }
+    )
+    blocked_again = run_runtime(
+        {
+            "action": "evaluate",
+            "lock": after_watchdog_message,
+            "event": {
+                "toolName": "pimux",
+                "input": {"action": "send_message", "target": "mux-ospec-stage-001", "message": "Again."},
+            },
+            "now": "2026-04-17T10:11:30Z",
+        }
+    )
+    assert blocked_again == {
+        "allow": False,
+        "reason": "Explicit mux-ospec parent is control-plane locked. Notify-first pacing is active. A recovery send_message already went out for the current activity window. Wait for new child activity or the 10m inactivity watchdog before nudging again.",
+    }

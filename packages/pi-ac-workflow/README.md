@@ -30,7 +30,8 @@ Gate rules:
 - `CONFIRM_SC` is mandatory before `PLAN`
 - only `PASS` advances through REVIEW/TEST/SENTINEL/SELF_VALIDATION
 - child bridge notifications are delivered automatically; default pacing is notify-first
-- after spawn, use at most one initial `status` / `capture` / `tree` / `list` check and at most one recovery `send_message` per activity window, then wait for new child activity or the inactivity watchdog
+- after spawn, do not call `status`, `capture`, `tree`, `list`, or `open` on the happy path; wait for delivered child activity instead
+- `status` / `capture` / `tree` / `list` / `open` are recovery-only for explicit live inspection, suspected stall/protocol violation/failure, or the inactivity watchdog
 - terminal settlement re-arms exactly one final `pimux status` verification before advancing
 - default blocked/stuck behavior escalates to user
 - each stage must commit all changed repos with repo-scoped evidence (`repo_scope`, `root_commit`, `spec_commit`)

@@ -10,6 +10,13 @@ All notable changes to agentic-config.
   - adds once/session/project/user approval scopes in `hook-compat`
   - persists narrow `safety.yaml` allow rules for exact Playwright actions/domains and selected supply-chain allowlists
 
+### Changed
+
+- `pi-ac-workflow`: harden `pimux` notify-first enforcement for mux-family parents
+  - blocks happy-path `status` / `capture` / `tree` / `list` / `open` polling until child activity, terminal settlement, or watchdog recovery
+  - requires delivered child activity before normal `send_message` replies
+  - clarifies that continuing parent input uses `progress` with `requiresResponse=true`, while `question` is terminal waiting-on-parent settlement
+
 ## [0.3.0-alpha] - 2026-04-21
 
 ### Added
