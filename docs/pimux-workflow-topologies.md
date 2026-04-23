@@ -7,6 +7,7 @@ This guide describes tmux-backed workflow surfaces shipped by `@agentic-config/p
 - canonical shipped IDs: `ac-workflow-mux`, `ac-workflow-mux-ospec`, `ac-workflow-mux-roadmap`
 - user-facing aliases: `mux`, `mux-ospec`, `mux-roadmap`
 - package-owned alias skills are trigger shims only; canonical workflow behavior stays in `ac-workflow-*`
+- project-local `.pi/skills/mux*` shims are intentionally retired; rely on the package-owned aliases
 - runtime/tooling only: `pimux`
 - package-owned `pimux` skill is a trigger shim for the runtime extension, not protocol authority
 

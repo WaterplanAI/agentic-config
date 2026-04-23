@@ -16,9 +16,9 @@ PACKAGE_PIMUX_SKILL = PACKAGE_WORKFLOW_SKILLS / "pimux" / "SKILL.md"
 PACKAGE_MUX_ALIAS = PACKAGE_WORKFLOW_SKILLS / "mux" / "SKILL.md"
 PACKAGE_MUX_OSPEC_ALIAS = PACKAGE_WORKFLOW_SKILLS / "mux-ospec" / "SKILL.md"
 PACKAGE_MUX_ROADMAP_ALIAS = PACKAGE_WORKFLOW_SKILLS / "mux-roadmap" / "SKILL.md"
-MUX_ALIAS = PROJECT_ROOT / ".pi" / "skills" / "mux" / "SKILL.md"
-MUX_OSPEC_ALIAS = PROJECT_ROOT / ".pi" / "skills" / "mux-ospec" / "SKILL.md"
-MUX_ROADMAP_ALIAS = PROJECT_ROOT / ".pi" / "skills" / "mux-roadmap" / "SKILL.md"
+LOCAL_MUX_ALIAS_DIR = PROJECT_ROOT / ".pi" / "skills" / "mux"
+LOCAL_MUX_OSPEC_ALIAS_DIR = PROJECT_ROOT / ".pi" / "skills" / "mux-ospec"
+LOCAL_MUX_ROADMAP_ALIAS_DIR = PROJECT_ROOT / ".pi" / "skills" / "mux-roadmap"
 LEGACY_PIMUX_MUX = PROJECT_ROOT / ".pi" / "skills" / ("pimux" + "-mux") / "SKILL.md"
 LEGACY_PIMUX_OSPEC = PROJECT_ROOT / ".pi" / "skills" / ("pimux" + "-ospec") / "SKILL.md"
 LEGACY_PIMUX_ROADMAP = PROJECT_ROOT / ".pi" / "skills" / ("pimux" + "-roadmap") / "SKILL.md"
@@ -103,6 +103,9 @@ def test_package_mux_aliases_are_non_authoritative() -> None:
         assert canonical_reference in text
         assert "../../extensions/pimux/docs/" in text
         assert "do not poll pimux or use Bash sleep/wait loops" in text
+        assert "## Mandatory trigger behavior" in text
+        assert "after terminal settlement, do one final `pimux status` verification and then advance" in text
+        assert "Do not use parent-side" in text
 
 
 def test_local_pimux_skill_is_retired() -> None:
@@ -110,30 +113,39 @@ def test_local_pimux_skill_is_retired() -> None:
     assert not LOCAL_PIMUX_SKILL_DIR.exists()
 
 
-def test_wrapper_skills_point_back_to_core_pimux_contract() -> None:
-    """The mux/ospec/roadmap aliases should stay thin and runtime-bound to pimux."""
+def test_package_wrapper_skills_preserve_retired_local_alias_enforcement() -> None:
+    """Package mux aliases should preserve compliance rules from the retired local aliases."""
     patterns = PACKAGE_PIMUX_PATTERNS.read_text()
     assert "Use pimux as the control-plane runtime for:" in patterns
     assert "If `pimux`, `mux`, `mux-ospec`, or `mux-roadmap` is explicitly invoked" in patterns
     assert "fail-closed to `pimux`, `AskUserQuestion`, and `say`" in patterns
 
-    mux_text = MUX_ALIAS.read_text()
+    mux_text = PACKAGE_MUX_ALIAS.read_text()
     assert "If the user explicitly triggers `mux`, the parent must actually run through `pimux`." in mux_text
+    assert "prepare bounded handoff from the user request only" in mux_text
+    assert "spawn the authoritative `pimux` child before substantive analysis" in mux_text
 
-    ospec_text = MUX_OSPEC_ALIAS.read_text()
+    ospec_text = PACKAGE_MUX_OSPEC_ALIAS.read_text()
     assert "If the user explicitly triggers `mux-ospec`, keep work in the tmux-backed stage lane." in ospec_text
     assert "inline prompt without a spec path" in ospec_text
     assert "create it instead of blocking" in ospec_text
+    assert "let the authoritative `pimux` runtime derive/create the next current-branch spec path" in ospec_text
 
-    roadmap_text = MUX_ROADMAP_ALIAS.read_text()
+    roadmap_text = PACKAGE_MUX_ROADMAP_ALIAS.read_text()
     assert "If the user explicitly triggers `mux-roadmap`, keep work in the tmux-backed roadmap lane." in roadmap_text
     assert "inline prompt without a path" in roadmap_text
     assert "create it instead of blocking" in roadmap_text
+    assert "keep parent control-plane only except bounded user-input handoff prep" in roadmap_text
 
     for text in (mux_text, ospec_text, roadmap_text):
         assert "pimux" in text
         assert "do not poll pimux or use Bash sleep/wait loops" in text
+        assert "do not call `status`, `capture`, `tree`, `list`, or `open` on the happy path" in text
+        assert "use `status` / `capture` / `tree` / `list` / `open` only for explicit live inspection" in text
 
+    assert not LOCAL_MUX_ALIAS_DIR.exists()
+    assert not LOCAL_MUX_OSPEC_ALIAS_DIR.exists()
+    assert not LOCAL_MUX_ROADMAP_ALIAS_DIR.exists()
     assert not LEGACY_PIMUX_MUX.exists()
     assert not LEGACY_PIMUX_OSPEC.exists()
     assert not LEGACY_PIMUX_ROADMAP.exists()

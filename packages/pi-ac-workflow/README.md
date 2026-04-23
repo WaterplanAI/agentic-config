@@ -22,6 +22,7 @@
 - canonical shipped workflow IDs stay `ac-workflow-mux`, `ac-workflow-mux-ospec`, `ac-workflow-mux-roadmap`
 - user-facing aliases are `mux`, `mux-ospec`, `mux-roadmap`
 - package-owned alias skills for `mux`, `mux-ospec`, and `mux-roadmap` are trigger shims only; canonical workflow behavior stays in `ac-workflow-*`
+- project-local `.pi/skills/mux*` shims are intentionally retired; rely on these package-owned aliases
 - `pimux` is runtime/tooling only, not a workflow-family wrapper
 - the package-owned `pimux` skill is a thin trigger shim for the runtime extension, not protocol authority
 
