@@ -15,9 +15,10 @@ import os
 import re
 import shlex
 import sys
+from typing import Any
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from _lib import allow, ask, deny, fail_close, get_category_decision, load_config
+from _lib import allow, ask, build_permission_decision_metadata, deny, fail_close, get_category_decision, load_config
 
 # Patterns that are SAFE (skip blocking).
 # These are applied per-segment (after splitting on shell operators).
@@ -55,13 +56,13 @@ SAFE_PATTERNS = [
 ]
 
 
-def _apply_decision(config: dict, category: str, reason: str) -> None:
+def _apply_decision(config: dict, category: str, reason: str, metadata: dict | None = None) -> None:
     """Apply the configured decision for a supply_chain category."""
     decision = get_category_decision(config, "supply_chain", category)
     if decision == "deny":
         deny(f"BLOCKED: {reason}. Supply-chain-guardian.")
     elif decision == "ask":
-        ask(f"{reason} -- confirm to proceed?")
+        ask(f"{reason} -- confirm to proceed?", metadata=metadata)
     else:
         allow()
 
@@ -294,6 +295,129 @@ def _extract_all_package_args(args: list[str]) -> list[str]:
     return [arg for arg in args if not arg.startswith("-")]
 
 
+
+def _dedupe_packages(packages: list[str]) -> list[str]:
+    """Normalize package names for persistence allowlists."""
+    seen: set[str] = set()
+    normalized: list[str] = []
+    for package in packages:
+        stripped = _strip_version(package)
+        if not stripped or stripped in seen:
+            continue
+        seen.add(stripped)
+        normalized.append(stripped)
+    return normalized
+
+
+
+def _extract_npx_packages(segment: str) -> list[str]:
+    """Return exact transient packages that can be allowlisted."""
+    extractors: list[tuple[str, set[str]]] = [
+        (r"\bnpx\s+(.*)", {"--package", "-p"}),
+        (r"\bnpm\s+exec\s+(.*)", {"--package"}),
+        (r"\bpnpm\s+dlx\s+(.*)", set()),
+        (r"\byarn\s+dlx\s+(.*)", set()),
+        (r"\bbunx\s+(.*)", {"--package", "-p"}),
+        (r"\buvx\s+(.*)", {"--with", "--from"}),
+        (r"\buv\s+tool\s+run\s+(.*)", {"--from"}),
+    ]
+    for pattern, package_flags in extractors:
+        match = re.search(pattern, segment)
+        if not match:
+            continue
+        package = _extract_package_from_runner_args(_split_args(match.group(1)), package_flags)
+        return _dedupe_packages([package] if package else [])
+    return []
+
+
+
+def _extract_uv_add_packages(command: str) -> list[str]:
+    """Extract package args from `uv add` for persistence allowlists."""
+    match = re.search(r"\buv\s+add\s+(.*)", command)
+    if not match:
+        return []
+
+    bare_flags = {"--dev", "--no-sync", "--frozen", "--locked", "--editable"}
+    value_flags = {"--group", "--optional", "--extra", "--tag", "--branch", "--rev"}
+    args = _split_args(match.group(1))
+    packages: list[str] = []
+    idx = 0
+    while idx < len(args):
+        arg = args[idx]
+        if arg == "--":
+            idx += 1
+            while idx < len(args):
+                if not args[idx].startswith("-"):
+                    packages.append(args[idx])
+                idx += 1
+            break
+        if arg in bare_flags:
+            idx += 1
+            continue
+        if arg in value_flags:
+            idx += 2
+            continue
+        if any(arg.startswith(f"{flag}=") for flag in value_flags):
+            idx += 1
+            continue
+        if arg.startswith("-"):
+            idx += 1
+            continue
+        packages.append(arg)
+        idx += 1
+    return _dedupe_packages(packages)
+
+
+
+def _extract_install_packages(command: str, pattern: str) -> list[str]:
+    """Extract package args for add/install-style commands."""
+    match = re.search(pattern, command)
+    if not match:
+        return []
+    return _dedupe_packages(_extract_all_package_args(_split_args(match.group(1))))
+
+
+
+def _build_persistence_metadata(segment: str, category: str) -> dict[str, Any] | None:
+    """Return narrow allowlist persistence metadata for selected categories."""
+    allowlist_key_by_category = {
+        "npx-packages": "npx_allowlist",
+        "uv-add": "uv_add_allowlist",
+        "npm-install": "npm_install_allowlist",
+        "yarn-add": "yarn_add_allowlist",
+    }
+    allowlist_key = allowlist_key_by_category.get(category)
+    if allowlist_key is None:
+        return None
+
+    if category == "npx-packages":
+        packages = _extract_npx_packages(segment)
+    elif category == "uv-add":
+        packages = _extract_uv_add_packages(segment)
+    elif category == "npm-install":
+        packages = (
+            _extract_install_packages(segment, r"\bnpm\s+(?:install|i)\s+(.*)")
+            or _extract_install_packages(segment, r"\bpnpm\s+add\s+(.*)")
+            or _extract_install_packages(segment, r"\bbun\s+add\s+(.*)")
+        )
+    else:
+        packages = _extract_install_packages(segment, r"\byarn\s+add\s+(.*)")
+
+    if not packages:
+        return None
+
+    patch = {
+        "supply_chain": {
+            allowlist_key: packages,
+        }
+    }
+    return build_permission_decision_metadata(
+        allow_key=f"supply-chain:{category}:{','.join(packages)}",
+        project_patch=patch,
+        user_patch=patch,
+    )
+
+
 def _is_npm_install_blocked(command: str, npm_install_allowlist: set[str]) -> str | None:
     """Check for npm install/i <package> (not bare npm install / npm ci).
 
@@ -453,7 +577,7 @@ def main() -> None:
             npm_install_allowlist, yarn_add_allowlist,
         )
         if reason:
-            _apply_decision(config, category, reason)
+            _apply_decision(config, category, reason, metadata=_build_persistence_metadata(segment, category))
             return
 
     allow()

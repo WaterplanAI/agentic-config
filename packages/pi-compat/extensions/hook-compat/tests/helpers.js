@@ -31,9 +31,17 @@ export function createToolCallEvent(toolName, input) {
   };
 }
 
-export function createTestContext({ cwd, hasUI, confirmResult = true, sessionId = "hook-compat-test-session" }) {
+export function createTestContext({
+  cwd,
+  hasUI,
+  confirmResult = true,
+  selectResult,
+  sessionId = "hook-compat-test-session",
+  branchEntries = [],
+}) {
   const notifications = [];
   const confirmations = [];
+  const selections = [];
 
   const ui = {
     notify(message, level) {
@@ -46,6 +54,16 @@ export function createTestContext({ cwd, hasUI, confirmResult = true, sessionId 
       }
       return Boolean(confirmResult);
     },
+    async select(prompt, options) {
+      selections.push({ prompt, options: [...options] });
+      if (typeof selectResult === "function") {
+        return await selectResult({ prompt, options: [...options], selections: [...selections] });
+      }
+      if (selectResult !== undefined) {
+        return selectResult;
+      }
+      return options[0];
+    },
   };
 
   const ctx = {
@@ -55,6 +73,9 @@ export function createTestContext({ cwd, hasUI, confirmResult = true, sessionId 
       getSessionId() {
         return sessionId;
       },
+      getBranch() {
+        return branchEntries;
+      },
     },
     ui,
   };
@@ -63,6 +84,8 @@ export function createTestContext({ cwd, hasUI, confirmResult = true, sessionId 
     ctx,
     notifications,
     confirmations,
+    selections,
+    branchEntries,
   };
 }
 

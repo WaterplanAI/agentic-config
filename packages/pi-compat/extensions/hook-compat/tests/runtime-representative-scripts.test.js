@@ -111,7 +111,7 @@ test(
       const deniedByUser = createTestContext({
         cwd: workspace.projectDir,
         hasUI: true,
-        confirmResult: false,
+        selectResult: "Deny",
       });
 
       const deniedResult = await runHookCompatToolCall(
@@ -122,12 +122,12 @@ test(
 
       assert.equal(deniedResult?.block, true);
       assert.match(deniedResult?.reason ?? "", /Blocked by user|confirm to proceed/i);
-      assert.equal(deniedByUser.confirmations.length, 1);
+      assert.equal(deniedByUser.selections.length, 1);
 
       const allowedByUser = createTestContext({
         cwd: workspace.projectDir,
         hasUI: true,
-        confirmResult: true,
+        selectResult: "Allow once",
       });
 
       const allowedResult = await runHookCompatToolCall(

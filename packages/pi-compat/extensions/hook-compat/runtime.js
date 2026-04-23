@@ -55,7 +55,7 @@ function normalizePreflightToolName(toolName) {
   return toolName;
 }
 
-async function executeHookCompatPreflight({ claudePayload, ctx, projectDir, sessionId, registrations }) {
+async function executeHookCompatPreflight({ claudePayload, ctx, projectDir, sessionId, registrations, runtime }) {
   for (const packageRegistration of registrations) {
     for (const hookGroup of packageRegistration.hooks) {
       if (!matchesClaudeMatcher(hookGroup.matcher, claudePayload.tool_name)) {
@@ -86,6 +86,8 @@ async function executeHookCompatPreflight({ claudePayload, ctx, projectDir, sess
             ctx,
             packageRegistration,
             hookRegistration,
+            runtime,
+            claudePayload,
           });
 
           if (decision.block) {
@@ -135,6 +137,7 @@ export async function runHookCompatPreflight({ toolName, input, cwd, ctx, runtim
       projectDir,
       sessionId,
       registrations: effectiveRegistrations,
+      runtime,
     });
   } catch (error) {
     return {

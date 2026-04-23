@@ -1,3 +1,4 @@
+import { clearHookCompatAllowState } from "./decision.js";
 import { clearHookCompatRuntimeState, markHookCompatRuntimeInstalled } from "./registry.js";
 import { runHookCompatPreflight, runHookCompatToolCall } from "./runtime.js";
 
@@ -39,6 +40,7 @@ export default function hookCompatExtension(pi) {
   });
 
   pi.on("session_shutdown", async () => {
+    clearHookCompatAllowState(pi);
     clearHookCompatRuntimeState(pi);
   });
 }
