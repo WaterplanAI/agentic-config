@@ -10,6 +10,7 @@ If the user explicitly invokes `mux` / `ac-workflow-mux`, or embeds this skill t
 
 For explicit mux-family triggers in pi, the current session is a `pimux`-only control plane.
 
+- FIRST after spawn: do not poll pimux or use Bash sleep/wait loops; wait for delivered child bridge activity.
 - The authoritative `pimux` extension applies a fail-closed parent control-plane lock for explicit mux-family wrappers.
 - Before the first child exists, the parent must not call `Read`, `Bash`, `Edit`, `Write`, `NotebookEdit`, `Grep`, `Glob`, `web_search`, `subagent`, or any other non-`pimux` tool for substantive repo work.
 - Do not do substantive repo or domain work in the parent session.
@@ -26,8 +27,8 @@ While this skill is active, the parent session is runtime-locked to `pimux`, `As
 - before the first child exists: `pimux spawn` only
 - `AskUserQuestion` is allowed only for explicit user clarification that blocks spawn
 - after spawn: notify-first, not poll-first; wait for delivered child bridge activity instead of inspecting live state
+- do not poll pimux or use Bash sleep/wait loops; if you are about to inspect routine progress, stop and wait for delivered child activity instead
 - happy path after spawn forbids `status`, `capture`, `tree`, `list`, and `open`; those are recovery-only tools for explicit live inspection, suspected stall/protocol violation/failure, or the inactivity watchdog
-- do not poll pimux; if you are about to inspect routine progress, stop and wait for delivered child activity instead
 - after a child progress report arrives, use at most one `send_message` when the child needs input; then wait for closeout or another child report
 - terminal settlement re-arms exactly one final `pimux status` verification before advancing
 - `say` is allowed only for short user-attention prompts

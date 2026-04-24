@@ -21,6 +21,7 @@ If the user explicitly invokes `mux-ospec` / `ac-workflow-mux-ospec`, or embeds 
 
 For explicit `mux-ospec` requests in pi, the current session is a `pimux`-only cross-stage orchestrator.
 
+- FIRST after spawn: do not poll pimux or use Bash sleep/wait loops; wait for delivered child bridge activity.
 - The authoritative `pimux` extension applies a fail-closed parent control-plane lock for explicit `mux-ospec` execution.
 - Before the first child exists, the parent must not call `Read`, `Bash`, `Edit`, `Write`, `NotebookEdit`, `Grep`, `Glob`, `web_search`, `subagent`, or any other non-`pimux` tool for substantive repo work.
 - Do not execute substantive stage work directly in the parent.
@@ -36,6 +37,7 @@ While this skill is active, the parent is runtime-locked to `pimux`, `AskUserQue
 - before first child: `pimux spawn` only
 - `AskUserQuestion` is allowed only when the user has not provided an explicit spec path or inline prompt, or when a later required user gate is reached
 - after spawn: notify-first, not poll-first; wait for delivered child bridge activity instead of inspecting live state
+- do not poll pimux or use Bash sleep/wait loops; if you are about to inspect routine progress, stop and wait for delivered child activity instead
 - happy path after spawn forbids `status`, `capture`, `tree`, `list`, and `open`; those are recovery-only tools for explicit live inspection, suspected stall/protocol violation/failure, or the inactivity watchdog
 - after a child progress report arrives, use at most one `send_message` when the child needs input; then wait for closeout or another child report
 - `say` is allowed only for short user-attention prompts
@@ -65,7 +67,7 @@ While this skill is active, the parent is runtime-locked to `pimux`, `AskUserQue
 - only `PASS` advances through `REVIEW`, `TEST`, `SENTINEL`, and `SELF_VALIDATION`
 - `WARN`/`FAIL` route to `FIX`; retry exhaustion escalates to user
 - child bridge notifications are delivered automatically; default pacing is notify-first
-- do not poll pimux; if you are about to inspect routine progress, stop and wait for delivered child activity instead
+- do not poll pimux or use Bash sleep/wait loops; if you are about to inspect routine progress, stop and wait for delivered child activity instead
 - after spawn, do not call `status`, `capture`, `tree`, `list`, or `open` on the happy path
 - terminal settlement re-arms exactly one final `pimux status` verification before advancing
 - optional watchdog is inactivity-only and concise
@@ -89,7 +91,7 @@ Each authoritative stage-owning `pimux` child must:
 
 - read `../../assets/agents/spec/` stage references needed for that stage
 - read `../../assets/mux/protocol/foundation.md` and `../../assets/mux/protocol/subagent.md`
-- read `.pi/skills/pimux/references/patterns.md` (or package-local equivalent)
+- read `../../extensions/pimux/docs/patterns.md`
 - execute only assigned stage scope
 - preserve evidence-gated reporting with repo-scoped commit metadata
 - use `pimux report_parent` exactly once for terminal settlement

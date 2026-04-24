@@ -104,6 +104,7 @@ def test_parent_control_plane_lock_is_extension_enforced() -> None:
     assert 'pi.on("tool_call", async (event, ctx) => {' in text
     assert 'pi.on("tool_result", async (event, ctx) => {' in text
     assert 'CONTROL_PLANE_LOCK_ENTRY_TYPE' in text
+    assert 'NO_POLLING_SUPERVISION_ENTRY_TYPE' in text
     assert 'applyControlPlaneToolSurface(pi);' in text
     assert 'parseExplicitControlPlaneTrigger' in text
     assert 'resolvePendingControlPlaneSpecPath' in text
@@ -111,22 +112,28 @@ def test_parent_control_plane_lock_is_extension_enforced() -> None:
     assert 'const preparedSpawn = await prepareControlPlaneSpawn(currentLock, request.prompt, cwd);' in text
     assert 'const specPath = resolvePendingControlPlaneSpecPath(currentLock, event.text, ctx.cwd);' in text
     assert 'evaluateControlPlaneToolCall' in text
+    assert 'evaluateNoPollingSupervisionToolCall' in text
     assert 'updateControlPlaneLockForChildActivity' in text
     assert 'updateControlPlaneLockForTerminalSettlement' in text
     assert 'updateControlPlaneLockForToolResult' in text
+    assert 'updateNoPollingSupervisionForToolResult' in text
     assert 'POST_SPAWN_ALLOWED_ACTIONS' in helper_text
     assert 'CONTROL_PLANE_INACTIVITY_WATCHDOG_MS' in helper_text
     assert 'Do not poll pimux; wait for delivered child activity.' in helper_text
+    assert 'Do not use Bash sleep/wait loops for supervision' in helper_text
     assert 'status/capture/tree/list/open are recovery-only' in helper_text
     assert 'Wait for a delivered child report before sending messages' in helper_text
     assert 'A recovery send_message already went out for the current activity window.' in helper_text
     assert 'Terminal settlement is ready. Use one final pimux status check, then stop supervising this child.' in helper_text
     assert 'PIMUX HAPPY-PATH DISCIPLINE: this run is notify-first, not poll-first.' in helper_text
+    assert 'FIRST: do not poll pimux and do not use Bash sleep/wait loops; wait for delivered child activity.' in helper_text
     assert 'Allowed happy-path sequence: spawn -> wait for child report -> send_message once if needed -> wait for closeout -> final status verification.' in helper_text
     assert 'after terminal settlement, use one final pimux status check before advancing.' in helper_text
     assert 'Progress is non-terminal; question is terminal waiting-on-parent settlement.' in text
     assert 'For same-session child questions that must continue, use report_parent(progress, requiresResponse=true), not question.' in text
     assert 'For same-session parent input that you need before continuing, emit progress with requiresResponse=true.' in bridge_text
+    assert 'FIRST: do not poll pimux and do not use Bash sleep/wait loops; wait for delivered child activity.' in bridge_text
+    assert 'NO-POLL: do not poll pimux or use Bash sleep/wait loops; wait for delivered child activity.' in text
     assert 'Use this spec path for the run, and create it first if missing:' in helper_text
     assert 'create the bound spec file before spawn if it does not exist yet.' in helper_text
     assert 'Explicit mux-ospec requires an explicit spec path or inline prompt before pimux spawn.' in helper_text

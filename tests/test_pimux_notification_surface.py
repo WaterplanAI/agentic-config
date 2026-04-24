@@ -10,8 +10,8 @@ PIMUX_PACKAGE_DIR = PROJECT_ROOT / "packages" / "pi-ac-workflow" / "extensions" 
 PIMUX_INDEX = PIMUX_PACKAGE_DIR / "index.ts"
 PIMUX_PATHS = PIMUX_PACKAGE_DIR / "paths.ts"
 PIMUX_SCHEMA = PIMUX_PACKAGE_DIR / "schema.ts"
-PIMUX_COMMANDS = PROJECT_ROOT / ".pi" / "skills" / "pimux" / "references" / "commands.md"
-PIMUX_SKILL = PROJECT_ROOT / ".pi" / "skills" / "pimux" / "SKILL.md"
+PIMUX_COMMANDS = PIMUX_PACKAGE_DIR / "docs" / "commands.md"
+PIMUX_SKILL = PROJECT_ROOT / "packages" / "pi-ac-workflow" / "skills" / "pimux" / "SKILL.md"
 
 
 def test_notification_mode_surface_is_follow_up_only() -> None:

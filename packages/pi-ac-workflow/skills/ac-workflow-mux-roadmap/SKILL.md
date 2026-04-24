@@ -21,6 +21,7 @@ If the user explicitly invokes `mux-roadmap` / `ac-workflow-mux-roadmap`, or emb
 
 For explicit `mux-roadmap` requests in pi, the current session is a `pimux`-only roadmap orchestrator.
 
+- FIRST after spawn: do not poll pimux or use Bash sleep/wait loops; wait for delivered child bridge activity.
 - The authoritative `pimux` extension applies a fail-closed parent control-plane lock for explicit `mux-roadmap` execution.
 - Before the first child exists, the parent must not call `Read`, `Bash`, `Edit`, `Write`, `NotebookEdit`, `Grep`, `Glob`, `web_search`, `subagent`, or any other non-`pimux` tool for substantive repo work.
 - Do not inspect roadmap files, phase docs, or repo targets in the parent before spawn.
@@ -38,9 +39,9 @@ While this skill is active, the parent session is runtime-locked to `pimux`, `As
 - before the first child exists: `pimux spawn` only
 - `AskUserQuestion` is allowed only when the user has not provided an explicit roadmap/spec path or inline prompt that is sufficient to spawn
 - after spawn: notify-first, not poll-first; wait for delivered child bridge activity instead of inspecting live state
+- do not poll pimux or use Bash sleep/wait loops; if you are about to inspect routine progress, stop and wait for delivered child activity instead
 - child bridge notifications are delivered automatically; use notify-first pacing
 - happy path after spawn forbids `status`, `capture`, `tree`, `list`, and `open`; those are recovery-only tools for explicit live inspection, suspected stall/protocol violation/failure, or the inactivity watchdog
-- do not poll pimux; if you are about to inspect routine progress, stop and wait for delivered child activity instead
 - after a child progress report arrives, use at most one `send_message` when the child needs input; then wait for closeout or another child report
 - terminal settlement re-arms exactly one final `pimux status` verification before advancing
 - `say` is allowed only for short user-attention prompts

@@ -1,5 +1,7 @@
 # pimux commands and tool
 
+Package-owned runtime docs for the `pimux` extension command and tool surfaces.
+
 ## Command
 
 Use `/pimux` with:
@@ -33,6 +35,8 @@ Use the `pimux` tool with actions:
 - `prune`
 
 ## Minimal spawn
+
+First after spawn: do not poll pimux or use Bash sleep/wait loops; wait for delivered child activity.
 
 Spawned pimux children always use `notify-and-follow-up`.
 

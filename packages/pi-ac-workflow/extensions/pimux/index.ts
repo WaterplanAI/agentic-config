@@ -35,11 +35,15 @@ import {
 } from "./render.ts";
 import {
 	CONTROL_PLANE_LOCK_ENTRY_TYPE,
+	NO_POLLING_SUPERVISION_ENTRY_TYPE,
 	buildControlPlaneLock,
 	buildControlPlaneSystemPrompt,
+	buildNoPollingSupervisionForSpawn,
 	buildUnlockedControlPlaneLock,
 	evaluateControlPlaneToolCall,
+	evaluateNoPollingSupervisionToolCall,
 	normalizeControlPlaneLockState,
+	normalizeNoPollingSupervisionState,
 	parseExplicitControlPlaneTrigger,
 	prepareControlPlaneSpawn,
 	resolveControlPlaneSpecPath,
@@ -47,7 +51,11 @@ import {
 	updateControlPlaneLockForChildActivity,
 	updateControlPlaneLockForTerminalSettlement,
 	updateControlPlaneLockForToolResult,
+	updateNoPollingSupervisionForChildActivity,
+	updateNoPollingSupervisionForTerminalSettlement,
+	updateNoPollingSupervisionForToolResult,
 	type ControlPlaneLockState,
+	type NoPollingSupervisionState,
 } from "./control-plane.ts";
 import {
 	archivePrunedAgents,
@@ -1072,6 +1080,7 @@ function buildToolResult(text: string, details: Record<string, unknown>) {
 }
 
 const CONTROL_PLANE_ACTIVE_TOOLS = ["pimux", "AskUserQuestion", "say"];
+const NO_POLLING_SPAWN_ECHO = "NO-POLL: do not poll pimux or use Bash sleep/wait loops; wait for delivered child activity.";
 
 function filterAvailableTools(pi: ExtensionAPI, requestedTools: string[]): string[] {
 	const available = new Set(pi.getAllTools().map((tool) => tool.name));
@@ -1089,6 +1098,18 @@ function restoreToolSurface(pi: ExtensionAPI, requestedTools: string[] | undefin
 		pi.setActiveTools(restored);
 	}
 	return restored;
+}
+
+function getLatestNoPollingSupervisionState(ctx: ExtensionContext): NoPollingSupervisionState | undefined {
+	let latest: NoPollingSupervisionState | undefined;
+	for (const entry of ctx.sessionManager.getBranch()) {
+		if (entry.type !== "custom" || entry.customType !== NO_POLLING_SUPERVISION_ENTRY_TYPE) continue;
+		const state = normalizeNoPollingSupervisionState(entry.data);
+		if (state) {
+			latest = state;
+		}
+	}
+	return latest;
 }
 
 function getLatestControlPlaneLockState(ctx: ExtensionContext): ControlPlaneLockState | undefined {
@@ -1146,6 +1167,12 @@ export default function pimuxExtension(pi: ExtensionAPI) {
 	let processingChildBridge = false;
 	const queuedChildInboxEventIds = new Set<string>();
 	let controlPlaneLock: ControlPlaneLockState | undefined;
+	let noPollingSupervision: NoPollingSupervisionState | undefined;
+
+	const persistNoPollingSupervision = (nextState: NoPollingSupervisionState): void => {
+		noPollingSupervision = nextState;
+		pi.appendEntry(NO_POLLING_SUPERVISION_ENTRY_TYPE, nextState);
+	};
 
 	const persistControlPlaneLock = (nextLock: ControlPlaneLockState): void => {
 		controlPlaneLock = nextLock;
@@ -1173,6 +1200,7 @@ export default function pimuxExtension(pi: ExtensionAPI) {
 	};
 
 	const syncControlPlaneLock = (ctx: ExtensionContext): void => {
+		noPollingSupervision = getLatestNoPollingSupervisionState(ctx) ?? noPollingSupervision;
 		if (getCurrentEnv().agentId) {
 			controlPlaneLock = undefined;
 			return;
@@ -1205,7 +1233,9 @@ export default function pimuxExtension(pi: ExtensionAPI) {
 			let events = await readBridgeEvents(bridgeDir);
 			let terminalReportForAutoExit: BridgeEvent | undefined;
 			const currentLock = getParentControlPlaneLock(ctx, controlPlaneLock);
+			const currentSupervision = noPollingSupervision;
 			let nextLock = currentLock;
+			let nextSupervision = currentSupervision;
 			for (const event of events) {
 				if (delivered.has(event.eventId)) continue;
 				if (isTerminalChildReportEvent(event)) {
@@ -1213,6 +1243,11 @@ export default function pimuxExtension(pi: ExtensionAPI) {
 				}
 				if (event.direction === "child_to_parent" && !isTerminalChildReportEvent(event)) {
 					nextLock = updateControlPlaneLockForChildActivity(nextLock, {
+						agentId: launch.agentId,
+						eventId: event.eventId,
+						timestamp: event.timestamp,
+					});
+					nextSupervision = updateNoPollingSupervisionForChildActivity(nextSupervision, {
 						agentId: launch.agentId,
 						eventId: event.eventId,
 						timestamp: event.timestamp,
@@ -1272,11 +1307,19 @@ export default function pimuxExtension(pi: ExtensionAPI) {
 					eventId: settlement.terminalEvent?.eventId,
 					timestamp: finalizedAt,
 				});
+				nextSupervision = updateNoPollingSupervisionForTerminalSettlement(nextSupervision, {
+					agentId: launch.agentId,
+					eventId: settlement.terminalEvent?.eventId,
+					timestamp: finalizedAt,
+				});
 				changed = true;
 			}
 			if (nextLock && nextLock !== currentLock) {
 				persistControlPlaneLock(nextLock);
 				applyControlPlaneToolSurface(pi);
+			}
+			if (nextSupervision && nextSupervision !== currentSupervision) {
+				persistNoPollingSupervision(nextSupervision);
 			}
 			if (changed) {
 				parentState.deliveredEventIds = Array.from(delivered).slice(-500);
@@ -1514,6 +1557,7 @@ export default function pimuxExtension(pi: ExtensionAPI) {
 			await persistAgentManifest(record);
 		}
 		await rememberBridge(launch, ctx);
+		persistNoPollingSupervision(buildNoPollingSupervisionForSpawn(record.agentId));
 		return record;
 	};
 
@@ -1538,7 +1582,7 @@ export default function pimuxExtension(pi: ExtensionAPI) {
 			case "spawn": {
 				const record = await spawnManagedAgent(buildSpawnRequest(parsed, ctx), ctx);
 				const opened = record.visualMode === "iterm-opened";
-				const summary = `Spawned ${record.agentId} (${record.role ?? "worker"}, ${opened ? "opened in iTerm" : "headless"}).`;
+				const summary = `Spawned ${record.agentId} (${record.role ?? "worker"}, ${opened ? "opened in iTerm" : "headless"}). ${NO_POLLING_SPAWN_ECHO}`;
 				if (ctx.hasUI) ctx.ui.notify(summary, "info");
 				else console.log(summary);
 				return;
@@ -1738,6 +1782,16 @@ export default function pimuxExtension(pi: ExtensionAPI) {
 				reason: decision.reason,
 			};
 		}
+		const supervisionDecision = evaluateNoPollingSupervisionToolCall(noPollingSupervision, {
+			toolName: event.toolName,
+			input: event.input as Record<string, unknown> | undefined,
+		});
+		if (!supervisionDecision.allow) {
+			return {
+				block: true,
+				reason: supervisionDecision.reason,
+			};
+		}
 		return undefined;
 	});
 
@@ -1751,6 +1805,14 @@ export default function pimuxExtension(pi: ExtensionAPI) {
 		if (updatedLock && updatedLock !== currentLock) {
 			persistControlPlaneLock(updatedLock);
 			applyControlPlaneToolSurface(pi);
+		}
+		const updatedSupervision = updateNoPollingSupervisionForToolResult(noPollingSupervision, {
+			toolName: event.toolName,
+			details: event.details as Record<string, unknown> | undefined,
+			isError: event.isError,
+		});
+		if (updatedSupervision && updatedSupervision !== noPollingSupervision) {
+			persistNoPollingSupervision(updatedSupervision);
 		}
 		return undefined;
 	});
@@ -1791,7 +1853,7 @@ export default function pimuxExtension(pi: ExtensionAPI) {
 					direction: "system",
 					type: "launched",
 					from: { agentId: currentEnv.agentId, sessionName: launch.sessionName },
-					summary: `${currentEnv.agentId} launched`,
+					summary: `${currentEnv.agentId} launched. ${NO_POLLING_SPAWN_ECHO}`,
 				});
 				await writeBridgeEventSignal(currentEnv.bridgeDir, launchedEvent, true);
 			}
@@ -1890,12 +1952,13 @@ export default function pimuxExtension(pi: ExtensionAPI) {
 		name: "pimux",
 		label: "Pimux",
 		description: "Launch and manage minimal tmux-backed Pi agents with explicit parent-child messaging, session-scoped supervision, and nested hierarchy support.",
-		promptSnippet: "Launch and manage tmux-backed Pi agents with explicit messaging/inboxing, session-scoped list/tree/status surfaces, and one-hop parent reporting.",
+		promptSnippet: "Launch and manage tmux-backed Pi agents with explicit messaging/inboxing, notify-first/no-poll supervision, and one-hop parent reporting.",
 		promptGuidelines: [
+			"FIRST: do not poll pimux and do not use Bash sleep/wait loops; wait for delivered child activity.",
 			"Use this tool when the user wants long-lived tmux-backed Pi agents managed from the current session.",
 			"Default to headless agents unless the user explicitly wants to watch live.",
 			"Use send_message for parent-to-child messaging and report_parent for child-to-parent reporting.",
-			"Do not poll pimux; wait for delivered child activity, and treat status/capture/tree/list/open as recovery-only.",
+			"Treat status/capture/tree/list/open as recovery-only after spawn; do not inspect routine progress.",
 			"Use report_parent only from the authoritative direct pimux child session. Local helpers are local-only and must not call pimux or report_parent.",
 			"Success settles only after closeout plus child exit. Progress is non-terminal; question is terminal waiting-on-parent settlement.",
 			"For same-session child questions that must continue, use report_parent(progress, requiresResponse=true), not question.",
@@ -1923,7 +1986,7 @@ export default function pimuxExtension(pi: ExtensionAPI) {
 							},
 							ctx,
 						);
-						return buildToolResult(`Spawned ${record.agentId} (${record.visualMode === "iterm-opened" ? "opened in iTerm" : "headless"}).`, { action: params.action, agent: record });
+						return buildToolResult(`Spawned ${record.agentId} (${record.visualMode === "iterm-opened" ? "opened in iTerm" : "headless"}). ${NO_POLLING_SPAWN_ECHO}`, { action: params.action, agent: record });
 					}
 					case "open": {
 						const record = await openManagedAgent(ctx, params.target);

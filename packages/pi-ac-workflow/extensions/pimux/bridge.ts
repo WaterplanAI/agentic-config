@@ -379,6 +379,7 @@ export function buildChildProtocol(launch: BridgeLaunchFile): string {
 		"You are a pimux child session linked to a parent session through a private bridge.",
 		"",
 		"Core rules:",
+		"- FIRST: do not poll pimux and do not use Bash sleep/wait loops; wait for delivered child activity.",
 		"- Work on the assigned mission normally.",
 		"- Parent -> child messaging uses pimux send_message and arrives through the bridge inbox.",
 		"- Child -> parent reporting uses pimux report_parent only from this authoritative direct child session.",

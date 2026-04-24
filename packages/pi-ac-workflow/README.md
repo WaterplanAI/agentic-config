@@ -9,6 +9,10 @@
   - `ac-workflow-mux-ospec`
   - `ac-workflow-mux-roadmap`
   - `ac-workflow-mux-subagent`
+  - `pimux` (thin runtime trigger alias)
+  - `mux` (thin alias for `ac-workflow-mux`)
+  - `mux-ospec` (thin alias for `ac-workflow-mux-ospec`)
+  - `mux-roadmap` (thin alias for `ac-workflow-mux-roadmap`)
 - package-local extensions:
   - `pimux` (runtime/tooling control plane)
   - `strict-mux-runtime` (strict ledger/runtime guard)
@@ -17,7 +21,10 @@
 
 - canonical shipped workflow IDs stay `ac-workflow-mux`, `ac-workflow-mux-ospec`, `ac-workflow-mux-roadmap`
 - user-facing aliases are `mux`, `mux-ospec`, `mux-roadmap`
+- package-owned alias skills for `mux`, `mux-ospec`, and `mux-roadmap` are trigger shims only; canonical workflow behavior stays in `ac-workflow-*`
+- project-local `.pi/skills/mux*` shims are intentionally retired; rely on these package-owned aliases
 - `pimux` is runtime/tooling only, not a workflow-family wrapper
+- the package-owned `pimux` skill is a thin trigger shim for the runtime extension, not protocol authority
 
 ## mux-ospec workflow contract
 
@@ -26,6 +33,7 @@
 - `leanest`: `CREATE (optional) -> CONFIRM_SC -> PLAN -> IMPLEMENT -> REVIEW -> FIX -> TEST -> SELF_VALIDATION`
 
 Gate rules:
+- first after spawn: do not poll pimux or use Bash sleep/wait loops; wait for delivered child activity
 - `GATHER = RESEARCH`
 - `CONFIRM_SC` is mandatory before `PLAN`
 - only `PASS` advances through REVIEW/TEST/SENTINEL/SELF_VALIDATION
