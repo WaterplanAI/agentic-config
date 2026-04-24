@@ -10,6 +10,13 @@ All notable changes to agentic-config.
   - adds once/session/project/user approval scopes in `hook-compat`
   - persists narrow `safety.yaml` allow rules for exact Playwright actions/domains and selected supply-chain allowlists
 
+### Fixed
+
+- `ac-git`, `ac-workflow`: zsh compatibility for `spec-resolver.sh`, `external-specs.sh`, and `lib/source-helpers.sh` (#67)
+  - switch self-location from bash-only `${BASH_SOURCE[0]}` to `${BASH_SOURCE[0]:-$0}` so zsh falls back to `$0` (the sourced file path when `FUNCTION_ARGZERO` is on, the zsh default)
+  - extend the `_source_config_loader` fallback loop to also consider `$0`, so the BASH_SOURCE-less zsh path still resolves `config-loader.sh`
+  - resolves the reported failure `source:N: no such file or directory: <cwd>/lib/source-helpers.sh` when sourcing from zsh
+
 ### Changed
 
 - `pi-ac-workflow`: harden `pimux` notify-first enforcement for mux-family parents

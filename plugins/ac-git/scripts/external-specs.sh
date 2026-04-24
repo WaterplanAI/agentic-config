@@ -7,8 +7,11 @@
 # with restricted shell environments (e.g., Claude Code)
 
 # Source shared bootstrap helpers (CLAUDE_PLUGIN_ROOT resolution + config loader)
+# Use ${BASH_SOURCE[0]:-$0} for zsh compatibility: BASH_SOURCE is a bash-only
+# array, so zsh falls back to $0 (set to the sourced file path when
+# FUNCTION_ARGZERO is on, which is the zsh default).
 # shellcheck source=lib/source-helpers.sh
-source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/source-helpers.sh"
+source "$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)/lib/source-helpers.sh"
 
 # Validate git repository URL format
 # Supports: git@host:path, ssh://, https://, file://
