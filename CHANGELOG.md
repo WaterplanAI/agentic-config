@@ -4,6 +4,8 @@ All notable changes to agentic-config.
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-04-30
+
 ### Added
 
 - `pi-compat`, `pi-ac-safety`: scoped hook approval persistence for safety ask flows
