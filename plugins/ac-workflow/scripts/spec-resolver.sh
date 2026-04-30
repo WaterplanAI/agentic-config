@@ -4,8 +4,11 @@
 # Plugin-aware version: uses ${CLAUDE_PLUGIN_ROOT} for all paths
 
 # Source shared bootstrap helpers (CLAUDE_PLUGIN_ROOT resolution + config loader)
+# Use ${BASH_SOURCE[0]:-$0} for zsh compatibility: BASH_SOURCE is a bash-only
+# array, so zsh falls back to $0 (set to the sourced file path when
+# FUNCTION_ARGZERO is on, which is the zsh default).
 # shellcheck source=lib/source-helpers.sh
-source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/source-helpers.sh"
+source "$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)/lib/source-helpers.sh"
 
 # Validate spec path against directory traversal attacks
 # Usage: _validate_spec_path <path>
