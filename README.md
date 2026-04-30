@@ -9,7 +9,7 @@ Project-agnostic, composable AI workflow automation via pi packages and Claude C
 Primary install from the current public release tag:
 
 ```bash
-pi install "git:github.com/WaterplanAI/agentic-config@v0.3.0-alpha" -l
+pi install "git:github.com/WaterplanAI/agentic-config@v0.3.0" -l
 ```
 
 The `-l` flag installs it into the local project config. For a global/user install, remove `-l`.
