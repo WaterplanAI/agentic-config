@@ -1,6 +1,6 @@
 ---
-description: "Release workflow: branch, changelog, PR, tag, GH release"
-argument-hint: "[--auto] [--preview]"
+name: ac-release
+description: "Release workflow: branch, changelog, PR, tag, GH release. Triggers on keywords: release, create release, publish release, tag release"
 project-agnostic: false
 allowed-tools:
   - Read
@@ -12,7 +12,7 @@ allowed-tools:
   - AskUserQuestion
 ---
 
-# Release Command
+# Release Skill
 
 Automated release workflow: pre-flight, branch, changelog+version update, PR, merge, tag, GH release.
 
