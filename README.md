@@ -1,5 +1,12 @@
 # agentic-config
 
+> [!IMPORTANT]
+> **This repository is no longer maintained.**
+>
+> Thank you to everyone who has used, contributed to, or shared feedback on this project. Waterplan is no longer actively developing agentic-config, and the repository will be archived (read-only). It will stay public so the code remains available for reference and reuse.
+>
+> New issues and pull requests will not be reviewed. If you choose to use this project, please do so at your own discretion: it is provided as-is, under the terms of its [license](LICENSE).
+
 Project-agnostic, composable AI workflow automation via pi packages and Claude Code plugins.
 
 ## Quick Start
